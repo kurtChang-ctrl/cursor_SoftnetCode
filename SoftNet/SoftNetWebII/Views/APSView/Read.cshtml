@@ -1,0 +1,267 @@
+﻿@model APSViewData
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus:true,
+        STView2Work_PageReload:false,
+        hasStaionChangQTY: false,
+
+        onChangStateShow: function(errType,simulationId,actionType) {
+            //switch (errType) {
+            //    case "01": return '<div>初建</div>'//改紅燈
+            //    case "02": return '<div>模擬中</div>'
+            //    case "03": return '<div>完成模擬</div>'
+            //}
+            if (actionType=="")
+           { document.getElementById(simulationId).className = "labelRed";}
+           else { document.getElementById(simulationId).className = "label"; }
+        },
+        onShow: function (id) {
+            if (id == '')
+            { return; }
+            else
+            {
+                var str = _crud.LocalIPPort + ',' + id;
+                _ajax.getStr('OnAction', { keys: str }, function (error) {
+                    if (!_str.isEmpty(error)) {_tool.msg(error,);}
+                    //_crud.pageReload();
+                });
+            }
+        },
+        SetAction: function (id) {
+            var str = _crud.LocalIPPort + ',' + id + ',' + document.getElementById('ageID').value;
+            _ajax.getStr('OnActionII', { keys: str }, function (error) {
+                    
+                //if (!_str.isEmpty(error)) {_tool.msg(error);}
+                //_crud.pageReload();
+            });
+        },
+    }; //class
+</script>
+
+<div id="selectStationPage">
+    <p>
+        <label>選擇計畫編號:</label>
+        @{
+            if (Model.NeedIdList != null && Model.NeedIdList.Count > 0)
+            {
+                <form action=@Url.Action("Read") method="post">
+                    <input type='hidden' name='NeedIdList' value="@Model.NeedIdList" />
+                    <input type="text" name='SelectNeedId' list="options1">
+                    <datalist id="options1">
+                        @foreach (string[] s in Model.NeedIdList)
+                        {
+                            var s_tmp2 = $"計畫碼:{s[0]} 料號:{s[1]} 品名:{s[2]} 規格:{s[3]}";
+                            var s_tmp = $"{s[0]}";
+                            <option value='@s_tmp'>@s_tmp2</option>
+                        }
+                    </datalist>
+                    <button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none'">確認</button>
+                </form>
+
+
+            }
+            else
+            {
+                <label>無任何計畫編號可選擇</label>
+            }
+        }
+        <hr />
+        @{
+            if (Model.ERRMsg!="")
+            {
+                <dir>
+                    <p><font color="red" size="5">錯誤訊息:<strong>@Model.ERRMsg</strong></font></p>
+                </dir>
+            }
+        }
+    </p>
+</div>
+
+<hr />
+@if (ViewBag.HtmlOutput != null && ViewBag.HtmlOutput != "")
+{
+    <p><font size="3">計畫編號:<strong>@Model.SelectNeedId</strong></font></p>
+    <div class="container1">
+        <div class="row">
+            <div class="col-md-8 xg-input" id="divSignRows">@Html.Raw(ViewBag.HtmlOutput)</div>
+        </div>
+    </div>
+}
+
+
+
+
+
+
+<style>
+
+*, *:before, *:after {
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+      #container1 {
+        width:250px; height:200px;
+        display: inline-block;
+        margin: 1em;
+      }
+
+#wrapper {
+  position: relative;
+}
+
+.branch {
+  position: relative;
+  margin-left: 250px;
+}
+.branch:before {
+  content: "";
+  width: 50px;
+  border-top: 2px solid #eee9dc;
+  position: absolute;
+  left: -100px;
+  top: 50%;
+  margin-top: 1px;
+}
+
+.entry {
+  position: relative;
+  min-height: 60px;
+}
+.entry:before {
+  content: "";
+  height: 100%;
+  border-left: 2px solid #eee9dc;
+  position: absolute;
+  left: -50px;
+}
+.entry:after {
+  content: "";
+  width: 50px;
+  border-top: 2px solid #eee9dc;
+  position: absolute;
+  left: -50px;
+  top: 50%;
+  margin-top: 1px;
+}
+.entry:first-child:before {
+  width: 10px;
+  height: 50%;
+  top: 50%;
+  margin-top: 2px;
+  border-radius: 10px 0 0 0;
+}
+.entry:first-child:after {
+  height: 10px;
+  border-radius: 10px 0 0 0;
+}
+.entry:last-child:before {
+  width: 10px;
+  height: 50%;
+  border-radius: 0 0 0 10px;
+}
+.entry:last-child:after {
+  height: 10px;
+  border-top: none;
+  border-bottom: 2px solid #eee9dc;
+  border-radius: 0 0 0 10px;
+  margin-top: -9px;
+}
+.entry.sole:before {
+  display: none;
+}
+.entry.sole:after {
+  width: 50px;
+  height: 0;
+  margin-top: 1px;
+  border-radius: 0;
+}
+
+.label {
+  display: block;
+  min-width: 150px;
+  padding: 5px 10px;
+  line-height: 20px;
+  text-align: center;
+  border: 2px solid #eee9dc;
+  border-radius: 5px;
+  position: absolute;
+  left: 0;
+  top: 50%;
+  margin-top: -15px;
+}
+.labelRed {
+  display: block;
+  min-width: 150px;
+  padding: 5px 10px;
+  line-height: 20px;
+  text-align: center;
+  border: 2px solid red;
+  border-radius: 5px;
+  position: absolute;
+  left: 0;
+  top: 50%;
+  margin-top: -15px;
+}
+</style>
+
+<!--
+<dir class="container1">
+
+<div id='wrapper'><span class='label'>Root</span>
+  <div class='branch lv1'>
+    <div class='entry'><button class='label' style='border:2px blue none;' onclick='_me.onShow('123-erter')'>eeeeeeee</button>
+      <div class='branch lv2'>
+        <div class='entry'><span class='label'>Entry-1-1</span>
+          <div class='branch lv3'>
+            <div class='entry sole'><span class='label'>Entry-1-1-1</span></div>
+          </div>
+        </div>
+        <div class='entry'><span class='label'>Entry-1-2</span>
+          <div class='branch lv3'>
+            <div class='entry sole'><span class='label'>Entry-1-2-1</span></div>
+          </div>
+        </div>
+        <div class='entry'><span class='label'>Entry-1-3</span>
+          <div class='branch lv3'>
+            <div class='entry sole'><span class='label'>Entry-1-3-1</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class='entry'><span class='label'>Entry-2</span></div>
+    <div class='entry'><span class='label'>Entry-3</span>
+      <div class='branch lv2'>
+        <div class='entry'><span class='label'>Entry-3-1</span></div>
+        <div class='entry'><span class='label'>Entry-3-2</span></div>
+        <div class='entry'><span class='label'>Entry-3-3</span>
+          <div class='branch lv3'>
+            <div class='entry'><span class='label'>Entry-3-3-1</span></div>
+            <div class='entry'><span class='label'>Entry-3-3-2</span>
+              <div class='branch lv4'>
+                <div class='entry'><span class='label'>Entry-3-3-2-1</span></div>
+                <div class='entry'><span class='label'>Entry-3-3-2-2</span></div>
+              </div>
+            </div>
+            <div class='entry'><span class='label'>Entry-3-3-3</span></div>
+          </div>
+        </div>
+        <div class='entry'><span class='label'>Entry-3-4</span></div>
+      </div>
+    </div>
+    <div class='entry'><span class='label'>Entry-4</span></div>
+    <div class='entry'><span class='label'>Entry-5</span></div>
+  </div>
+</div>
+
+
+</dir>
+-->

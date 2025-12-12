@@ -1,0 +1,12 @@
+C:\02_SoftNet\SoftNet\SoftNetWebII\obj\Debug\net5.0\SoftNetWebII.csproj.AssemblyReference.cache
+C:\02_SoftNet\SoftNet\SoftNetWebII\obj\Debug\net5.0\SoftNetWebII.Resources.R0.resources
+C:\02_SoftNet\SoftNet\SoftNetWebII\obj\Debug\net5.0\SoftNetWebII.Resources.R0.zh-CN.resources
+C:\02_SoftNet\SoftNet\SoftNetWebII\obj\Debug\net5.0\SoftNetWebII.Resources.R0.zh-TW.resources
+C:\02_SoftNet\SoftNet\SoftNetWebII\obj\Debug\net5.0\SoftNetWebII.csproj.GenerateResource.cache
+C:\02_SoftNet\SoftNet\SoftNetWebII\obj\Debug\net5.0\SoftNetWebII.GeneratedMSBuildEditorConfig.editorconfig
+C:\02_SoftNet\SoftNet\SoftNetWebII\obj\Debug\net5.0\SoftNetWebII.AssemblyInfoInputs.cache
+C:\02_SoftNet\SoftNet\SoftNetWebII\obj\Debug\net5.0\SoftNetWebII.AssemblyInfo.cs
+C:\02_SoftNet\SoftNet\SoftNetWebII\obj\Debug\net5.0\SoftNetWebII.csproj.CoreCompileInputs.cache
+C:\02_SoftNet\SoftNet\SoftNetWebII\obj\Debug\net5.0\SoftNetWebII.MvcApplicationPartsAssemblyInfo.cache
+C:\02_SoftNet\SoftNet\SoftNetWebII\obj\Debug\net5.0\SoftNetWebII.RazorAssemblyInfo.cache
+C:\02_SoftNet\SoftNet\SoftNetWebII\obj\Debug\net5.0\SoftNetWebII.RazorAssemblyInfo.cs

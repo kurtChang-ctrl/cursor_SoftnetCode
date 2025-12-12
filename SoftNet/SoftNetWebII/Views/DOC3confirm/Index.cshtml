@@ -1,0 +1,111 @@
+﻿@using Base.Models
+@using BaseWeb.Models
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        SYS_ClickBlock = false;
+        _me.init();
+        _crud.onFind2();//進階查詢dislpay=none
+        $('#show_Advanced_form2').hide();
+    });
+
+    var _me = {
+        hasStaionStatus: true,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+
+        init: function () {
+            //datatable config  DOCRole
+            var config = {
+                columns: [
+                    { data: '_Crud' },
+                    { data: 'Id', orderable: true },
+                    { data: 'DOCNumberNO', orderable: true },
+                    { data: 'PartNO', orderable: true },
+                    { data: 'Price' },
+                    { data: 'Unit' },
+                    { data: 'QTY', },
+                    { data: 'Remark', },
+                    { data: 'ArrivalDate' },
+                    { data: 'SimulationId' },
+
+
+                ],
+                columnDefs: [
+                    {
+                        targets: [0], render: function (data, type, full, meta) {
+                            return _crud.dtCheck0(full.Id);
+                        }
+                    },
+
+                ],
+            };
+
+            //init crud
+            //_crud.DbKeyName = 'Id';
+            _crud.init(config);
+        },
+        onSetID: function () {
+            var keys = _me.getCheckedTables();
+            if (keys.length === 0) { return; }
+            else {
+                var str = _crud.LocalIPPort + ',' + keys.join(',')
+                _ajax.getStr('ConfirmDOC3Stock', { keys: str }, function (error) {
+                    if (!_str.isEmpty(error)) { _tool.msg(error); }
+                    _crud.pageReload();
+                });
+            }
+        },
+        getCheckedTables: function () {
+            var values = _icheck.getCheckeds(_me.divRead);
+            if (values.length === 0)
+                _tool.msg('請選取資料。');
+            return values;
+        },
+    }; //class
+</script>
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "生產/倉儲單據項目確認" } })
+<div class="xp-prog">
+    <div id="divRead">
+        <form id='formRead' class='xg-form'>
+            <div class="row">
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "單據編號", Fid = "DOCNumberNO", MaxLen = 50, InRow = true })
+                @await Component.InvokeAsync("XgFindTbar", new XgFindTbarDto { HasReset = true, HasFind2 = true })
+            </div>
+
+        </form>
+        <form id='formRead2' class='xg-form xg-mb0'>
+            @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "廠別", Fid = "FactoryName", Rows = (List<IdStrDto>)ViewBag.FactoryName })
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "線別", Fid = "LineName", MaxLen = 50 })
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "後台Service", Fid = "RMSName", MaxLen = 50 })
+        </form>
+
+        <div class="xg-h10"></div>
+        <div class="xg-btns-box">
+            <span class="xg-block-label">功能:</span>
+            <button id='button_setST' type='button' class='btn xg-btn' onclick='_me.onSetID()'>確認完成</button>
+        </div>
+
+        <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>選擇</th>
+                    <th>序號</th>
+                    <th>單據編號</th>
+                    <th>料號</th>
+                    <th>單價</th>
+                    <th>單位</th>
+                    <th>數量</th>
+                    <th>備註</th>
+                    <th>需求日期</th>
+                    <th>計畫子項</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+</div>

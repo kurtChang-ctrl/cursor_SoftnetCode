@@ -1,0 +1,108 @@
+﻿@using Base
+@model MUTIStationObj
+@{
+    string disUserName = "畫面逾時";
+    string Is_Use = "正常";
+    if (_Fun.Config.RUNMode != '1')
+    {
+        Is_Use = "";
+    }
+    if (_Fun.GetBaseUser() != null) { disUserName = _Fun.GetBaseUser().UserName; }
+
+}
+
+<script type="text/javascript">
+    jQuery(function () {
+        IS_SYS_Clock = false;
+        var isUSE = "@Html.Raw(Is_Use)";
+        if (isUSE == "") {
+            $('#sTView2TOPPage').hide();
+            $('#selectStationPage').hide();
+            document.getElementById('config_RUNMode_ERR').style.display = 'inline';
+        }
+        $("title").text("@Html.Raw(disUserName)");
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+    }; //class
+    function submitDisabled(state) {
+        const button = null;
+        switch (status) {
+            case '工站確認':
+                alert(state);
+                button = document.getElementById("工站確認");
+                button.style.display = 'none';
+                break;
+            case '查詢歷史':
+                alert(state);
+                button = document.getElementById("查詢歷史");
+                button.style.display = 'none';
+                break;
+        }
+    }
+
+</script>
+
+<div id="config_RUNMode_ERR" style="display:none;">
+    <label style="color:red">系統使用模式已更換, 此頁面為舊的畫面, 請使用正確方式進入頁面功能, 或 與公司系統管理人員聯繫.</label>
+</div>
+
+
+<!--最上層顯示-->
+<div id="sTView2TOPPage">
+    <p><a href="@Url.Action("Index", "Home")" class="ui-btn ui-icon-back ui-btn-icon-left">回到網站主功能選單畫面</a></p>
+    @if (Model.ERRMsg != "")
+    {
+        <dir>
+            <p><font color="red">錯誤訊息:<strong>Model.ERRMsg</strong></font></p>
+        </dir>
+        <hr />
+    }
+    @if (Model.MES_String.Trim() != "")
+    {
+        <dir>
+            @Html.Raw(Model.MES_String)
+        </dir>
+        <hr />
+    }
+</div>
+<div id="selectStationPage">
+    <p>
+        <label>選擇作業工站:</label>
+        @{
+            if (Model.StationNOList != null && Model.StationNOList.Count > 0)
+            {
+                    <form action=@Url.Action("MUTIStation") method="post">
+                        <input type='hidden' name='State' value="工站確認" />
+                        <input type='hidden' name='MES_Report' />
+                        <input type="text" name='StationNO' list="options1">
+                        <datalist id="options1">
+                            @foreach (string[] s in Model.StationNOList)
+                        {
+                            var s_tmp2 = $"{s[0]} {s[1]}";
+                            var s_tmp = $"{s[0]}";
+                                <option value='@s_tmp'>@s_tmp2</option>
+                        }
+                        </datalist>
+                        <p><button id="工站確認" type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="submitDisabled('工站確認')">工站 確認</button></p>
+                    </form>
+
+                    <form action=@Url.Action("Index") method="post">
+                        <input type='hidden' name='State' value="工站確認" />
+                        <input type='hidden' name='MES_Report' />
+                        <input type="hidden" name='StationNO'>
+                        <p><button id="查詢歷史" type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="submitDisabled('查詢歷史')">切換至 查詢歷史報工紀錄</button></p>
+                    </form>
+            }
+            else
+            {
+                    <label>無任何可多工處裡的工站</label>
+            }
+        }
+    </p>
+</div>
+
+

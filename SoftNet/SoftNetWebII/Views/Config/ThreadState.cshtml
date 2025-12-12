@@ -1,0 +1,74 @@
+﻿@using Base
+@model SystemConfigObj
+
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+
+        qqww: function () {
+            //$("input[name=Send_RUNTimeServer_Thread_State]").val("Thread_ForceClose");
+
+        },
+    };
+
+
+
+</script>
+
+
+<div>顯示後臺 Servicer 狀態</div>
+<hr />
+<div>
+    <form action=@Url.Action("ThreadState") method="post">
+        <div>
+    <input type='text' name='T0' value="@Model.T0.ToString()" />
+<input type='text' name='T1' value="@Model.T1.ToString()" />
+<input type='text' name='T2' value="@Model.T2.ToString()" />
+<input type='text' name='T3' value="@Model.T3.ToString()" />
+<input type='text' name='T4' value="@Model.T4.ToString()" />
+            停後台:<input type='text' name='Send_RUNTimeServer_Thread_State' value="@Model.Send_RUNTimeServer_Thread_State" />
+            啟/廷自動報工:<input type='text' name='FunType' value="@Model.FunType" />
+        </div>
+        <div>
+            <p></p>
+            <input type='text' name='_a01' value="@Model._a01.ToString()" />
+            <input type='text' name='_a02' value="@Model._a02.ToString()" />
+            <input type='text' name='_a03' value="@Model._a03.ToString()" />
+            <input type='text' name='_a04' value="@Model._a04.ToString()" />
+            <input type='text' name='_a05' value="@Model._a05.ToString()" />
+            <input type='text' name='_a06' value="@Model._a06.ToString()" />
+            <input type='text' name='_a07' value="@Model._a07.ToString()" />
+            <input type='text' name='_a08' value="@Model._a08.ToString()" />
+            <input type='text' name='_a09' value="@Model._a09.ToString()" />
+            <input type='text' name='_a10' value="@Model._a10.ToString()" />
+            <input type='text' name='_a11' value="@Model._a11.ToString()" />
+            <input type='text' name='_a12' value="@Model._a12.ToString()" />
+            <input type='text' name='_a13' value="@Model._a13.ToString()" />
+            <input type='text' name='_a14' value="@Model._a14.ToString()" />
+            <input type='text' name='_a15' value="@Model._a15.ToString()" />
+            <input type='text' name='_a16' value="@Model._a16.ToString()" />
+
+
+            </div>
+
+        <label>關閉值:</label><input type='text' name='Thread_ForceClose' value="@Model.Thread_ForceClose.ToString()" />
+        <label>報工設定值:</label><input type='text' name='Is_Thread_For_Test' value="@Model.Is_Thread_For_Test.ToString()" />
+
+        <hr />
+        @{
+            if (!Model.Thread_ForceClose)
+            {
+                <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none'; _me.qqww()">報工確定</button></p>
+            }
+        }
+</form>
+</div>

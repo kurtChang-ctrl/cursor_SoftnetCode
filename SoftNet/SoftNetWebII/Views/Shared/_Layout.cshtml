@@ -1,0 +1,375 @@
+﻿@using Base
+@using Base.Models
+
+@using SoftNetWebII.Services
+@using System.Data
+@inject IHtmlLocalizer<SoftNetWebII.R0> R0
+
+@{
+    _Fun.Config.SystemName = R0["SystemName"].Value;
+    var locale = _Locale.GetLocaleByUser();
+    var min = _Fun.IsDev ? "" : ".min";   //min js
+                                          //var menus = SetMenuName(await _Web.GetMenuAsync());  //by access right
+
+    MenuDto StoreNOONE = new MenuDto();
+    MenuDto stationONE = new MenuDto();
+    MenuDto storeSpacesNO = null;
+    using (DBADO db = new DBADO("1", _Fun.Config.Db))
+    {
+        DataTable dt = db.DB_GetData($"SELECT * from SoftNetSYSDB.[dbo].[PP_Station] where ServerId='{_Fun.Config.ServerId}' and StationNO!='{_Fun.Config.OutPackStationName}' and Station_Type='1' order by StationNO");
+        if (dt != null && dt.Rows.Count > 0)
+        {
+            stationONE.Name = "工站面板畫面";
+            List<MenuDto> items = new List<MenuDto>();
+            items.Add(new() { Name = "多工工站主畫面", Url = "/STView2Work/Read", HasUseRUNMode = "123", ClickBlock = true });
+            foreach (DataRow dr in dt.Rows)
+            {
+                //new() { Name = "A02", Url = "/LabelWork/Index/A02;0;;0" },
+                items.Add(new() { Name = $"{dr["StationNO"].ToString()}[{dr["StationName"].ToString()}]", Url = $"/LabelWork/Index/{dr["StationNO"].ToString()};0;;0;HTML", HasUseRUNMode = "123" });
+            }
+            stationONE.Items = items;
+        }
+        dt = db.DB_GetData($"SELECT * from SoftNetMainDB.[dbo].[Store] where ServerId='{_Fun.Config.ServerId}' order by FactoryName,StoreNO");
+        if (dt != null && dt.Rows.Count > 0)
+        {
+            StoreNOONE.Name = "倉庫面板畫面";
+            List<MenuDto> items = new List<MenuDto>();
+            foreach (DataRow dr in dt.Rows)
+            {
+                //new() { Name = "A02", Url = "/LabelWork/Index/A02;0;;0" },
+                items.Add(new() { Name = $"{dr["StoreNO"].ToString()}[{dr["StoreName"].ToString()}]", Url = $"/LabelStroe/Index/{dr["StoreNO"].ToString()};HTML", HasUseRUNMode = "123", ClickBlock = true });
+            }
+            StoreNOONE.Items = items;
+        }
+        dt = db.DB_GetData($"SELECT [StoreNO],[StoreSpacesNO] FROM SoftNetMainDB.[dbo].[StoreII] where ServerId='{_Fun.Config.ServerId}' and StoreNO!='' and StoreSpacesNO!='' group by StoreNO,StoreSpacesNO");
+        if (dt != null && dt.Rows.Count > 0)
+        {
+            if (storeSpacesNO == null)
+            { storeSpacesNO = new MenuDto(); }
+            storeSpacesNO.Name = "儲位面板畫面";
+            List<MenuDto> items = new List<MenuDto>();
+            foreach (DataRow dr in dt.Rows)
+            {
+                items.Add(new() { Name = $"{dr["StoreNO"].ToString()}[{dr["StoreSpacesNO"].ToString()}]", Url = $"/LabelStoreSpacesNO/StroeFUN/{dr["StoreNO"].ToString()};{dr["StoreSpacesNO"].ToString()}", HasUseRUNMode = "123", ClickBlock = true });
+            }
+            storeSpacesNO.Items = items;
+        }
+    }
+    var menus = new List<MenuDto>()
+    {
+        new() { Name = "待簽核明細", Url = "/FlowSign/Read" ,HasUseRUNMode="23"},
+
+        new() { Name = "系統設定", Items = new List<MenuDto>()
+        {
+            new() { Name = "參數基本設定", Url = "/Config/Index" ,HasUseRUNMode="23"},
+            new() { Name = "標籤基本資料", Url = "/Station/Read" ,HasUseRUNMode="3"},
+            new() { Name = "資料匯入匯出", Url = "/Config/ImportCustomization" ,HasUseRUNMode="23"},
+            new() { Name = "工廠基本資料", Url = "/Factory/Read" ,HasUseRUNMode="123"},
+            new() { Name = "工站基本資料", Url = "/Station/Read" ,HasUseRUNMode="123"},
+            //new() { Name = "功能權限資料", Url = "/XpProg/Read" ,HasUseRUNMode="123"},
+            new() { Name = "單據別設定", Url = "/DOC/Read" ,HasUseRUNMode="123"},
+            new() { Name = "單據流程設定", Url = "/XpFlow/Read" ,HasUseRUNMode="3"},
+            new() { Name = "工站倉庫2維碼", Url = "/LabelProject/CreateBarCode" ,HasUseRUNMode="123",ClickBlock=true},
+            new() { Name = "儲位2維碼", Url = "/LabelProject/StoreSpacesNOBarCode" ,HasUseRUNMode="123",ClickBlock=true},
+            new() { Name = "後台程式狀態", Url = "/Config/ThreadState" ,HasUseRUNMode="23",ClickBlock=true},
+
+        }},
+        new() { Name = "基本資料管理", Items = new List<MenuDto>()
+        {
+            new() { Name = "員工基本資料", Url = "/User/Read" ,HasUseRUNMode="123"},
+            new() { Name = "料件基本資料", Url = "/Material/Read" ,HasUseRUNMode="123"},
+            new() { Name = "庫別基本資料", Url = "/Store/Read" ,HasUseRUNMode="23" },
+            new() { Name = "BOM資料設定", Url = "/BOM/Read" ,HasUseRUNMode="3"},
+            new() { Name = "製程資料設定", Url = "/ProductProcess/Read" ,HasUseRUNMode="3"},
+            new() { Name = "廠商基本資料", Url = "/MFData/Read" ,HasUseRUNMode="123"},
+            new() { Name = "客戶基本資料", Url = "/CTData/Read" ,HasUseRUNMode="3"},
+            //new() { Name = "編碼原則設定", Url = "/BOM/Read" ,HasUseRUNMode="3"},
+            //new() { Name = "行事曆設定", Url = "/BOM/Read" ,HasUseRUNMode="3"},
+            //new() { Name = "看板設定", Url = "/BOM/Read" ,HasUseRUNMode="3"},
+
+
+        }},
+        // new() { Name = "自動化控制", Items = new List<MenuDto>()
+        // {
+        //     new() { Name = "設備管理", Url = "/XpFlow/Read" ,HasUseRUNMode="23"},
+        //     new() { Name = "訊號管理", Url = "/XpFlow/Read" ,HasUseRUNMode="23"},
+        //     new() { Name = "動作管理", Url = "/XpFlow/Read" ,HasUseRUNMode="23"},
+        //     new() { Name = "輪巡監控設定", Url = "/XpFlow/Read" ,HasUseRUNMode="23"},
+        //     new() { Name = "流程監控設定", Url = "/XpFlow/Read" ,HasUseRUNMode="23"},
+
+        // }},
+        new() { Name = "排程管理", Items = new List<MenuDto>()
+        {
+            new() { Name = "BOM與製程設定", Url = "/CreateBOM/Index" ,HasUseRUNMode="23",ClickBlock=true},
+            //new() { Name = "排程系統設定", Url = "/APSView/APSSETRead" ,HasUseRUNMode="23",ClickBlock=true},//###???需要工單號碼產生方式,工單開立一張or多張
+            new() { Name = "供需模擬試算", Url = "/Simulation/Read" ,HasUseRUNMode="23"},
+            new() { Name = "排程查詢或干涉", Url = "/APSView/ALLSimulation" ,HasUseRUNMode="23",ClickBlock=true},
+            new() { Name = "需求工作底稿", Url = "/WorkingPaper/Index" ,HasUseRUNMode="23"},
+            new() { Name = "已結案計畫查詢", Url = "/APSView/OLDALLSimulation" ,HasUseRUNMode="23"},
+            new() { Name = "已結案計畫干涉", Url = "/OverSimulation/Index" ,HasUseRUNMode="23"},
+            //new() { Name = "採購計畫移轉", Url = "/APSView/DOCBuyRead" ,HasUseRUNMode="23"},
+            //new() { Name = "委外計畫移轉", Url = "/APSView/DOCOutSRead" ,HasUseRUNMode="3"},
+            //new() { Name = "領料計畫移轉", Url = "/APSView/DOCPickRead",HasUseRUNMode="3" },
+        }},
+        new() { Name = "單據管理", Items = new List<MenuDto>()
+        {
+            new() { Name = "單據明細查詢", Url = "/Select/Read" ,HasUseRUNMode="23"},
+            //new() { Name = "單據資料異動", Url = "/Select/Read" ,HasUseRUNMode="23"},
+            new() { Name = "採購單", Url = "/DOCBuy/Read" ,HasUseRUNMode="3"},
+            new() { Name = "領料單", Url = "/Manufacture/Read",HasUseRUNMode="3" },
+            new() { Name = "入料單", Url = "/STView/Read",HasUseRUNMode="3" },
+            new() { Name = "出貨單", Url = "/STView/Read",HasUseRUNMode="3" },
+            new() { Name = "生產製令單", Url = "/STView/Read" ,HasUseRUNMode="3"},
+            new() { Name = "委外加工單", Url = "/STView/Read" ,HasUseRUNMode="3"},
+        }},
+        new() { Name = "倉儲管理", Items = new List<MenuDto>()
+        {
+            new() { Name = "存貨明細查詢", Url = "/Select2/Read"  ,HasUseRUNMode="23"},
+            new() { Name = "存貨數量異動", Url = "/Select3/DataUpdate"  ,HasUseRUNMode="23"},
+
+            //new() { Name = "料件與儲位設定", Url = "/Select2/DataUpdate"  ,HasUseRUNMode="23"},
+            new() { Name = "進貨單確認", Url = "/DOCconfirm/Index"  ,HasUseRUNMode="23"},
+            new() { Name = "委外單確認", Url = "/DOC4confirm/Index"  ,HasUseRUNMode="23"},
+            new() { Name = "生產/倉儲單確認", Url = "/DOC3confirm/Index"  ,HasUseRUNMode="23"},
+        }},
+
+        new() { Name = "製造管理", Items = new List<MenuDto>()
+        {
+            //new() { Name = "現場管理設定", Url = "/STView/Read"  ,HasUseRUNMode="3"},
+            //new() { Name = "工站派工管理", Url = "/Dispatch/Read2"  ,HasUseRUNMode="3"},
+            new() { Name = "工站操作查詢", Url = "/Report05/Index" ,HasUseRUNMode="123"},
+            new() { Name = "製造現場管理", Url = "/Manufacture/Read"  ,HasUseRUNMode="123"},
+            //new() { Name = "單工工站報工", Url = "/STView/Read"  ,HasUseRUNMode="123"},
+            //new() { Name = "多工工站報工", Url = "/STView2Work/Read", HasUseRUNMode = "123", ClickBlock = true },
+            new() { Name = "報工資料異動", Url = "/Report04/Index" ,HasUseRUNMode="123"},
+            new() { Name = "修正疑似乖離CT值", Url = "/Display/OddCT" ,HasUseRUNMode="123"},
+            new() { Name = "修正疑似報工多出數量", Url = "/Display/q1" ,HasUseRUNMode="123"},
+            new() { Name = "修正疑似委外多出數量", Url = "/Display/q2" ,HasUseRUNMode="123"},
+            new() { Name = "修正計畫工站負荷值", Url = "/Report06/EditWorkTime" ,HasUseRUNMode="123"},
+            new() { Name = "建立人為標準CT", Url = "/Display/DefineStandardsCT" ,HasUseRUNMode="3"},
+        }},
+        new() { Name = "報表與看板", Items = new List<MenuDto>()
+        {
+            new() { Name = "異常報表", Url = "/CIR/APSErrorData" ,HasUseRUNMode="123"},
+            new() { Name = "事件報表", Url = "/CIR/APSEventLog" ,HasUseRUNMode="123"},
+            new() { Name = "生產歷程查詢", Url = "/APSView/ProductCourse" ,HasUseRUNMode="23"},
+            new() { Name = "歷史報工紀錄表", Url = "/Display/ALLStationDetail" ,HasUseRUNMode="123",ClickBlock=true},
+            new() { Name = "歷史工站操作紀錄表", Url = "/Display/ALLOperateLog" ,HasUseRUNMode="123",ClickBlock=true},
+            new() { Name = "歷史標籤收發紀錄表", Url = "/Display/ALLLabelLog" ,HasUseRUNMode="123",ClickBlock=true},
+            new() { Name = "工單與工站現場實際資訊", Url = "/Display/SelectStationState" ,HasUseRUNMode="123",ClickBlock=true},
+            new() { Name = "工站效能電子看版", Url = "/Display/StationEfficient",HasUseRUNMode="123" ,ClickBlock=true},
+            new() { Name = "工站工單現場看版", Url = "/Display/ALLStationOrderNO",HasUseRUNMode="123" ,ClickBlock=true},
+            new() { Name = "廠商資料總表", Url = "/Display/ALLMFData" ,HasUseRUNMode="123",ClickBlock=true},
+            new() { Name = "料件基本資料表", Url = "/Display/AllMaterial" ,HasUseRUNMode="123",ClickBlock=true},
+            new() { Name = "料件歷程明細表", Url = "/Display/ALLQTYMaterial" ,HasUseRUNMode="23",ClickBlock=true },
+            new() { Name = "料件數量總表", Url = "/Display/ALLStore" ,HasUseRUNMode="23",ClickBlock=true },
+            new() { Name = "BOM與製程總表", Url = "/Display/BOMProductProcess" ,HasUseRUNMode="123",ClickBlock=true},
+            //new() { Name = "生產件未來產出總表", Url = "/Report02/Index3" ,HasUseRUNMode="123",ClickBlock=true},//顯示計畫目前狀況,將干涉表格化
+
+        }},
+        StoreNOONE,
+        stationONE,
+        storeSpacesNO,
+
+        new() { Name = "效益分析", Items = new List<MenuDto>()
+        {
+            new() { Name = "工站角度看效益(1週)", Url = "/CIR/Read3",HasUseRUNMode="123" },
+            new() { Name = "工站角度看效益(4週)", Url = "/CIR/Read4",HasUseRUNMode="123" },
+            new() { Name = "工站稼動率與OEE", Url = "/CIR/Read5",HasUseRUNMode="123" },
+            new() { Name = "整體生產節拍與瓶頸", Url = "/CIR/Read6",HasUseRUNMode="123" },
+            //new() { Name = "所有料件節拍與瓶頸", Url = "/CIR/Read6",HasUseRUNMode="123" },
+            new() { Name = "人員績效分析", Url = "/CIR/Read7",HasUseRUNMode="123" },
+            new() { Name = "生產效能分析", Url = "/Select/Efficient",HasUseRUNMode="123",ClickBlock=true },
+        }},
+ 
+    };
+}
+
+@functions {
+    //re-set menu.Name(add locale)
+    public List<MenuDto> SetMenuName(List<MenuDto> menus)
+    {
+        if (menus == null)
+            return null;
+
+        foreach(var menu in menus)
+            menu.Name = R0["Menu" + menu.Code].Value;
+        return menus;
+    }
+}
+
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title id="TOPPageTitle">@_Fun.Config.SystemName</title>
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <!-- 1.load css -->
+    <link rel="stylesheet" href="~/css/lib@(min).css?v=@(_Xp.LibVer)" />
+    <link rel="stylesheet" href="~/css/my@(min).css?v=@(_Xp.MyVer)" />
+ 
+    @RenderSection("styles", required: false)
+
+    <!-- 2.load lib js -->
+    <script src="~/js/lib@(min).js?v=@(_Xp.LibVer)"></script>
+
+    <!-- 3.load my site js(debug/production mode) !! -->
+
+    <environment include="Production">
+    <script src="~/js/my@(min).js?v=@(_Xp.MyVer)"></script>
+    </environment>
+    <environment include="Development">
+        <!-- tail ver will load failed !! -->
+        <script asp-src-include="~/js/base/*.js"></script>
+        <script asp-src-include="~/js/view/_*.js"></script>
+    </environment>
+
+
+
+
+   
+
+
+
+
+    <!-- 4.load local js -->
+    <script src="~/js/@(locale+min).js?v=@(_Xp.MyVer)"></script>
+    @RenderSection("scripts", required: false)
+
+    <!-- 5.initial -->
+    <script type="text/javascript">
+        var SYS_ClickBlock = false;
+        //###???將來改讀Device的值
+        var SYS_Clock = Object;
+        var IS_SYS_Clock = false;
+        var _var_WebMURL = '@_Fun.Config.LocalWebURL';
+        var wa;
+        var fgh = {
+
+            Url: '@_Fun.Config.WesocketURL',
+            init: function (url) {
+                Url = url;
+                this.connectWesocket();
+            },
+            isWork: function () {
+                if (wa.readyState == 1) { return true; }
+                else { return false; }
+            },
+            connectWesocket: function () {
+                if ("WebSocket" in window) {
+                    //alert("您的浏览器支持 WebSocket!");
+                    wa = new WebSocket(Url);
+
+                    wa.onopen = function () {
+                        // Web Socket 已连接上，使用 send() 方法发送数据
+                        //ws.send("发送数据");
+                        //ws.send(JSON.stringify({x:254,y:100}));
+
+                        //###???將來改送RMSProtocol object
+                        //var RMSProtocol = new Object();
+                        //RMSProtocol.DataType = 0;
+                        //RMSProtocol.Data = 'Mustang';
+                        //RMSProtocol.PoolID = 0;
+                        //RMSProtocol.IsReturnID = false;
+                        //RMSProtocol.TransferID = 0;
+
+                        //ws.send(JSON.stringify({RMSProtocol}));
+                        wa.send(JSON.stringify({ DataType: 1, Data: "WebSocket_Login,SoftNet_I,aa", PoolID: 0, IsReturnID: "false", TransferID: 0 }));
+
+                    };
+
+                    wa.onmessage = function (evt) {
+                        var received_msg = evt.data;
+                        var cmd = received_msg.split(',')
+                        switch (cmd[0]) {
+                            case "StationStatusChange":
+                                if (_me != undefined && _me != null && _me.hasStaionStatus) {
+                                    _crud.pageReload();
+                                }
+                                break;
+                            case "ReturnIPPort":
+                                _crud.LocalIPPort = cmd[1];
+                                break;
+                            case "SimulatioStatusChange"://cmd1=ErrorType 2=SimulationId 3=ActionType
+                                if (_me != undefined && _me != null && _me.hasSimulatioStatus) {
+                                    _me.onChangStateShow(cmd[1], cmd[2], cmd[3]);
+                                }
+                                break;
+                            case "HasWeb_Id_Change"://多工單畫面更新通知
+                                if (_me != undefined && _me != null && _me.STView2Work_PageReload) {
+                                    _me.onSTView2Work_PageReload(cmd[2]);
+                                }
+                                break;
+                        }
+
+                    };
+
+                    wa.onclose = function () {
+                        // 关闭 websocket
+                        alert("網頁後端通訊已關閉, 請您關閉目前頁面, 重新開啟瀏覽器, 登入系統網頁.");
+                        close();
+                    };
+                }
+
+                else {
+                    // 浏览器不支持 WebSocket
+                    alert("您的浏览器不支持 WebSocket!");
+                }
+            },
+            Send: function (data) {
+                if (this.isWork) {
+                    wa.send(JSON.stringify(data));
+                }
+                if (wa.readyState == 1) { return true; }
+                else { return false; }
+            },
+        };//class
+        fgh.init('@_Fun.Config.WesocketURL');
+
+        function leftMenu_Click() {
+            _fun.block();
+        }
+
+        $(function () {
+            _fun.locale = '@(locale)';
+            //initial
+            _leftmenu.init();
+            _pjax.init('.xg-body');
+            _tool.init();
+            moment.locale(_fun.locale);//Moment.js 是一个JavaScript编写的支持多种语言的日期处理类库
+        });
+        var hnd = setInterval(function () {
+            //$.post("@Url.Content("~/Home/CheckData")?key=" + token).done(function (res) {
+            $.post("@Url.Content("~/Home/CheckData")").done(function (res) {
+                if (res !== "OK") {
+                    clearInterval(hnd);
+                    alert("帳號登入逾時，請重新登入網站");
+                }
+            });
+        }, 19 * 60000);
+    </script>
+</head>
+
+<!-- 6.show view -->
+<body>
+    <!-- Top -->
+    <partial name="_Top.cshtml" />
+
+    @* set height=100% in parent , so that menu be fine for ie & firefox !! *@
+    <div class="d-flex align-items-stretch" style="height:100%">
+        <!-- left menu -->
+        @await Component.InvokeAsync("XgLeftMenu", new { rows = menus })  
+
+        <!-- work area -->
+        <div class="xg-body">
+            @RenderBody()
+        </div>
+    </div>
+
+    <!-- tool component -->
+    @await Component.InvokeAsync("XgTool")
+
+</body>
+</html>

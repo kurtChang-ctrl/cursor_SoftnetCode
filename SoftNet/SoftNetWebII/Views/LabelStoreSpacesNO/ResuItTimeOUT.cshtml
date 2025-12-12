@@ -1,0 +1,69 @@
+﻿@{
+    string keyId = "";
+    if (ViewBag.StoreNO != null && ViewBag.StoreSpacesNO != null && ViewBag.StoreNO != "" && ViewBag.StoreSpacesNO != "")
+    { keyId = $"{ViewBag.StoreNO};{ViewBag.StoreSpacesNO}"; }
+    else
+    {
+        string _s11 = ViewBag.StoreNO;
+        string _s12 = ViewBag.StoreSpacesNO;
+        string _s = "";
+    }
+}
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        SYS_ClickBlock = false;
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+    }
+</script>
+
+@{
+    string disUserName = "畫面逾時";
+    if (_Fun.GetBaseUser() != null) { disUserName = _Fun.GetBaseUser().UserName; }
+}
+<script type="text/javascript">
+    $(function () {
+        $("title").text("@Html.Raw(disUserName)");
+    });
+
+        var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus:false,
+        STView2Work_PageReload:false,
+        hasStaionChangQTY: false,
+        }; //class
+
+</script>
+
+@{
+    if (keyId != "")
+    {
+        <p><a href="@Url.Action("StroeFUN", "LabelStoreSpacesNO", new { id = @keyId })" class="ui-btn ui-icon-back ui-btn-icon-left">回到功能選單畫面</a></p>
+    }
+    else
+    {
+        <p><a href="@Url.Action("Index", "Home")" class="ui-btn ui-icon-back ui-btn-icon-left">回到網站主功能選單畫面</a></p>
+    }
+}
+
+
+
+<dir>
+    @if (ViewBag.ERRMsg != null && ViewBag.ERRMsg != "")
+    {
+        <p><font color="red" size="6">錯誤訊息:<p><strong>@ViewBag.ERRMsg</strong></p></font></p>
+    }
+    @if (ViewBag.Report != null && ViewBag.Report!="")
+    {
+        <hr />
+        @Html.Raw(ViewBag.Report);
+        <hr />
+    }
+</dir>
+

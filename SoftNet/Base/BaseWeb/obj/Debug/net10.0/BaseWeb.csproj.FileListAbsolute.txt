@@ -1,0 +1,17 @@
+C:\04_SoftNet\SoftNet\Base\BaseWeb\bin\Debug\net10.0\BaseWeb.deps.json
+C:\04_SoftNet\SoftNet\Base\BaseWeb\bin\Debug\net10.0\BaseWeb.dll
+C:\04_SoftNet\SoftNet\Base\BaseWeb\bin\Debug\net10.0\BaseWeb.pdb
+C:\04_SoftNet\SoftNet\Base\BaseWeb\bin\Debug\net10.0\Base.dll
+C:\04_SoftNet\SoftNet\Base\BaseWeb\bin\Debug\net10.0\BaseApi.dll
+C:\04_SoftNet\SoftNet\Base\BaseWeb\bin\Debug\net10.0\BaseApi.pdb
+C:\04_SoftNet\SoftNet\Base\BaseWeb\bin\Debug\net10.0\Base.pdb
+C:\04_SoftNet\SoftNet\Base\BaseWeb\obj\Debug\net10.0\BaseWeb.csproj.AssemblyReference.cache
+C:\04_SoftNet\SoftNet\Base\BaseWeb\obj\Debug\net10.0\BaseWeb.GeneratedMSBuildEditorConfig.editorconfig
+C:\04_SoftNet\SoftNet\Base\BaseWeb\obj\Debug\net10.0\BaseWeb.AssemblyInfoInputs.cache
+C:\04_SoftNet\SoftNet\Base\BaseWeb\obj\Debug\net10.0\BaseWeb.AssemblyInfo.cs
+C:\04_SoftNet\SoftNet\Base\BaseWeb\obj\Debug\net10.0\BaseWeb.csproj.CoreCompileInputs.cache
+C:\04_SoftNet\SoftNet\Base\BaseWeb\obj\Debug\net10.0\BaseWeb.csproj.Up2Date
+C:\04_SoftNet\SoftNet\Base\BaseWeb\obj\Debug\net10.0\BaseWeb.dll
+C:\04_SoftNet\SoftNet\Base\BaseWeb\obj\Debug\net10.0\refint\BaseWeb.dll
+C:\04_SoftNet\SoftNet\Base\BaseWeb\obj\Debug\net10.0\BaseWeb.pdb
+C:\04_SoftNet\SoftNet\Base\BaseWeb\obj\Debug\net10.0\ref\BaseWeb.dll

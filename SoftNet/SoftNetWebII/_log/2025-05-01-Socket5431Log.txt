@@ -1,0 +1,32 @@
+09:07:07(0); S Type=1 Data=IIS_Login,SoftNet_I,
+10:45:20(0); S Type=1 Data=IIS_Login,SoftNet_I,
+10:53:30(0); S Type=1 Data=IIS_Login,SoftNet_I,
+11:18:52(0); S Type=1 Data=IIS_Login,SoftNet_I,
+15:00:13(0); S Type=1 Data=IIS_Login,SoftNet_I,
+15:03:38(0); S Type=1 Data=IIS_Login,SoftNet_I,
+15:16:45(0); S Type=1 Data=IIS_Login,SoftNet_I,
+15:24:41(0); S Type=1 Data=IIS_Login,SoftNet_I,
+19:43:48(0); S Type=1 Data=IIS_Login,SoftNet_I,
+19:47:17(0); S Type=1 Data=IIS_Login,SoftNet_I,
+20:07:56(0); S Type=1 Data=IIS_Login,SoftNet_I,
+20:12:12(0); S Type=1 Data=IIS_Login,SoftNet_I,
+20:13:00(0); S Type=1 Data=WebChangeStationStatus,1,F01,WEBProg,F01,Alex Li,XX01202505010001,1,,,0,true,0,0,0,0
+20:13:00(0); S Type=1 Data=WebChangeStationStatus,1,F01,WEBProg,F01,Alex Li,XX01202504100004,1,,,0,true,0,0,0,0
+20:13:32(0); S Type=1 Data=WebChangeStationStatus,2,F01,WEBProg,F01,Alex Li,XX01202505010001,1,,,0,true,0,0,0,0
+20:13:32(0); S Type=1 Data=WebChangeStationStatus,2,F01,WEBProg,F01,Alex Li,XX01202504100004,1,,,0,true,0,0,0,0
+20:14:03(0); S Type=1 Data=WebChangeStationStatus,4,F01,WEBProg,F01,00003,XX01202505010001,1,,,0,true,0,0,0,0
+20:14:28(0); S Type=1 Data=WebChangeStationStatus,1,G01,WEBProg,G01,Alex Li,XX01202505010001,2,,,0,true,0,0,0,0
+20:15:25(0); S Type=1 Data=WebChangeStationStatus,2,G01,WEBProg,G01,Alex Li,XX01202505010001,2,,,0,true,0,0,0,0
+20:22:56(0); S Type=1 Data=IIS_Login,SoftNet_I,
+20:24:02(0); S Type=1 Data=WebChangeStationStatus,1,H01,WEBProg,H01,Alex Li,XX01202505010001,3,,,0,true,0,0,0,0
+20:32:04(0); S Type=1 Data=WebChangeStationStatus,2,H01,WEBProg,H01,Alex Li,XX01202505010001,3,,,0,true,0,0,0,0
+20:32:21(0); S Type=1 Data=WebChangeStationStatus,5,H01,WEBProg,H01,00003,XX01202505010001,3,,,0,true,0,0,0,0
+20:34:38(0); S Type=1 Data=WebChangeStationStatus,1,A01,WEBProg,A01,00003,XX01202505010002,2,,,0,true,0,0,0,0
+20:35:03(0); S Type=1 Data=WebChangeStationStatus,2,A01,WEBProg,A01,00003,XX01202505010002,2,,,0,true,0,0,0,0
+20:35:54(0); S Type=1 Data=WebChangeStationStatus,1,A01,WEBProg,A01,00003,XX01202505010002,3,,,0,true,0,0,0,0
+20:36:11(0); S Type=1 Data=WebChangeStationStatus,2,A01,WEBProg,A01,00003,XX01202505010002,3,,,0,true,0,0,0,0
+20:38:29(0); S Type=1 Data=WebChangeStationStatus,1,A01,WEBProg,A01,00003,XX01202505010002,4,,,0,true,0,0,0,0
+20:39:20(0); S Type=1 Data=WebChangeStationStatus,2,A01,WEBProg,A01,00003,XX01202505010002,4,,,0,true,0,0,0,0
+20:40:17(0); S Type=1 Data=WebChangeStationStatus,1,D01,WEBProg,D01,Alex Li,XX01202505010002,9,,,0,true,0,0,0,0
+20:40:45(0); S Type=1 Data=WebChangeStationStatus,2,D01,WEBProg,D01,Alex Li,XX01202505010002,9,,,0,true,0,0,0,0
+20:40:52(0); S Type=1 Data=WebChangeStationStatus,5,D01,WEBProg,D01,00003,XX01202505010002,9,,,0,true,0,0,0,0

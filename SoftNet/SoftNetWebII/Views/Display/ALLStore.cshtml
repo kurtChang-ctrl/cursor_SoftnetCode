@@ -1,0 +1,57 @@
+﻿<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+        onSet: function (s) {
+            var tmp_01 = '';
+            var rates = document.getElementsByName('data1');
+            for (var i = 0; i < rates.length; i++) {
+                if (rates[i].checked) {
+                    tmp_01 = tmp_01 + rates[i].value + ';';
+                }
+            }
+            $("input[name=SelectFun2]").val(tmp_01);
+
+            tmp_01 = '';
+            rates = document.getElementsByName('data2');
+            for (var i = 0; i < rates.length; i++) {
+                if (rates[i].checked) {
+                    tmp_01 += tmp_01 + rates[i].value + ';';
+                }
+            }
+            $("input[name=SelectFun3]").val(tmp_01);
+        },
+    };
+</script>
+
+<div id="selectStationPage" class="xp-prog">
+    <form action=@Url.Action("ALLStore") method="post">
+        <input type='hidden' name='SelectFun1' value="A" />
+        <input type='hidden' name='SelectFun2' value="" />
+        <input type='hidden' name='SelectFun3' value="" />
+        <input type='hidden' name='SelectFun4' value="" />
+        <table>
+            <tr>
+                <td>料件類型:<input type="checkbox" name="data1" value='1' />原物料<input type="checkbox" name="data1" value='2' />採購件<input type="checkbox" name="data1" value='3' />委外加工件<input type="checkbox" name="data1" value='4' checked />製造半成品<input type="checkbox" name="data1" value='5' />製造成品<button type='submit' onclick="this.style.display='none';_me.onSet()">確認</button></td>
+            </tr>
+            <tr>
+                <td>顯示不為0:<input type="checkbox" name="data2" value='1' />安全量<input type="checkbox" name="data2" value='2' />再倉量<input type="checkbox" name="data2" value='3' />再製量<input type="checkbox" name="data2" value='4' />再途量<input type="checkbox" name="data2" value='5' />保留量<input type="checkbox" name="data2" value='6' />未來量</td>
+            </tr>
+        </table>
+    </form>
+</div>
+<table>
+    <tr><td style='background-color:tomato;' col></td></tr>
+</table>
+
+
+<div class="xp-prog">
+    @Html.Raw(ViewBag.HtmlOutput)
+</div>

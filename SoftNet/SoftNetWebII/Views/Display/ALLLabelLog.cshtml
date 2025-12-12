@@ -1,0 +1,72 @@
+﻿<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+        onSet: function (s) {
+            var tmp_01 = '';
+            var rates = document.getElementsByName('data1');
+            for (var i = 0; i < rates.length; i++) {
+                if (rates[i].checked) {
+                    tmp_01 = rates[i].value;
+                    break;
+                }
+            }
+            $("input[name=SelectFun2]").val(tmp_01);
+
+            tmp_01 = '';
+            rates = document.getElementsByName('data2');
+            for (var i = 0; i < rates.length; i++) {
+                if (rates[i].checked) {
+                    tmp_01 = rates[i].value;
+                    break;
+                }
+            }
+            $("input[name=SelectFun3]").val(tmp_01);
+
+            tmp_01 = '';
+            rates = document.getElementsByName('data3');
+            for (var i = 0; i < rates.length; i++) {
+                if (rates[i].checked) {
+                    tmp_01 = rates[i].value;
+                    break;
+                }
+            }
+            $("input[name=SelectFun4]").val(tmp_01);
+        },
+    };
+</script>
+
+<div id="selectStationPage" class="xp-prog">
+    <form action=@Url.Action("ALLLabelLog") method="post">
+        <input type='hidden' name='SelectFun1' value="A" />
+        <input type='hidden' name='SelectFun2' value="" />
+        <input type='hidden' name='SelectFun3' value="" />
+        <input type='hidden' name='SelectFun4' value="" />
+        <table>
+            <tr>
+                <td>顯示條件:<input type="radio" name="data1" value='-1' />1日內<input type="radio" name="data1" value='-2' />2日內<input type="radio" name="data1" value='-3' />3日內<input type="radio" name="data1" value='-7' checked />7日內<input type="radio" name="data1" value='-30' />1個月內<input type="radio" name="data1" value='-365' />1年內<button type='submit' onclick="this.style.display='none';_me.onSet()">確認</button></td>
+            </tr>
+            <tr>
+                <td>顯示類型:<input type="radio" name="data2" value='1' />對工站<input type="radio" name="data2" value='2' />對倉庫<input type="radio" name="data2" value='3' />對儲位<input type="radio" name="data2" value='4' checked />只顯示失敗<input type="radio" name="data2" value='5' />對全部</td>
+            </tr>
+            <tr>
+                <td>顯示內容:<input type="radio" name="data3" value='1' checked />不顯示<input type="radio" name="data2" value='2' />顯示</td>
+            </tr>
+        </table>
+    </form>
+</div>
+<table>
+    <tr><td style='background-color:tomato;' col></td></tr>
+</table>
+
+
+<div class="xp-prog">
+    @Html.Raw(ViewBag.HtmlOutput)
+</div>

@@ -1,0 +1,76 @@
+﻿@using Base
+@model LabelWork
+@{
+    LabelWork LW = ViewBag.Model;
+    string err = "";
+    if (LW != null) { err = LW.ERRMsg; }
+    string disUserName = "畫面逾時";
+    if (_Fun.GetBaseUser() != null) { disUserName = _Fun.GetBaseUser().UserName; }
+    else { err = "畫面逾時, 請重新刷條碼操作."; }
+}
+
+
+<script type="text/javascript">
+    $(function () {
+        $("title").text("@Html.Raw(disUserName)");
+        var is_DisplayeMenu = '@Html.Raw(Model.BOOLonToggleMenu)';
+        if (is_DisplayeMenu == '') {
+            _leftmenu.onToggleMenu();
+        }
+        
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+
+    };
+
+
+
+</script>
+
+
+
+@if (@LW != null)
+{
+    <p><label>操作員工:</label><label> @LW.OPNO</label>&nbsp;&nbsp;<label> @LW.OPNO_Name</label></p>
+    <p><label>工站編號:</label><label> @LW.Station</label></p>
+    <p><label>工單編號:</label><label>@LW.OrderNO</label></p>
+}
+<dir>
+    @if (err != "")
+    {
+        <dir>
+            <p><font color="red" size="5">錯誤訊息:<strong>@err</strong></font></p>
+        </dir>
+        <hr />
+    }
+</dir>
+
+@if (@LW != null)
+{
+    <dir>
+        @Html.Raw(LW.MES_String)
+    </dir>
+}
+@{
+    if (LW.State != "領料" || LW.State != "入料")
+    {
+        string arg5 = LW.BOOLonToggleMenu;
+        if (arg5 != "") { arg5 = $";{arg5}"; }
+        if (LW.SimulationId!="")
+        {
+            <p><a href="@Url.Action("Index", "LabelWork", new {id=$"{LW.Station};2;{LW.SimulationId};{LW.IndexSN}{arg5}"})" class="ui-btn ui-icon-back ui-btn-icon-left">回到主選單畫面</a></p>
+        }
+        else if (LW.OrderNO != "")
+        {
+            <p><a href="@Url.Action("Index", "LabelWork",new {id=$"{LW.Station};1;{LW.OrderNO};{LW.IndexSN}{arg5}"})" class="ui-btn ui-icon-back ui-btn-icon-left">回到主選單畫面</a></p>
+        }
+        else
+        {
+            <p><a href="@Url.Action("Index", "LabelWork",new {id=$"{LW.Station};0;;0{arg5}"})" class="ui-btn ui-icon-back ui-btn-icon-left">回到主選單畫面</a></p>
+        }
+    }
+}

@@ -1,0 +1,58 @@
+﻿@model LabelCreateBarCode
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        SYS_ClickBlock = false;
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+    }
+</script>
+
+<table border="5" align="center">
+    <!--
+    <tr>
+        <th>Name</th>
+        <th>Address</th>
+        <th>Image</th>
+    </tr>
+    -->
+    <p><a href="@Url.Action("Index", "Home")" class="ui-btn ui-icon-back ui-btn-icon-left">回到網站主功能選單畫面</a></p>
+    <form action=@Url.Action("CreateBarCode") method="post">
+    <p><label>標籤寬度:</label><input type="text" name='Width' list="options1" value="@Model.Width"></p>
+    <p><label>標籤長度:</label><input type="text" name='Height' list="options1" value="@Model.Height"></p>
+        <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none'">變更確定</button></p>
+        @{
+            var tmp = "";
+            foreach (string[] s in Model.StationNOList)
+            {
+                if (s[0]=="")
+                {
+                    tmp = $"{s[1]};{Model.Width.ToString()};{Model.Height.ToString()};0";
+                }
+                else
+                {
+                    tmp = $"{s[0]};{Model.Width.ToString()};{Model.Height.ToString()};1";
+                }
+                <tr>
+                    @{
+                        if (s[0] == "")
+                        {
+                            <td>@s[1]&nbsp;&nbsp;@s[2]<br /><img src="@Url.Action("GetBarCode",new {id=tmp})" /></td>
+                         }
+                         else
+                         {
+                            <td>@s[0]&nbsp;&nbsp;@s[1]<br /><img src="@Url.Action("GetBarCode",new {id=tmp})" /></td>
+                        }
+                    }
+                </tr>
+            }   
+        }
+
+    </form>
+
+</table>

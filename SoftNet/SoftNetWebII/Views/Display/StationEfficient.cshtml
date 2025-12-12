@@ -1,0 +1,77 @@
+﻿<script src="~/js/lib/gaugeSVG.js"></script>
+
+
+<script type="text/javascript">
+    $(function () {
+        ffff();
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+    });
+
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus:false,
+        STView2Work_PageReload:false,
+        hasStaionChangQTY: false,
+    };
+
+    function ffff() {
+        var stNO_list = "@Html.Raw(ViewBag.StationNO)".split(';');
+        if (stNO_list.length > 0) {
+            var nameDisplay_list = "@Html.Raw(ViewBag.StationName)".split(';');
+            for (var i = 0; i < stNO_list.length; i++) {
+                var stNO = stNO_list[i].split(',');
+                var _containerstyle = {
+                    id: stNO[0],
+                    value: parseFloat(stNO[1]),
+                    title: stNO[0],
+                    label: nameDisplay_list[i],
+                    min: 0,
+                    max: 100,
+                    lowerWarningLimit: 20,
+                    upperWarningLimit: 40,
+                    lowerActionLimit: 40,
+                    upperActionLimit: 100,//操作上限
+                    optimumRangeColor: "#ecec2b",//最佳範圍
+                    warningRangeColor: "#58df29",//警告範圍
+                    actionRangeColor: "#ff8888",//操作範圍
+                };
+                var gauge1 = new GaugeSVG(_containerstyle);
+            }
+        }
+    };
+</script>
+<div class='xg-btns-box'>目前設定期望值離系統最佳值比率:@_Fun.Config.APS_CT_Custom_Rate&nbsp%</div>
+<div class='xg-btns-box' style="background-color:#ABBAEA;">
+    <label style="background-color:#ff8888;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</label>紅色=離期望值差距不佳<br />&nbsp;&nbsp;
+    <label style="background-color:#ecec2b;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</label>黃色=離期望接近,但須努力<br />&nbsp;&nbsp;
+    <label style="background-color:#58df29;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</label>綠色=有達到期望值,範圍為好或更好
+</div>
+
+<div id="displayHTML">
+@Html.Raw(ViewBag.DisplayHTML)
+</div>
+
+
+
+
+<style>
+    body {
+        text-align: center;
+    }
+
+    .gaugeSVGVeiw {
+        width: 250px;
+        height: 200px;
+        display: inline-block;
+        margin: 1em;
+    }
+
+    p {
+        display: block;
+        width: 450px;
+        margin: 2em auto;
+        text-align: left;
+    }
+</style>

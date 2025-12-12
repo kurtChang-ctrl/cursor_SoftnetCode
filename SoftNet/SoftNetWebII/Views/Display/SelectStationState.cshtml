@@ -1,0 +1,55 @@
+﻿<script type="text/javascript">
+    $(function () {
+        var Stime = 300;
+        if (SYS_ClickBlock) {             _fun.unBlock();         }
+        SYS_ClickBlock = false;
+        if (!IS_SYS_Clock) {
+            IS_SYS_Clock = true;
+            SYS_Clock = setInterval(printword, 1000);
+        }
+        function printword() {
+            if (IS_SYS_Clock) {
+                if (Stime < 1) {
+                    Stime = 300;
+                    _ajax.getView('ChangeDisplayDIV', { id: '' }, function (data) {
+                        jQuery('#displayHTML').html(data);
+                    });
+                }
+                else {
+                    Stime -= 1;
+                    $("#intS").html(Stime);
+                }
+            }
+            else {
+                clearInterval(SYS_Clock);
+            }
+        }
+    });
+
+    var _me = {
+        aass: location.href,
+        hasStaionStatus: false,
+        hasStaionChangQTY: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+
+    }; //class
+</script>
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "工站製造現場狀態總表" } })
+<dir style="width:100%">
+    <div class='xg-btns-box'>
+        <label>更新倒數:</label><label id="intS"></label><label>秒</label>
+    </div>
+    <div style="background-color:#ABBAEA;">
+        <label style="background-color:tomato;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</label>紅色=該工單監測到異常&nbsp;&nbsp;
+        <label style="background-color:gold;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</label>黃色=該工單接近警戒範圍&nbsp;&nbsp;
+        <label style="background-color:springgreen;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</label>綠色=該工單為開工狀態&nbsp;&nbsp;
+        <label style="background-color:whitesmoke;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</label>淺灰色=表該工單為停工或閒置
+    </div>
+    <div id="displayHTML">
+    @Html.Raw(ViewBag.HtmlOutput)
+        </div>
+</dir>
+
+

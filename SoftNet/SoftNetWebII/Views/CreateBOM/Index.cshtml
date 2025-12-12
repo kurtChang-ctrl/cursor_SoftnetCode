@@ -1,0 +1,699 @@
+﻿
+@using System.Data
+@using Base
+@model CreateBOMOBJ
+@{
+    string _isCkeck_Fun_S_List_B = "";
+    string _isCkeck_Fun_S_List_C = "";
+    string _isCkeck_Fun_S_List_D = "";
+    string _isCkeck_Fun_S_List_E = "";
+
+}
+
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+        $("input[name=SPartName]").change(function () {
+            var idValue2 = $("input[name=SPartName]").val();
+            var elementOption2 = $("#options2 option[value='" + idValue2 + "']")
+            var data2 = elementOption2.text().split(';');
+            if (data2.length > 1) {
+                $("input[name=SPartNO]").val(data2[0]);
+            }
+        });
+        $("input[name=SPartNO]").change(function () {
+            var idValue1 = $("input[name=SPartNO]").val();
+            var elementOption1 = $("#options1 option[value='" + idValue1 + "']")
+            var data1 = elementOption1.text().split(';');
+            if (data1.length > 1) {
+                $("input[name=SPartName]").val(data1[1]);
+            }
+        });
+        $('input:radio').change(function () {
+            var comdata = $("input[name=COMType]").val();
+            if (comdata == "2") {
+                var dd = $('input[name=Fun_S_List]:checked').val();
+                if (dd == "B 2") {
+                    $("#pp_name_DisplayDIV").hide();
+                } else {
+                    $("#pp_name_DisplayDIV").show();
+                }
+            }
+        });
+        jQuery('[data-confirm]').click(function (e) {
+            if (!confirm(jQuery(this).attr("data-confirm"))) {
+                e.preventDefault();
+            }
+        });
+        if ($("input[name=COMType]").val() == "2") {
+            var dd = $('input[name=Fun_S_List]:checked').val();
+            if (dd == "B 2") {
+                $("#pp_name_DisplayDIV").hide();
+            }
+        }
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+
+        onCreateBOM: function (id) {//選擇BOM的料件
+            if (id == '') { return; }
+            else {
+                var data = id.split(',');//0=2[生產件] 3[非生產件]
+                $('input[name=COMType]').val(data[0]);
+                $('input[name=MBOMId]').val(data[1]);
+                $('input[name=SPP_Name]').val(data[2]);
+                $('input[name=BOMId]').val(data[3]);
+                $('input[name=SClass]').val('');
+            }
+        },
+        isCopyBOM: function (id) {
+            if (id == '') { return; }
+            else {
+                var data = id.split(',');
+                $('input[name=COMType]').val('7');
+                $('input[name=MBOMId]').val(id);
+            }
+        },
+        isConfirmMBOMId: function (id) {
+            if (id == '') { return; }
+            else {
+                var data = id.split(',');
+                $('input[name=COMType]').val('8');
+                $('input[name=MBOMId]').val(id);
+            }
+        },
+        isCancelMBOMId: function (id) {
+            if (id == '') { return; }
+            else {
+                var data = id.split(',');
+                $('input[name=COMType]').val('A');
+                $('input[name=MBOMId]').val(id);
+            }
+        },
+        onCheck_Fun_S_List: function () {//針對生產件按下確認
+            var arr = new Array();
+            $("input:checkbox[name='SI_Station']:checked").each(function () {
+                arr.push($(this).val());
+            }); 
+            //获取共用站界面复选框的所有值
+            if (arr.length > 0) {
+                $("input[name=SStationNO_IndexSN_Merge]").val(arr.join(',')+',');
+            }
+            else {
+                $("input[name=SStationNO_IndexSN_Merge]").val('');
+            }
+            var tmp1 = '';
+            var radios = document.getElementsByName('Fun_S_List');
+            if (radios != null) {
+                for (var i = 0, length = radios.length; i < length; i++) {
+                    if (radios[i].checked) {
+                        tmp1 = radios[i].value;
+                        break;
+                    }
+                }
+            }
+
+            $('input[name=COMType]').val('4');
+            $('input[name=Fun_S_List]').val(tmp1);
+
+            var checked1 = $("input[name=SIsChackQTY]:checked").length;
+            $('input[name=SIsChackQTY]').val(checked1);
+            var checked2 = $("input[name=SIsChackIsOK]:checked").length;
+            $('input[name=SIsChackIsOK]').val(checked2);
+        },
+        onCOMType_0: function () {
+            var arr = new Array();
+            $("input:checkbox[name='SI_Station']:checked").each(function () {
+                arr.push($(this).val()); //向数组中添加元素
+            }); //获取界面复选框的所有值
+            if (arr.length > 0) {
+                $("input[name=SStationNO_IndexSN_Merge]").val(arr.join(',')+',');
+            }
+            else {
+                $("input[name=SStationNO_IndexSN_Merge]").val('');
+            }
+            $('input[name=MBOMId]').val('@_Str.NewId('Z')');
+            $('input[name=COMType]').val('1');
+
+            var checked1 = $("input[name=SIsChackQTY]:checked").length;
+            $('input[name=SIsChackQTY]').val(checked1);
+            var checked2 = $("input[name=SIsChackIsOK]:checked").length;
+            $('input[name=SIsChackIsOK]').val(checked2);
+        },
+    }; //class
+
+</script>
+
+
+
+
+<div id="displayHasWorkData_List">
+    <form action=@Url.Action("Index") method="post">
+        @{
+            //DBADO db = new DBADO("1", _Fun.Config.Db);
+            using (DBADO db = new DBADO("1", _Fun.Config.Db))
+            {
+                <input type='hidden' name='BOMId' value="@Model.BOMId" />
+                <input type='hidden' name='MBOMId' value="@Model.MBOMId" />
+                <input type='hidden' name='SApply_PartNO' value="@Model.SApply_PartNO" />
+                <input type='hidden' name='COMType' value="@Model.COMType" />
+
+
+                @if (Model.ERRMsg != "")
+                {
+                    <dir>
+                        <p><font color="red" size="5">錯誤訊息:<br /><strong>@Html.Raw(Model.ERRMsg)</strong></font></p>
+                    </dir>
+                    <hr />
+                }
+                <label>選擇已存在的BOM母件料號:</label>
+                @if (Model.NeedIdList != null && Model.NeedIdList.Count > 0)
+                {
+                    <input type="text" style="width: 500px;" name='SelectBOMId' list="options9">
+                    <datalist id="options9" style="width: 100%;">
+                        @foreach (string item in Model.NeedIdList)
+                        {
+                            string[] s = item.Split('\x01');
+                            var s_tmp2 = $"類型:{s[4]} 料號:{s[1]} 品名:{s[2]} 規格:{s[3]} 版本:{s[5]}";
+                            var s_tmp = $"{s[0]}";
+                            <option style="width: 100%;" value='@s_tmp'>@s_tmp2</option>
+                        }
+                    </datalist>
+                    <button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none';$('input[name=COMType]').val('9');">確認</button>
+                    <hr />
+                }
+                else
+                {
+                    <label>無任何已存在BOM編號可選擇</label>
+                }
+
+                switch (Model.COMType)
+                {
+                    case "0"://第一次畫面 新建母件後送COMType=1
+                        {
+                            <figure>
+                                <figcaption> 建立新的母件料號</figcaption>
+                                <div class='xp-prog'>
+                                    <label>選擇母件料號</label>
+                                    <br />
+                                    <label>料件類型:</label><input type="text" name='SClass' list="options0" value="@Model.SClass">
+                                    <button type='submit' style='border: 2px blue none;' onclick="this.style.display='none';$('input[name=COMType]').val('0');">切換類型</button>
+                                    <datalist id="options0">
+                                        @foreach (string[] s in Model.HasClass_List)
+                                        {
+                                            var s_tmp = $"{s[0]}";
+                                            var s_tmp2 = $"{s[0]};{s[1]}";
+                                            <option value='@s_tmp'>@s_tmp2</option>
+                                        }
+                                    </datalist>
+                                    <br />
+                                    <label>料件編號:</label><input type="text" name='SPartNO' list="options1" value="@Model.SPartNO">
+                                    <datalist id="options1">
+                                        @foreach (string item in Model.HasPartNO_List)
+                                        {
+                                            string[] s = item.Split('\x01');
+                                            if (Model.SClass == s[3])
+                                            {
+                                                var s_tmp = $"{s[0]}";
+                                                var s_tmp2 = $"{s[0]};{s[1]};{s[2]}";
+                                                <option value='@s_tmp'>@s_tmp2</option>
+                                            }
+                                        }
+                                    </datalist>
+                                    <br />
+                                    <label>料件品名:</label><input type="text" name='SPartName' list="options2" value="@Model.SPartName">
+                                    <datalist id="options2">
+                                        @foreach (string item in Model.HasPartNO_List)
+                                        {
+                                            string[] s = item.Split('\x01');
+                                            if (Model.SClass == s[3])
+                                            {
+                                                var s_tmp = $"{s[1]}";
+                                                var s_tmp2 = $"{s[0]};{s[1]};{s[2]}";
+                                                <option value='@s_tmp'>@s_tmp2</option>
+                                            }
+                                        }
+                                    </datalist>
+                                    <br />
+                                    <label>製程名稱:</label><input type="text" name='SPP_Name' value="@Model.SPP_Name">
+                                    <br />
+                                    <label>主生產工站:</label><input type="text" name='SApply_StationNO' list="options3" value="@Model.SApply_StationNO">
+                                    <datalist id="options3">
+                                        @foreach (string[] s in Model.HasStationNO_List)
+                                        {
+                                            if (s[1].Trim() != "")
+                                            {
+                                                var s_tmp = $"{s[0]}";
+                                                var s_tmp2 = $"{s[0]};{s[1]}";
+                                                <option value='@s_tmp'>@s_tmp2</option>
+                                            }
+                                        }
+                                    </datalist>
+                                    <label>委外加工指定廠商:</label>
+                                    <input type="text" name='MFNO' list="options4" value="@Model.MFNO">
+                                    <datalist id="options4">
+                                        @foreach (string[] s in Model.HasMFNO_List)
+                                        {
+                                            if (s[1].Trim() != "")
+                                            {
+                                                var s_tmp = $"{s[0]}";
+                                                var s_tmp2 = $"{s[0]};{s[1]}";
+                                                <option value='@s_tmp'>@s_tmp2</option>
+                                            }
+                                        }
+                                    </datalist>
+                                    @{
+                                        if (Model.SIsChackQTY == 0)
+                                        {
+                                            <input type="checkbox" name="SIsChackQTY" value="0" />
+                                        }
+                                        else
+                                        {
+                                            <input type="checkbox" name="SIsChackQTY" checked value="1" />
+                                        }
+                                    }
+                                    <label>是否生產需足工單量:</label>
+                                    @{
+                                        if (Model.SIsChackIsOK == 0)
+                                        {
+                                            <input type="checkbox" name="SIsChackIsOK" value="0" />
+                                        }
+                                        else
+                                        {
+                                            <input type="checkbox" name="SIsChackIsOK" checked value="1" />
+                                        }
+                                    }
+
+                                    <label>是否需單據完成才能關閉:</label>
+                                    <br />
+                                    <label>共用生產站:</label>
+                                    <input type='hidden' name='SStationNO_IndexSN_Merge' value="@Model.SStationNO_IndexSN_Merge">
+                                    @{
+                                        List<string> select_staion_MG = new List<string>();
+                                        if (Model.SStationNO_IndexSN_Merge != null && Model.SStationNO_IndexSN_Merge.Trim() != "")
+                                        {
+                                            select_staion_MG.AddRange(Model.SStationNO_IndexSN_Merge.Split(','));
+                                        }
+                                        foreach (string[] s in Model.HasStationNO_List)
+                                        {
+                                            if (s[0].Trim() != "" && s[0] != _Fun.Config.OutPackStationName)
+                                            {
+                                                var s_tmp = s[0];
+                                                var s_tmp2 = s[0] + s[1];
+                                                if (select_staion_MG.Contains(s[0]))
+                                                {
+                                                    <input class="input_arg" type="checkbox" name="SI_Station" value='@s_tmp' checked>
+                                                }
+                                                else
+                                                {
+                                                    <input class="input_arg" type="checkbox" name="SI_Station" value='@s_tmp'>
+                                                }
+                                                <label for="cbox1">@s_tmp2</label>
+                                            }
+                                        }
+                                    }
+                                    <br />
+                                    <br />
+                                    <label>生產工序:</label><input type="text" name='SStationNO_Custom_DisplayName' value="@Model.SStationNO_Custom_DisplayName">
+                                    <br />
+                                    <label>工站顯示備註:</label><input type="text" name='SStation_DIS_Remark' value="@Model.SStation_DIS_Remark">
+                                    <p><button type='submit' style='border: 2px blue none;' onclick="_me.onCOMType_0();">確認建立</button></p>
+                                </div>
+                            </figure>
+                        }
+                        break;
+                    case "2"://修改生產件畫面
+                        {
+                            DataRow dr_tmp = db.DB_GetFirstDataByDataRow($"select * from SoftNetMainDB.[dbo].[BOM] where Id='{Model.BOMId}'");
+                            DataRow dr_Material = db.DB_GetFirstDataByDataRow($"select * from SoftNetMainDB.[dbo].[Material] where ServerId='{_Fun.Config.ServerId}' and PartNO='{dr_tmp["PartNO"].ToString()}'");
+                            <input type='hidden' name='IndexSN' value="@dr_tmp["IndexSN"].ToString()" />
+                            <figure>
+                                <figcaption> 本料號:{@dr_tmp["PartNO"].ToString()}[{s_tmp}]  品名:{@dr_Material["PartName"].ToString()}  規格:{@dr_Material["Specification"].ToString()}</figcaption>
+                                @if (Model.SPP_Name != "")
+                                {
+                                    string indexNO = dr_tmp["IndexSN"].ToString();
+                                    if (indexNO == "0") { indexNO = "未發行"; }
+                                    <figcaption> 本階製程:@Model.SPP_Name  作業站:@dr_tmp["Apply_StationNO"].ToString()  工序:@indexNO</figcaption>
+                                }
+                                <div class='xp-prog'>
+                                    @if (Model.Fun_S_List != null && Model.Fun_S_List != "")
+                                    {
+                                        if (Model.Fun_S_List.Substring(0, 1) == "B") { _isCkeck_Fun_S_List_B = "checked"; }
+                                        else if (Model.Fun_S_List.Substring(0, 1) == "C") { _isCkeck_Fun_S_List_C = "checked"; }
+                                        else if (Model.Fun_S_List.Substring(0, 1) == "D") { _isCkeck_Fun_S_List_D = "checked"; }
+                                        else { _isCkeck_Fun_S_List_E = "checked"; }
+                                    }
+                                    else { _isCkeck_Fun_S_List_E = "checked"; }
+                                    <input type='radio' name='Fun_S_List' value="D @Model.COMType" @_isCkeck_Fun_S_List_D /><label> 刪除本製程 (包括本階以下所有用料號與下階所有製程)</label><br />
+                                    <input type='radio' name='Fun_S_List' value="B @Model.COMType" @_isCkeck_Fun_S_List_B /> <label>新增本階 用料</label><br />
+                                    <input type='radio' name='Fun_S_List' value="C @Model.COMType" @_isCkeck_Fun_S_List_C /> <label>新增下一階 製程與主料</label><br />
+                                    <input type='radio' name='Fun_S_List' value="E @Model.COMType" @_isCkeck_Fun_S_List_E /> <label>修改本製程</label>
+                                    <input type='hidden' name='SPP_Name' value="@Model.SPP_Name" />
+                                    <label>件料類型:</label><input type="text" name='SClass' list="options0" value="@Model.SClass">
+                                    <button type='submit' style='border: 2px blue none;' onclick="this.style.display='none';$('input[name=COMType]').val('2');">切換類型</button>
+                                    <datalist id="options0">
+                                        @foreach (string[] s in Model.HasClass_List)
+                                        {
+                                            var s_tmp = $"{s[0]}";
+                                            var s_tmp2 = $"{s[0]};{s[1]}";
+                                            <option value='@s_tmp'>@s_tmp2</option>
+                                        }
+                                    </datalist>
+                                    <br />
+                                    <label>料號:</label><input type="text" name='SPartNO' list="options1" value="@Model.SPartNO" />
+                                    <datalist id="options1">
+                                        @foreach (string item in Model.HasPartNO_List)
+                                        {
+                                            string[] s = item.Split('\x01');
+                                            if (Model.SClass == s[3])
+                                            {
+                                                var s_tmp = $"{s[0]}";
+                                                var s_tmp2 = $"{s[0]};{s[1]};{s[2]}";
+                                                <option value='@s_tmp'>@s_tmp2</option>
+                                            }
+                                        }
+                                    </datalist>
+                                    <br />
+                                    <label>品名:</label><input type="text" name='SPartName' list="options2" value="@Model.SPartName" />
+                                    <datalist id="options2">
+                                        @foreach (string item in Model.HasPartNO_List)
+                                        {
+                                            string[] s = item.Split('\x01');
+                                            if (Model.SClass == s[3])
+                                            {
+                                                var s_tmp = $"{s[1]}";
+                                                var s_tmp2 = $"{s[0]};{s[1]};{s[2]}";
+                                                <option value='@s_tmp'>@s_tmp2</option>
+                                            }
+                                        }
+                                    </datalist>
+                                    <br />
+                                    <label>生產用量:</label><input type="number" name='SBOMQTY' value="@Model.SBOMQTY">
+
+                                    <div class='xp-prog' id="pp_name_DisplayDIV">
+                                        <label>製程名稱:</label><label>@Model.SPP_Name</label>
+                                        <br />
+                                        <label>主生產工站:</label><input type="text" name='SApply_StationNO' list="options3" value="@Model.SApply_StationNO">
+                                        <datalist id="options3">
+                                            @foreach (string[] s in Model.HasStationNO_List)
+                                            {
+                                                if (s[1].Trim() != "")
+                                                {
+                                                    var s_tmp = $"{s[0]}";
+                                                    var s_tmp2 = $"{s[0]};{s[1]}";
+                                                    <option value='@s_tmp'>@s_tmp2</option>
+                                                }
+                                            }
+                                        </datalist>
+
+                                        <label>委外加工指定廠商:</label>
+                                        <input type="text" name='MFNO' list="options4" value="@Model.MFNO">
+                                        <datalist id="options4">
+                                            @foreach (string[] s in Model.HasMFNO_List)
+                                            {
+                                                if (s[1].Trim() != "")
+                                                {
+                                                    var s_tmp = $"{s[0]}";
+                                                    var s_tmp2 = $"{s[0]};{s[1]}";
+                                                    <option value='@s_tmp'>@s_tmp2</option>
+                                                }
+                                            }
+                                        </datalist>
+                                        @{
+                                            if (Model.SIsChackQTY == 0)
+                                            {
+                                                <input type="checkbox" name="SIsChackQTY" value="0" />
+                                            }
+                                            else
+                                            {
+                                                <input type="checkbox" name="SIsChackQTY" checked value="1" />
+                                            }
+                                        }
+                                        <label>是否生產需足工單量:</label>
+                                        @{
+                                            if (Model.SIsChackIsOK == 0)
+                                            {
+                                                <input type="checkbox" name="SIsChackIsOK" value="0" />
+                                            }
+                                            else
+                                            {
+                                                <input type="checkbox" name="SIsChackIsOK" checked value="1" />
+                                            }
+                                        }
+
+                                        <label>是否需單據完成才能關閉:</label>
+                                        <br />
+                                        <label>共用生產站:</label>
+                                        <input type='hidden' name='SStationNO_IndexSN_Merge' value="@Model.SStationNO_IndexSN_Merge">
+                                        @{
+                                            List<string> select_staion_MG = new List<string>();
+                                            if (Model.SStationNO_IndexSN_Merge !=null && Model.SStationNO_IndexSN_Merge.Trim() != "")
+                                            {
+                                                select_staion_MG.AddRange(Model.SStationNO_IndexSN_Merge.Split(','));
+                                            }
+                                            foreach (string[] s in Model.HasStationNO_List)
+                                            {
+                                                if (s[0].Trim() != "" && s[0] != _Fun.Config.OutPackStationName)
+                                                {
+                                                    var s_tmp = s[0];
+                                                    var s_tmp2 = s[0] + s[1];
+                                                    if (select_staion_MG.Contains(s[0]))
+                                                    {
+                                                        <input class="input_arg" type="checkbox" name="SI_Station" value='@s_tmp' checked>
+                                                    }
+                                                    else
+                                                    {
+                                                        <input class="input_arg" type="checkbox" name="SI_Station" value='@s_tmp'>
+                                                    }
+                                                    <label for="cbox1">@s_tmp2</label>
+                                                }
+                                            }
+                                        }
+
+                                        <br />
+                                        <label>生產工序:</label><input type="text" name='SStationNO_Custom_DisplayName' value="@Model.SStationNO_Custom_DisplayName">
+                                        <br />
+                                        <label>工站顯示備註:</label><input type="text" name='SStation_DIS_Remark' value="@Model.SStation_DIS_Remark">
+                                    </div>
+                                </div>
+                                <button type='submit' style='border: 2px blue none;' onclick="_me.onCheck_Fun_S_List();">確認</button>
+                            </figure>
+                        }
+                        break;
+                    case "3"://修改非生產件
+                        {
+                            DataRow dr_tmp = db.DB_GetFirstDataByDataRow($"select * from SoftNetMainDB.[dbo].[BOMII] where Id='{Model.BOMId}'");
+                            DataRow dr_Material = db.DB_GetFirstDataByDataRow($"select * from SoftNetMainDB.[dbo].[Material] where ServerId='{_Fun.Config.ServerId}' and PartNO='{dr_tmp["PartNO"].ToString()}'");
+                            <figure>
+                                @if (dr_Material != null)
+                                {
+                                    <figcaption> 本料號:{@dr_tmp["PartNO"].ToString()}[{s_tmp}]  品名:{@dr_Material["PartName"].ToString()}  規格:{@dr_Material["Specification"].ToString()}</figcaption>
+                                }
+                                <div class='xp-prog'>
+                                    @if (Model.Fun_S_List != null && Model.Fun_S_List != "")
+                                    {
+                                        if (Model.Fun_S_List.Substring(0, 1) == "D") { _isCkeck_Fun_S_List_D = "checked"; }
+                                        else { _isCkeck_Fun_S_List_E = "checked"; }
+                                    }
+                                    else { _isCkeck_Fun_S_List_E = "checked"; }
+                                    <input type='radio' name='Fun_S_List' value="D @Model.COMType" @_isCkeck_Fun_S_List_D /><label>刪除本階此用料</label><br />
+                                    <input type='radio' name='Fun_S_List' checked value="E @Model.COMType" @_isCkeck_Fun_S_List_E /><label>修改此用料</label><br />
+                                    <input type='hidden' name='SPP_Name' value="@Model.SPP_Name" />
+                                    <label>類型:</label><input type="text" name='SClass' list="options0" value="@Model.SClass">
+                                    <datalist id="options0">
+                                        @foreach (string[] s in Model.HasClass_List)
+                                        {
+                                            var s_tmp = $"{s[0]}";
+                                            var s_tmp2 = $"{s[0]};{s[1]}";
+                                            <option value='@s_tmp'>@s_tmp2</option>
+                                        }
+                                    </datalist>
+                                    <button type='submit' style='border: 2px blue none;' onclick="this.style.display='none';$('input[name=COMType]').val('3');">切換類型</button>
+
+                                    <br />
+                                    <label>料號:</label><input type="text" name='SPartNO' list="options1" value="@Model.SPartNO" />
+                                    <datalist id="options1">
+                                        @foreach (string item in Model.HasPartNO_List)
+                                        {
+                                            string[] s = item.Split('\x01');
+                                            if (Model.SClass == s[3])
+                                            {
+                                                var s_tmp = $"{s[0]}";
+                                                var s_tmp2 = $"{s[0]};{s[1]};{s[2]}";
+                                                <option value='@s_tmp'>@s_tmp2</option>
+                                            }
+                                        }
+                                    </datalist>
+                                    <br />
+                                    <label>品名:</label><input type="text" name='SPartName' list="options2" value="@Model.SPartName" />
+                                    <datalist id="options2">
+                                        @foreach (string item in Model.HasPartNO_List)
+                                        {
+                                            string[] s = item.Split('\x01');
+                                            if (Model.SClass == s[3])
+                                            {
+                                                var s_tmp = $"{s[1]}";
+                                                var s_tmp2 = $"{s[0]};{s[1]};{s[2]}";
+                                                <option value='@s_tmp'>@s_tmp2</option>
+                                            }
+                                        }
+                                    </datalist>
+                                    <br />
+                                    <label>生產用量:</label><input type="number" name='SBOMQTY' value="@Model.SBOMQTY">
+                                </div>
+                                <button type='submit' style='border: 2px blue none;' onclick="$('input[name=COMType]').val('4');">確認</button>
+
+                            </figure>
+                        }
+                        break;
+                    case "9":
+                        {
+                            <input type='hidden' name='SClass' value="@Model.SClass" />
+                            <input type='hidden' name='SPP_Name' value="@Model.SPP_Name" />
+                            if (ViewBag.HtmlOutputBOM != null && ViewBag.HtmlOutputBOM != "")
+                            {
+                                <div class="container1">
+                                    <div id="divSignRows">@Html.Raw(ViewBag.HtmlOutputBOM)</div>
+                                </div>
+                            }
+                        }
+                        break;
+                }
+                //db.Dispose();
+            }
+        }
+    </form>
+</div>
+
+
+
+<style>
+
+    *, *:before, *:after {
+        -webkit-box-sizing: border-box;
+        -moz-box-sizing: border-box;
+        box-sizing: border-box;
+    }
+
+    #container1 {
+        width: 250px;
+        height: 200px;
+        display: inline-block;
+        margin: 1em;
+    }
+
+    #wrapper {
+        position: relative;
+    }
+
+    .branch {
+        position: relative;
+        margin-left: 250px;
+    }
+
+        .branch:before {
+            content: "";
+            width: 50px;
+            border-top: 2px solid #eee9dc;
+            position: absolute;
+            left: -100px;
+            top: 50%;
+            margin-top: 1px;
+        }
+
+    .entry {
+        position: relative;
+        min-height: 60px;
+    }
+
+        .entry:before {
+            content: "";
+            height: 100%;
+            border-left: 2px solid #eee9dc;
+            position: absolute;
+            left: -50px;
+        }
+
+        .entry:after {
+            content: "";
+            width: 50px;
+            border-top: 2px solid #eee9dc;
+            position: absolute;
+            left: -50px;
+            top: 50%;
+            margin-top: 1px;
+        }
+
+        .entry:first-child:before {
+            width: 10px;
+            height: 50%;
+            top: 50%;
+            margin-top: 2px;
+            border-radius: 10px 0 0 0;
+        }
+
+        .entry:first-child:after {
+            height: 10px;
+            border-radius: 10px 0 0 0;
+        }
+
+        .entry:last-child:before {
+            width: 10px;
+            height: 50%;
+            border-radius: 0 0 0 10px;
+        }
+
+        .entry:last-child:after {
+            height: 10px;
+            border-top: none;
+            border-bottom: 2px solid #eee9dc;
+            border-radius: 0 0 0 10px;
+            margin-top: -9px;
+        }
+
+        .entry.sole:before {
+            display: none;
+        }
+
+        .entry.sole:after {
+            width: 50px;
+            height: 0;
+            margin-top: 1px;
+            border-radius: 0;
+        }
+
+    .label {
+        display: block;
+        min-width: 150px;
+        padding: 5px 10px;
+        line-height: 20px;
+        text-align: center;
+        border: 2px solid #eee9dc;
+        border-radius: 5px;
+        position: absolute;
+        left: 0;
+        top: 50%;
+        margin-top: -15px;
+    }
+
+    .labelRed {
+        display: block;
+        min-width: 150px;
+        padding: 5px 10px;
+        line-height: 20px;
+        text-align: center;
+        border: 2px solid red;
+        border-radius: 5px;
+        position: absolute;
+        left: 0;
+        top: 50%;
+        margin-top: -15px;
+    }
+</style>
+

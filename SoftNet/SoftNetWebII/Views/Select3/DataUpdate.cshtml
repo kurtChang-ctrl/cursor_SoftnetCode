@@ -1,0 +1,113 @@
+﻿@inject IHtmlLocalizer<SoftNetWebII.R0> R
+
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        SYS_ClickBlock = false;
+        $('#stationSETForm').hide();
+        $('#button_setST_Cancel').hide();
+        _me.init();
+        _crud.onFind2();//進階查詢dislpay=none
+        //_leftmenu.onToggleMenu();
+    });
+
+    var _me = {
+        hasStaionStatus: true,
+        hasStaionChangQTY: true,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+
+        init: function () {
+            //datatable config
+            var config = {
+                columns: [
+                    { data: '_Fun' },
+                    { data: 'StoreNO', orderable: true },
+                    { data: 'StoreName' },
+                    { data: 'StoreSpacesNO' },
+                    { data: 'PartNO', orderable: true },
+                    { data: 'PartName' },
+                    { data: 'Specification' },
+                    { data: 'Unit', orderable: true },
+                    { data: 'QTY' },
+                ],
+                columnDefs: [
+                    {
+                        targets: [0],
+                        render: function (data, type, full, meta) {
+                            return _crud.dtCrudFun(full.Id, full.Name, true, false, false);
+                        }
+                    },
+                ],
+            };
+            _crud.DbKeyName = 'Id';
+            _crud.init(config);
+        },
+
+    }; //class
+
+</script>
+
+
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "庫存各倉明細表維護" } })
+
+
+<div class="xp-prog">
+    <!-- read form-->
+    <div id="divRead">
+        <!-- condition -->
+        <form id='formRead' class='xg-form' style="margin-bottom:0;">
+            <div class="row">
+                @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "倉庫別", Fid = "StoreNO", Rows = (List<IdStrDto>)ViewBag.StoreNO, InRow = true })
+                @await Component.InvokeAsync("XgFindTbar", new XgFindTbarDto { HasReset = true, HasFind2 = true })
+            </div>
+        </form>
+        <form id='formRead2' class='xg-form xg-mb0'>
+            @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "料件編號", Fid = "PartNO", Rows = (List<IdStrDto>)ViewBag.PartNO })
+            @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "儲位", Fid = "StoreSpacesNO", Rows = (List<IdStrDto>)ViewBag.StoreSpacesNO })
+        </form>
+
+        <div class="xg-h10"></div>
+
+        <!-- result list -->
+        <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>異動</th>
+                    <th>倉庫編號</th>
+                    <th>倉庫名稱</th>
+                    <th>儲位編號</th>
+                    <th>料號</th>
+                    <th>品名</th>
+                    <th>規格</th>
+                    <th>單位</th>
+                    <th>庫存量</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- Edit -->
+    <div id="divEdit" class="xg-hide">
+        <form id='eform' class='xg-form'>
+
+            @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "Id" })
+            @await Component.InvokeAsync("XiRead", new XiReadDto { Title = "料號", Fid = "PartNO"})
+            @await Component.InvokeAsync("XiRead", new XiReadDto { Title = "品名", Fid = "PartName" })
+            @await Component.InvokeAsync("XiRead", new XiReadDto { Title = "規格", Fid = "Specification" })
+            @await Component.InvokeAsync("XiRead", new XiReadDto { Title = "倉庫編號", Fid = "StoreNO" })
+            @await Component.InvokeAsync("XiRead", new XiReadDto { Title = "倉庫名稱", Fid = "StoreName" })
+            @await Component.InvokeAsync("XiRead", new XiReadDto { Title = "儲位", Fid = "StoreSpacesNO" })
+            @await Component.InvokeAsync("XiDec", new XiDecDto { Title = "庫存數量", Fid = "QTY", Required = true })
+
+
+
+            @await Component.InvokeAsync("XgSaveBack")
+
+        </form>
+    </div>
+</div>
+

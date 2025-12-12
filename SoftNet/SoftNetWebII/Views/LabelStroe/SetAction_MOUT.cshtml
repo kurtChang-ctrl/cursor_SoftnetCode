@@ -1,0 +1,402 @@
+﻿@using System.Data
+@using Base
+
+@model StoreList
+
+@{
+    StoreList _model = ViewBag.StoreList;
+}
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+
+        $('input[type=checkbox][name=optradio_A]').change(function () {
+            if ($(this).is(':checked')) {
+                var tmp = $("#Select_ID_A").val() + this.value + ";";
+                $("input[name=Select_ID]").val(tmp);
+            }
+            else {
+                var tmp = $("#Select_ID_A").val();
+                var tmp02 = this.value + ";";
+                $("input[name=Select_ID]").val(tmp.replace(tmp02, ""));
+            }
+        });
+        $('input[type=checkbox][name=optradio_B]').change(function () {
+            if ($(this).is(':checked')) {
+                var tmp = $("#Select_ID_B").val() + this.value + ";";
+                $("input[name=Select_ID]").val(tmp);
+            }
+            else {
+                var tmp = $("#Select_ID_B").val();
+                var tmp02 = this.value + ";";
+                $("input[name=Select_ID]").val(tmp.replace(tmp02, ""));
+            }
+        });
+
+        var $li = $('ul.tab-title li');
+        $($li.eq(0).addClass('active').find('a').attr('href')).siblings('.tab-inner').hide();
+        $li.click(function () {
+            $($(this).find('a').attr('href')).show().siblings('.tab-inner').hide();
+            $(this).addClass('active').siblings('.active').removeClass('active');
+        });
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+        qqww1: function () {
+            $("input[name=Select_ID_QTY]").val('');
+            var aaa=$("#Select_ID_A").val();
+            var bbb=aaa.split(';');
+            //var ccc=$("#"+bbb[1]).val();
+            var eee="";
+            bbb.forEach(function(item) {
+                if (item!=""){
+                    var fff = item.split(',');
+                    eee = eee + $("#" + fff[0]).val() + ";";
+                }
+            });
+            $("input[name=Select_ID_QTY]").val(eee);
+        },
+        qqww2: function () {
+            $("input[name=Select_ID_QTY]").val('');
+            var aaa = $("input[name=Select_ID]").val();
+            var bbb = aaa.split(';');
+            var ccc="";
+            $.each(bbb,function(key,val){
+                if (bbb[key]!=""){
+                    ccc += $("#"+bbb[key]).val()+ ";";
+                }
+            });
+            $("input[name=Select_ID_QTY]").val(ccc);
+        },
+        qqww3: function () {
+            var tmp = "";
+            $('[name=SET_StoreSpacesNO]').each(function () {
+                tmp += $(this).val();
+            });
+            $("input[name=Select_ID]").val(tmp);
+        },
+        changSelect: function () {
+            $("input[name=ActionType]").val('S');
+        },
+    };
+
+
+
+</script>
+
+<p><a href="@Url.Action("StroeFUN", "LabelStroe", new { id = _model.StoreNO })" class="ui-btn ui-icon-back ui-btn-icon-left">回到功能選單畫面</a></p>
+<dir>
+    @if (_model != null && _model.ERRMsg != "")
+    {
+        <p><font color="red" size="6">錯誤訊息:<p><strong>@Html.Raw(_model.ERRMsg)</strong></p></font></p>
+    }
+</dir>
+<div id="tab-demo">
+    <ul class="tab-title">
+        <li><a href="#tab01">未入庫單據明細</a></li>
+        <li><a href="#tab02">倉庫存貨明細</a></li>
+        <li><a href="#tab03">定義 料件與儲位 存放位置關聯</a></li>
+        
+    </ul>
+    <div id="tab01" class="tab-inner">
+        <form method="post">
+            <input type='hidden' name='StoreNO' value="@_model.StoreNO" />
+            <input type='hidden' name='Station' value="@_model.Station" />
+            <input type='hidden' id="Select_ID_A" name='Select_ID' value="" />
+            <input type='hidden' name='Select_ID_QTY' value="" />
+            <input type='hidden' name='ActionType' value="A" />
+
+            <div id="divDataSelect">
+                <table>
+                    <tr><td colspan="2"><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none'; _me.changSelect()">送出查詢</button></td></tr>
+                    <tr><td>依泛查廠商:</td><td><input type='text' name='S_MFNO' value="@_model.S_MFNO" /></td></tr>
+                    <tr><td>依泛查工站:</td><td><input type='text' name='S_Station' value="@_model.S_Station" /></td></tr>
+                    <tr><td>依泛查料件:</td><td><input type='text' name='S_PartNO' value="@_model.S_PartNO" /></td></tr>
+                </table>
+            </div>
+
+            <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none'; _me.qqww1()">確定單據入庫</button></p>
+            <p>
+                @{
+                    if (_model != null && _model.SIDList != null && _model.SIDList.Rows.Count > 0)
+                    {
+                                <table data-role="table" data-mode="columntoggle" class="ui-responsive ui-shadow" id="DisplayDataTableA" border="1">
+                                    <thead>
+                                        <tr>
+                                            <th>選擇</th>
+                                            <th>儲位</th>
+                                            <th>單據編號</th>
+                                            <th>料件編號/品名/規格</th>
+                                            <th>數量</th>
+                                            <th>單位</th>
+                                            <th data-priority="1">需求日</th>
+                                            <th data-priority="2">備註</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                @{
+                                    using (DBADO db = new DBADO("1", _Fun.Config.Db))
+                                    {
+                                        DataRow tmp = null;
+                                        DataRow dataRow = null;
+                                        for (int i = 0; i < _model.SIDList.Rows.Count; i++)
+                                        {
+                                            dataRow = _model.SIDList.Rows[i];
+                                            <tr>
+                                                <td><input type="checkbox" name="optradio_A" value="@dataRow["Id"].ToString(),@dataRow["DOCNumberNO"].ToString()"></td>
+                                                <td>@dataRow["IN_StoreSpacesNO"].ToString()</td>
+                                                <td>
+                                                    @dataRow["DOCNumberNO"].ToString()
+                                                    @{
+                                                        tmp = db.DB_GetFirstDataByDataRow($"SELECT DOCName FROM SoftNetMainDB.[dbo].[DOCRole] where DOCNO='{dataRow["DOCNumberNO"].ToString().Substring(0, 4)}' and ServerId='{_Fun.Config.ServerId}'");
+                                                        if (tmp != null)
+                                                        {
+                                                            @tmp["DOCName"].ToString()
+                                                        }
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @dataRow["PartNO"].ToString()
+                                                    @{
+                                                        tmp = db.DB_GetFirstDataByDataRow($"SELECT PartName,Specification FROM SoftNetMainDB.[dbo].[Material] where PartNO='{dataRow["PartNO"].ToString()}'");
+                                                        if (tmp != null)
+                                                        {
+                                                            @tmp["PartName"].ToString()
+                                                            @tmp["Specification"].ToString()
+                                                        }
+                                                    }
+                                                </td>
+                                                <td><input type='text' class='form-control' id='@dataRow["Id"].ToString()' value="@dataRow["QTY"].ToString()" /></td>
+                                                <td>@dataRow["Unit"].ToString()</td>
+                                                @{
+                                                    if (!dataRow.IsNull("ArrivalDate"))
+                                                    {
+                                                        <td>
+                                                            @Convert.ToDateTime(dataRow["ArrivalDate"]).ToString("MM-dd HH:mm")
+                                                        </td>
+                                                    }
+                                                    else
+                                                    {
+                                                        <td></td>
+                                                    }
+                                                }
+                                                <td>@dataRow["Remark"].ToString()</td>
+                                            </tr>
+                                        }
+                                    }
+                                }
+                                    </tbody>
+                                </table>
+
+                    }
+                    else
+                    {
+                                <label>目前沒有計畫性入庫明細</label>
+                    }
+                }
+            </p>
+        </form>
+    </div>
+    <div id="tab02" class="tab-inner">
+        <form method="post">
+            <input type='hidden' name='StoreNO' value="@_model.StoreNO" />
+            <input type='hidden' name='Station' value="@_model.Station" />
+            <input type='hidden' id="Select_ID_B" name='Select_ID' value="" />
+            <input type='hidden' name='Select_ID_QTY' value="" />
+            <input type='hidden' name='ActionType' value="B" />
+            <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none'; _me.qqww2()">確定人工入庫</button></p>
+            <p>
+                @{
+                    if (_model != null && _model.TotalStock_List != null && _model.TotalStock_List.Rows.Count > 0)
+                    {
+                                <table data-role="table" data-mode="columntoggle" class="ui-responsive ui-shadow" id="DisplayDataTable_B" border="1">
+                                    <thead>
+                                        <tr>
+                                            <th>選擇</th>
+                                            <th>儲位</th>
+                                            <th>料件編號/品名/規格</th>
+                                    <th>入庫數量</th>
+                                            <th>目前存量</th>
+                                            <th>單位</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @{
+                                    using (DBADO db = new DBADO("1", _Fun.Config.Db))
+                                    {
+                                        DataRow tmp = null;
+                                        DataRow dataRow = null;
+                                        string unit = "";
+                                        for (int i = 0; i < _model.TotalStock_List.Rows.Count; i++)
+                                        {
+                                            dataRow = _model.TotalStock_List.Rows[i];
+                                                            <tr>
+                                                                <td><input type="checkbox" name="optradio_B" value="@dataRow["Id"].ToString()"></td>
+                                                                <td>@dataRow["StoreSpacesNO"].ToString()</td>
+                                                                <td>
+                                                                    @dataRow["PartNO"].ToString()
+                                                                    @{
+                                                        tmp = db.DB_GetFirstDataByDataRow($"SELECT PartName,Specification,Unit FROM SoftNetMainDB.[dbo].[Material] where PartNO='{dataRow["PartNO"].ToString()}'");
+                                                        if (tmp != null)
+                                                        {
+                                                            unit = tmp["Unit"].ToString();
+                                                                                    @tmp["PartName"].ToString()
+                                                                                    @tmp["Specification"].ToString()
+                                                        }
+                                                                    }
+                                                                </td>
+                                                                <td><input type='text' class='form-control' id='@dataRow["Id"].ToString()' value="" /></td>
+                                                                <td>@dataRow["QTY"].ToString()</td>
+                                                                <td>@unit</td>
+                                                            </tr>
+                                        }
+                                    }
+                                        }
+                                    </tbody>
+                                </table>
+
+                    }
+                    else
+                    {
+                                <label>目前倉庫無存貨明細資料</label>
+                    }
+                }
+            </p>
+        </form>
+    </div>
+    <div id="tab03" class="tab-inner">
+        <form method="post">
+            <input type='hidden' name='StoreNO' value="@_model.StoreNO" />
+            <input type='hidden' name='Station' value="@_model.Station" />
+            <input type='hidden' id="Select_ID_C" name='Select_ID' value="" />
+            <input type='hidden' name='Select_ID_QTY' value="" />
+            <input type='hidden' name='ActionType' value="C" />
+            <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none'; _me.qqww3()">確定 料件與儲位的存放位置</button></p>
+            <p>
+                @{
+                    if (_model != null && _model.TotalStock_List != null && _model.TotalStock_List.Rows.Count > 0 && _model.StoreSpacesNO_List != null && _model.StoreSpacesNO_List.Count > 0)
+                    {
+                                <table data-role="table" data-mode="columntoggle" class="ui-responsive ui-shadow" id="DisplayDataTable_C" border="1">
+                                    <thead>
+                                        <tr>
+                                            <th>KId</th>
+                                            <th>儲位</th>
+                                            <th>料件編號/品名/規格</th>
+                                            <th>目前存量</th>
+                                            <th>單位</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @{
+                                    using (DBADO db = new DBADO("1", _Fun.Config.Db))
+                                    {
+                                        DataRow tmp = null;
+                                        DataRow dataRow = null;
+                                        string unit = "";
+                                        for (int i = 0; i < _model.TotalStock_List.Rows.Count; i++)
+                                        {
+                                            dataRow = _model.TotalStock_List.Rows[i];
+                                            <tr>
+                                                <td>@dataRow["Id"].ToString()</td>
+                                                <td>
+                                                    <select id='@dataRow["Id"].ToString()' name='SET_StoreSpacesNO'>
+                                                        @if (dataRow["StoreSpacesNO"].ToString()!="")
+                                                        {
+                                                            <option value='@dataRow["Id"].ToString(),@dataRow["StoreSpacesNO"].ToString();'>@dataRow["StoreSpacesNO"].ToString()</option>
+                                                        }
+                                                        <option value='@dataRow["Id"].ToString(),;'></option>
+                                                        @foreach (string s in _model.StoreSpacesNO_List)
+                                                        {
+                                                            <option value='@dataRow["Id"].ToString(),@s;'>@s</option>
+                                                        }
+                                                    </select>
+                                                </td>
+                                                <td>
+                                                    @dataRow["PartNO"].ToString()
+                                                    @{
+                                                        tmp = db.DB_GetFirstDataByDataRow($"SELECT PartName,Specification,Unit FROM SoftNetMainDB.[dbo].[Material] where PartNO='{dataRow["PartNO"].ToString()}'");
+                                                        if (tmp != null)
+                                                        {
+                                                            unit = tmp["Unit"].ToString();
+                                                            @tmp["PartName"].ToString()
+                                                            @tmp["Specification"].ToString()
+                                                        }
+                                                    }
+                                                </td>
+                                                <td>@dataRow["QTY"].ToString()</td>
+                                                <td>@unit</td>
+                                            </tr>
+                                        }
+                                    }
+                                        }
+                                    </tbody>
+                                </table>
+                    }
+                    else
+                    {
+                                <label>目前倉庫與儲位設定明細資料</label>
+                    }
+                }
+            </p>
+        </form>
+    </div>
+</div>
+
+
+
+
+<style>
+    #tab-demo {
+        width: 100%;
+    }
+
+        #tab-demo > ul {
+            display: block;
+            margin: 0;
+            list-style: none;
+        }
+
+    .tab-title {
+        list-style: none;
+    }
+
+    #tab-demo > ul > li {
+        display: inline-block;
+        vertical-align: top;
+        font-family: '微軟正黑體';
+        margin: 0 -1px -1px 0;
+        border: 1px solid #BCBCBC;
+        height: 25px;
+        line-height: 25px;
+        background: #cdcdcd;
+        padding: 0 15px;
+        list-style: none;
+        box-sizing: border-box;
+    }
+
+        #tab-demo > ul > li a {
+            color: #000;
+            text-decoration: none;
+        }
+
+        #tab-demo > ul > li.active {
+            border-bottom: 1px solid #fff;
+            background: #fff;
+        }
+
+    #tab-demo > .tab-inner {
+        clear: both;
+        color: #000;
+        border: 1px #BCBCBC solid;
+    }
+
+    .tab-inner {
+        padding: 15px;
+    }
+</style>

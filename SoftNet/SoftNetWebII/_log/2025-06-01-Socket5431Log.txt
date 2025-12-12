@@ -1,0 +1,4 @@
+19:55:26(0); S Type=1 Data=IIS_Login,SoftNet_I,
+20:31:34(0); S Type=1 Data=IIS_Login,SoftNet_I,
+20:34:23(0); S Type=1 Data=IIS_Login,SoftNet_I,
+22:28:38(0); S Type=1 Data=IIS_Login,SoftNet_I,

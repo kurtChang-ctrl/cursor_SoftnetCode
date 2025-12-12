@@ -1,0 +1,137 @@
+﻿@using Base.Models
+@using BaseWeb.Models
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+        _me.init();
+    });
+
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+
+        aass: location.href,
+        init: function () {
+            //datatable config  DOCRole
+            var config = {
+                columns: [
+                    { data: '_Fun' },
+                    { data: 'StationNO',  },
+                    { data: 'StandardTime', },
+                    { data: 'SIDTime', },
+                    { data: 'aaa', },
+                    { data: 'bbb', },
+                    { data: 'B1Time', },
+                    { data: 'T1Time', },
+                    { data: 'B2Time', },
+                    { data: 'T2Time', },
+                    { data: 'B3Time', },
+                    { data: 'T3Time', },
+                    { data: 'B4Time', },
+                    { data: 'T4Time', },
+                    { data: 'B5Time', },
+                    { data: 'T5Time', },
+                    { data: 'B6Time', },
+                    { data: 'T6Time', },
+                ],
+                columnDefs: [
+                    {
+                        targets: [0], render: function (data, type, full, meta) {
+                            return _me.dtCrudFun(full.StationNO, full.Name, false, false, true);
+                        }
+                    },
+                ],
+            };
+
+            //init crud
+            _crud.DbKeyName = 'StationNO';
+            _crud.init(config);
+        },
+        dtCrudFun: function (key, rowName, hasUpdate, hasDelete, hasView,
+            fnOnUpdate, fnOnDelete, fnOnView) {
+            var funs = '';
+            if (hasUpdate)
+                funs += _str.format('<button type="button" class="btn btn-link" onclick="{0}(\'{1}\')"><i class="ico-pen" title="{2}"></i></button>', ((fnOnUpdate == null) ? '_crud.onUpdate' : fnOnUpdate), key, _BR.TipUpdate);
+            if (hasDelete)
+                funs += _str.format('<button type="button" class="btn btn-link" onclick="_crud.onDelete(\'{1}\',\'{2}\')"><i class="ico-delete" title="{3}"></i></button>', ((fnOnDelete == null) ? '_crud.onDelete' : fnOnDelete), key, rowName, _BR.TipDelete);
+            if (hasView)
+                funs += _str.format('<button type="button" class="btn btn-link" onclick="_me.onView(\'{0}\')"><i class="ico-eye" title="{2}"></i></button>', key, _BR.TipView);
+            return funs;
+        },
+        onView: function (key) {
+            var fun = 'GetViewJson';
+            _ajax.getStr('ShowStation1WeekDetail_3', { key: key }, function (data) {
+                _me.toEditMode(fun, data);
+            });
+        },
+        toEditMode: function (fun, data) {
+            _crud.swap(false);  //call first
+            _prog.setPath(fun, _me.updName);
+            //_crud.loadJson(data);   //load first
+            _crud.setEditStatus(fun);
+            //_crud._afterOpenEdit(fun, data);
+
+            document.getElementById("editDisplay").innerHTML = data;
+        },
+    }; //class
+</script>
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "以工站角度看效益(1週)查詢" } })
+<div class="xp-prog">
+    <div id="divRead">
+        <form id='formRead' class='xg-form'>
+            <div class="row">
+                @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "工站編號", Fid = "StationNO", Rows = (List<IdStrDto>)ViewBag.StationNOData, InRow = true })
+                @await Component.InvokeAsync("XgFindTbar", new XgFindTbarDto { HasReset = true, HasFind2 = false })
+            </div>
+        </form>
+        <dir style="background-color:#ABBAEA;">
+            標準工時=一週行事曆工作時數總和 &nbsp;&nbsp;&nbsp;&nbsp; 實際稼動公式=一週實際工作時數總和/一週行事曆工作時數總和<br />
+            生產能量公式=一週有效平均CycleTime(排除乖離值)/一週實際平均CycleTime<strong>(值越大越好)</strong><br />可提升率公式=一週最佳平均CycleTime(最大產能)/一週實際平均CycleTime<strong>(值越小越好)</strong>
+        </dir>
+        <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>明細</th>
+                    <th>工站</th>
+                    <th>標準工時</th>
+                    <th>實際稼動</th>
+                    <th>生產能量</th>
+                    <th>可提升率</th>
+                    <th>實際前6天</th>
+                    <th>稼動前6天</th>
+                    <th>實際前5天</th>
+                    <th>稼動前5天</th>
+                    <th>實際前4天</th>
+                    <th>稼動前4天</th>
+                    <th>實際前3天</th>
+                    <th>稼動前3天</th>
+                    <th>實際前2天</th>
+                    <th>稼動前2天</th>
+                    <th>實際前1天</th>
+                    <th>稼動前1天</th>
+
+
+
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div id="divEdit" class="xg-hide">
+        <form id='eform' class='xg-form' style='margin-bottom:0;'>
+
+            <div id="editDisplay"></div>
+            
+        </form>
+
+        @await Component.InvokeAsync("XgBack")
+    </div>
+</div>
+

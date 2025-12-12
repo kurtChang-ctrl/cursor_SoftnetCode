@@ -1,0 +1,87 @@
+﻿@model LabelDOC3stockII
+@{
+    string disUserName = "畫面逾時";
+    if (_Fun.GetBaseUser() != null) { disUserName = _Fun.GetBaseUser().UserName; }
+}
+
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+        $("title").text("@Html.Raw(disUserName)");
+        _leftmenu.onToggleMenu();
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+        onSetST: function () {
+            //var data = @ViewBag.StoreID + "領料_Alex,甲1";
+            var data = "a1;領料_00003,甲1";
+            _ajax.getStr('Index', { id: data }, function (error) {
+                //if (!_str.isEmpty(error)) { _tool.msg(error); }
+
+            });
+        },
+    }; //class
+
+
+
+</script>
+
+@{
+    List <string[]> MutiData = ViewBag.MutiData;
+    if (ViewBag.ERRMsg != "")
+    {
+        <p>錯誤訊息:@ViewBag.ERRMsg</p>
+    }
+    string retuenURL = ViewBag.RetuenId;
+    if (retuenURL != null && retuenURL!="")
+    {
+        <p><a href="@Url.Action("Index", "LabelStroe", new { id = retuenURL })" class="ui-btn ui-icon-back ui-btn-icon-left">重新再次嘗試</a></p>
+    }
+    if (MutiData != null && MutiData.Count > 1)
+    {
+        <table id='tableMutiData' class='table table-bordered xg-table' cellspacing='0'>
+            <thead><tr><th>選擇</th><th>類型</th><th>工站編號</th></tr></thead>
+            <tbody>
+                @foreach (string[] s in MutiData)
+                {
+                    <tr><td>
+                            <input type="radio" id="woList" value="@s[0],@s[1]">
+                        </td>
+                        <td>@s[0]</td><td>@s[1]</td></tr>
+                }
+            </tbody></table>
+        <button id='button_setST' type='button' class='btn xg-btn' onclick='_me.onSetST()'>確定</button>
+    }
+    else
+    {
+        /*
+        if (Model != null && Model.Count > 1)
+        {
+            <div id="tableSetStore_Data">
+                <form action=@Url.Action("SetStoreChange") method="post">
+                    <div class="box">
+                                <table id='tableRead' class='table table-bordered xg-table' cellspacing='0'>
+                                    <thead><tr><th>選擇</th><th>料號</th><th>數量</th><th>單位</th><th>儲位</th></tr></thead>
+                                    <tbody>
+                                @foreach(LabelDOC3stockII s in Model)
+                                {
+                                    <tr><td>
+                                         <input type="checkbox" id="lists" onchange="_me.radioChange('@s[0];@s[3]')">
+                                    </td>
+                                    <td>@s[0]</td><td>@s[1]</td><td>@s[2]</td><td>@s[3]</td</tr>
+                                }
+                                </tbody></table>
+                        <p><button type='submit' class='btn btn-primary btn-sm btn-margin' onclick="this.style.display='none'">異動確定</button></p>
+                    </div>
+                </form>
+            </div>
+        }
+        */
+    }
+}

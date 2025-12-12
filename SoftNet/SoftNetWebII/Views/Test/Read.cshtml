@@ -1,0 +1,158 @@
+﻿<script src="~/js/lib/chart-3.6.2.js"></script>
+
+<div class="container">
+    <div class="row">
+        <div class="row">
+            <div class="col-md-6">
+                <canvas id="myChart1"></canvas>
+            </div>
+            <div class="col-md-6">
+                <canvas id="myChart2"></canvas>
+            </div>
+            <div class="col-md-6">
+                <canvas id="myChart3"></canvas>
+            </div>
+            <div class="col-md-6">
+                <canvas id="myChart4"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+        $(function () {
+        IS_SYS_Clock = false;
+    });
+    var ctx = document.getElementById("myChart1");
+    var dis_labels = ['1月', '2月', '3月', '4月', '5月', '6月'];
+    var dis_datas={
+        labels: dis_labels,// 设置 X 轴上对应的标签
+        datasets: [{
+            label: "溫度",
+            data: [16, 15, 18, 21, 25, 27],
+            fill: false,
+            backgroundColor: 'rgba(255,165,0,0,3)',
+            borderColor: 'rgb(255,165,0)',// 设置线的颜色
+            pointStyle: 'rectRounded',
+            pointBackgroundColor: 'rgb(0,255,0)',
+            pointRadius: 5,
+            pointHoverRadius: 10,
+            borderWidth: 3
+        }]
+    };
+    var config = {
+        type: 'line', // 设置图表类型
+        data: dis_datas,
+        options: {
+            responsive: true,
+            /*
+            title: {
+            display: true,
+            fontSize: 26,
+            text: '1-6月Tag值'
+            },
+            tooltips: {
+            mode:'point,
+            Intersect:true,
+            },
+            legend: {
+            position:'bottom',
+            labels: {
+                fontColor:'black',
+            }
+            }
+            */
+        },
+    };
+    var myChart = new Chart(ctx, config);
+
+
+
+
+    var ctx2 = document.getElementById("myChart2");
+    var chart2 = new Chart(ctx2, {
+        type: 'bar',
+        data: {
+            labels: ['1月', '2月', '3月', '4月', '5月', '6月'],
+            datasets: [{
+                label: "濕度",
+                data: [16, 15, 18, 21, 25, 27],
+                fill: false,
+                backgroundColor: [
+                    'rgba(255,99,132,0,2)',
+                    'rgba(54,165,0,0,3)',
+                    'rgba(255,165,0,0,3)',
+                    'rgba(75,165,0,0,3)',
+                    'rgba(153,165,0,0,3)',
+                    'rgba(255,150,64,0,2)'
+                ],
+                borderColor: [
+                    'rgba(255,99,132,1)',
+                    'rgba(54,165,1)',
+                    'rgba(255,165,1)',
+                    'rgba(75,165,1)',
+                    'rgba(153,165,1)',
+                    'rgba(255,150,1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            scales: {
+                yAxes: [{
+                    ticks: {
+                        beginAtZero:true
+                    }
+                }]
+            }
+        }
+    });
+    var ctx3 = document.getElementById("myChart3");
+    var chart3 = new Chart(ctx3, {
+        type: 'radar',
+        data: {
+            labels: ['1月', '2月', '3月', '4月', '5月', '6月'],
+            datasets: [{
+                label: "測試資訊",
+                data: [16, 15, 18, 21, 25, 27],
+                fill: false,
+                backgroundColor: 'rgba(255,165,0,0,3)',
+                borderColor: 'rgb(0,0,0)',
+                pointStyle: 'circle',
+                pointBackgroundColor: 'rgb(0,255,0)',
+                pointRadius: 5,
+                pointHoverRadius: 10,
+            }]
+        },
+    });
+    var ctx4 = document.getElementById("myChart4");
+    var chart4 = new Chart(ctx4, {
+        type: 'pie',
+        data: {
+            labels: ['1月', '2月', '3月', '4月', '5月', '6月'],
+            datasets: [{
+                label: "濕度",
+                data: [16, 15, 18, 21, 25, 27],
+                fill: false,
+                backgroundColor: [
+                    'rgba(255,99,132,0,2)',
+                    'rgba(54,165,0,0,3)',
+                    'rgba(255,165,0,0,3)',
+                    'rgba(75,165,0,0,3)',
+                    'rgba(153,165,0,0,3)',
+                    'rgba(255,150,64,0,2)'
+                ],
+                 borderColor: [
+                    'rgba(255,99,132,1)',
+                    'rgba(54,165,1)',
+                    'rgba(255,165,1)',
+                    'rgba(75,165,1)',
+                    'rgba(153,165,1)',
+                    'rgba(255,150,1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+    });
+
+</script>

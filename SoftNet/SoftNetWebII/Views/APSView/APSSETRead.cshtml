@@ -1,0 +1,105 @@
+﻿@*
+    For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+*@
+@{
+}
+
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+        _me.hideall();
+    });
+
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus:false,
+        STView2Work_PageReload:false,
+        hasStaionChangQTY: false,
+        onChangeDIV: function (type) {
+            _me.hideall();
+            switch (type) {
+                case "1":
+                    $('#formRead_right_1').show();
+                    break;
+                case "2":
+                    $('#formRead_right_2').show();
+                    break;
+                case "3":
+                    $('#formRead_right_3').show();
+                    break;
+                case "4":
+                    $('#formRead_right_4').show();
+                    break;
+                case "5":
+                    $('#formRead_right_5').show();
+                    break;
+            }
+        },
+        hideall:function () {
+            $('#formRead_right_1').hide();
+            $('#formRead_right_2').hide();
+            $('#formRead_right_3').hide();
+            $('#formRead_right_4').hide();
+            $('#formRead_right_5').hide();
+        },
+    }; //class
+
+</script>
+
+
+
+
+                <div class="box">                <h1>選擇設定項目</h1>            </div>
+
+
+
+<form id='formRead' class='xg-form'>
+    <div id="formRead_left" style="float: left; width: 200px; overflow: hidden;">
+
+    &nbsp;&nbsp;&nbsp;&nbsp;<button id='button_setSTStatus1' type='button' class='btn xg-btn' onclick='_me.onChangeDIV("1")'>共用製程設定</button><p><p>
+    &nbsp;&nbsp;&nbsp;&nbsp;<button id='button_setSTStatus1' type='button' class='btn xg-btn' onclick='_me.onChangeDIV("2")'>工站負荷設定</button><p><p>
+    &nbsp;&nbsp;&nbsp;&nbsp;<button id='button_setSTStatus1' type='button' class='btn xg-btn' onclick='_me.onChangeDIV("3")'>工站優先權設定</button><p><p>
+    &nbsp;&nbsp;&nbsp;&nbsp;<button id='button_setSTStatus1' type='button' class='btn xg-btn' onclick='_me.onChangeDIV("4")'>排程效益設定</button><p><p>
+    &nbsp;&nbsp;&nbsp;&nbsp;<button id='button_setSTStatus1' type='button' class='btn xg-btn' onclick='_me.onChangeDIV("5")'>庫別優先權設定</button><p><p>
+    </div>
+
+    <div id="formRead_right_1" style="margin-left: 400px;">
+          
+    </div>
+
+
+    <div id="formRead_right_2" style="margin-left: 400px;">
+          
+    </div>
+
+
+    <div id="formRead_right_3" style="margin-left: 400px;">
+          
+    </div>
+
+
+    <div id="formRead_right_4" style="margin-left: 400px;">
+
+        <fieldset>
+        <legend>=====排程效益設定=====</legend>
+        <div>
+          <input type="radio" id="huey" name="drone" value="1" checked>
+          <label>以產能最佳化</label>
+        </div>
+        <div>
+          <input type="radio" id="dewey" name="drone" value="2">
+          <label>以交期最佳化</label>
+        </div>
+        </fieldset>
+    </div>
+
+
+    <div id="formRead_right_5" style="margin-left: 400px;">
+          
+    </div>
+</form>
+
+

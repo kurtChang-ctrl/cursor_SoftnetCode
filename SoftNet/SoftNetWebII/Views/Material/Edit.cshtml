@@ -1,0 +1,23 @@
+﻿@inject IHtmlLocalizer<SoftNetWebII.R0> R0
+
+<form id='eform' class='xg-form'>
+	@await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "ServerId"})
+	@await Component.InvokeAsync("XiText", new XiTextDto { Title = "[主欄位]料號", Fid = "PartNO", MaxLen = 50 , Required = true })
+	@await Component.InvokeAsync("XiText", new XiTextDto{ Title = "品名", Fid = "PartName", MaxLen = 255 , Required = true})
+	@await Component.InvokeAsync("XiText", new XiTextDto{ Title = "規格", Fid = "Specification", MaxLen = 255 })
+	@await Component.InvokeAsync("XiText", new XiTextDto{ Title = "機種", Fid = "Model", MaxLen = 255 })
+	@await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "類型", Fid = "Class", Rows = (List<IdStrDto>)ViewBag.Class, Required = true })
+	@await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "料件定義", Fid = "PartType", Rows = (List<IdStrDto>)ViewBag.PartType, Required = true })
+	@await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "單位", Fid = "Unit", Rows = (List<IdStrDto>)ViewBag.Unit, Required = true })
+	@await Component.InvokeAsync("XiInt", new XiIntDto {  Title = "安全量", Fid = "SafeQTY", Required = true })
+	@await Component.InvokeAsync("XiInt", new XiIntDto {  Title = "備料標準工時", Fid = "StoreSTime" })
+	@await Component.InvokeAsync("XiCheck", new XiCheckDto { Title = "是否入倉檢驗", Fid = "IS_Store_Test", Label = R0["Yes"].Value })
+	@await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "指定供應商", Fid = "APS_Default_MFNO", Rows = (List<IdStrDto>)ViewBag.APS_Default_MFNO })
+	@await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "指定存放倉庫", Fid = "APS_Default_StoreNO", Rows = (List<IdStrDto>)ViewBag.APS_Default_StoreNO, Required = true })
+	@await Component.InvokeAsync("XiInt", new XiIntDto { Title = "指定期限天數", Fid = "Use_LimitDay" })
+	@await Component.InvokeAsync("XiInt", new XiIntDto { Title = "指定最大使用時數", Fid = "Use_ONLineTime" })
+	@await Component.InvokeAsync("XiInt", new XiIntDto { Title = "指定最大使用次數", Fid = "Use_Count" })
+</form>
+
+@await Component.InvokeAsync("XgSaveBack")
+

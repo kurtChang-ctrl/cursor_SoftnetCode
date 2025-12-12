@@ -1,0 +1,15 @@
+D:\書_sampleCode\Base\BaseApi\bin\Debug\net5.0\BaseApi.deps.json
+D:\書_sampleCode\Base\BaseApi\bin\Debug\net5.0\BaseApi.dll
+D:\書_sampleCode\Base\BaseApi\bin\Debug\net5.0\ref\BaseApi.dll
+D:\書_sampleCode\Base\BaseApi\bin\Debug\net5.0\BaseApi.pdb
+D:\書_sampleCode\Base\BaseApi\bin\Debug\net5.0\Base.dll
+D:\書_sampleCode\Base\BaseApi\bin\Debug\net5.0\Base.pdb
+D:\書_sampleCode\Base\BaseApi\obj\Debug\net5.0\BaseApi.csproj.AssemblyReference.cache
+D:\書_sampleCode\Base\BaseApi\obj\Debug\net5.0\BaseApi.GeneratedMSBuildEditorConfig.editorconfig
+D:\書_sampleCode\Base\BaseApi\obj\Debug\net5.0\BaseApi.AssemblyInfoInputs.cache
+D:\書_sampleCode\Base\BaseApi\obj\Debug\net5.0\BaseApi.AssemblyInfo.cs
+D:\書_sampleCode\Base\BaseApi\obj\Debug\net5.0\BaseApi.csproj.CoreCompileInputs.cache
+D:\書_sampleCode\Base\BaseApi\obj\Debug\net5.0\BaseApi.csproj.CopyComplete
+D:\書_sampleCode\Base\BaseApi\obj\Debug\net5.0\BaseApi.dll
+D:\書_sampleCode\Base\BaseApi\obj\Debug\net5.0\ref\BaseApi.dll
+D:\書_sampleCode\Base\BaseApi\obj\Debug\net5.0\BaseApi.pdb

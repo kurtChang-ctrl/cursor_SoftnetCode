@@ -1,0 +1,121 @@
+﻿@using Base.Models
+@using BaseWeb.Models
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+        _me.init();
+    });
+
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+
+        aass: location.href,
+        init: function () {
+            //datatable config  DOCRole
+            var config = {
+                columns: [
+                    { data: '_Fun' },
+                    { data: 'StationNO', orderable: true },
+                    { data: '_A', },
+                    { data: '_B', },
+                    { data: '_C', },
+                    { data: '_D', },
+                    { data: '_E', },
+                    { data: '_F', },
+                    { data: '_G', },
+                    { data: '_H', },
+                    { data: 'B8Time', },
+                ],
+                columnDefs: [
+                    {
+                        targets: [0], render: function (data, type, full, meta) {
+                            return _me.dtCrudFun(full.StationNO, full.Name, false, false, true);
+                        }
+                    },
+                ],
+            };
+
+            //init crud
+            _crud.DbKeyName = 'StationNO';
+            _crud.init(config);
+        },
+        dtCrudFun: function (key, rowName, hasUpdate, hasDelete, hasView,
+            fnOnUpdate, fnOnDelete, fnOnView) {
+            var funs = '';
+            if (hasUpdate)
+                funs += _str.format('<button type="button" class="btn btn-link" onclick="{0}(\'{1}\')"><i class="ico-pen" title="{2}"></i></button>', ((fnOnUpdate == null) ? '_crud.onUpdate' : fnOnUpdate), key, _BR.TipUpdate);
+            if (hasDelete)
+                funs += _str.format('<button type="button" class="btn btn-link" onclick="_crud.onDelete(\'{1}\',\'{2}\')"><i class="ico-delete" title="{3}"></i></button>', ((fnOnDelete == null) ? '_crud.onDelete' : fnOnDelete), key, rowName, _BR.TipDelete);
+            if (hasView)
+                funs += _str.format('<button type="button" class="btn btn-link" onclick="_me.onView(\'{0}\')"><i class="ico-eye" title="{2}"></i></button>', key, _BR.TipView);
+            return funs;
+        },
+        onView: function (key) {
+            var fun = 'GetViewJson';
+            _ajax.getStr('ShowStation1WeekDetail', { key: key }, function (data) {
+                _me.toEditMode(fun, data);
+            });
+        },
+        toEditMode: function (fun, data) {
+            _crud.swap(false);  //call first
+            _prog.setPath(fun, _me.updName);
+            //_crud.loadJson(data);   //load first
+            _crud.setEditStatus(fun);
+            //_crud._afterOpenEdit(fun, data);
+
+            document.getElementById("editDisplay").innerHTML = data;
+        },
+    }; //class
+</script>
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "以工站角度看瓶頸查詢" } })
+<div class="xp-prog">
+    <div id="divRead">
+        <form id='formRead' class='xg-form'>
+            <div class="row">
+                @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "工站編號", Fid = "StationNO", Rows = (List<IdStrDto>)ViewBag.StationNOData, InRow = true })
+                @await Component.InvokeAsync("XgFindTbar", new XgFindTbarDto { HasReset = true, HasFind2 = false })
+            </div>
+        </form>
+
+        <div class='xg-btns-box' style="background-color:#ABBAEA;">
+            備料瓶頸=領料時程延誤率 &nbsp;&nbsp;&nbsp;&nbsp; 移轉瓶頸=前一工站與下一工站移轉延誤率 <br />
+            異常比率=工單生產行為出現的異常比率 &nbsp;&nbsp;&nbsp;&nbsp; 生產瓶頸=實際CT與有效CT與備料瓶頸與移轉瓶頸之間的關析&nbsp;(良好,正常,注意,警告,嚴重)
+        </div>
+        <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>明細</th>
+                    <th>工站</th>
+                    <th>備料瓶頸</th>
+                    <th>移轉瓶頸</th>
+                    <th>異常比率</th>
+                    <th>產量可提升率</th>
+                    <th>生產平均CT</th>
+                    <th>生產有效CT</th>
+                    <th>生產目標CT</th>
+                    <th>生產最佳化CT</th>
+                    <th>生產瓶頸</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div id="divEdit" class="xg-hide">
+        <form id='eform' class='xg-form' style='margin-bottom:0;'>
+
+            <div id="editDisplay"></div>
+            
+        </form>
+
+        @await Component.InvokeAsync("XgSaveBack")
+    </div>
+</div>
+

@@ -1,0 +1,18 @@
+09:45:45(0); RUNTimeServer.cs DeviceConnectCheck_Tick Exception停止Thread: An exception occurred during a Ping request.    at System.Net.NetworkInformation.Ping.Send(IPAddress address, Int32 timeout, Byte[] buffer, PingOptions options)
+   at System.Net.NetworkInformation.Ping.Send(String hostNameOrAddress, Int32 timeout, Byte[] buffer, PingOptions options)
+   at System.Net.NetworkInformation.Ping.Send(String hostNameOrAddress, Int32 timeout)
+   at SoftNetWebII.Services.RUNTimeServer.Check_ElectronicTagsServer_Tick() in C:\04_SoftNet\SoftNet\SoftNetWebII\Services\RUNTimeServer.cs:line 89
+09:45:45(0); SNWebSocketService.cs Mail_Send Exception: Failure sending mail.    at System.Net.Mail.SmtpClient.Send(MailMessage message)
+   at Base.Services._Fun.Mail_Send(String[] MailTos, String[] Ccs, String MailSub, String MailBody, String[] filePaths, Boolean deleteFileAttachment) in C:\04_SoftNet\SoftNet\Base\Base\Services\_Fun.cs:line 251
+09:52:21(0); RUNTimeServer.cs DeviceConnectCheck_Tick Exception停止Thread: An exception occurred during a Ping request.    at System.Net.NetworkInformation.Ping.Send(IPAddress address, Int32 timeout, Byte[] buffer, PingOptions options)
+   at System.Net.NetworkInformation.Ping.Send(String hostNameOrAddress, Int32 timeout, Byte[] buffer, PingOptions options)
+   at System.Net.NetworkInformation.Ping.Send(String hostNameOrAddress, Int32 timeout)
+   at SoftNetWebII.Services.RUNTimeServer.Check_ElectronicTagsServer_Tick() in C:\04_SoftNet\SoftNet\SoftNetWebII\Services\RUNTimeServer.cs:line 89
+09:52:21(0); SNWebSocketService.cs Mail_Send Exception: Failure sending mail.    at System.Net.Mail.SmtpClient.Send(MailMessage message)
+   at Base.Services._Fun.Mail_Send(String[] MailTos, String[] Ccs, String MailSub, String MailBody, String[] filePaths, Boolean deleteFileAttachment) in C:\04_SoftNet\SoftNet\Base\Base\Services\_Fun.cs:line 251
+10:16:13(0); RUNTimeServer.cs DeviceConnectCheck_Tick Exception停止Thread: An exception occurred during a Ping request.    at System.Net.NetworkInformation.Ping.Send(IPAddress address, Int32 timeout, Byte[] buffer, PingOptions options)
+   at System.Net.NetworkInformation.Ping.Send(String hostNameOrAddress, Int32 timeout, Byte[] buffer, PingOptions options)
+   at System.Net.NetworkInformation.Ping.Send(String hostNameOrAddress, Int32 timeout)
+   at SoftNetWebII.Services.RUNTimeServer.Check_ElectronicTagsServer_Tick() in C:\04_SoftNet\SoftNet\SoftNetWebII\Services\RUNTimeServer.cs:line 89
+10:16:13(0); SNWebSocketService.cs Mail_Send Exception: Failure sending mail.    at System.Net.Mail.SmtpClient.Send(MailMessage message)
+   at Base.Services._Fun.Mail_Send(String[] MailTos, String[] Ccs, String MailSub, String MailBody, String[] filePaths, Boolean deleteFileAttachment) in C:\04_SoftNet\SoftNet\Base\Base\Services\_Fun.cs:line 251

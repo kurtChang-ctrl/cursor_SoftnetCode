@@ -1,0 +1,20 @@
+﻿@{
+    string disUserName = "畫面逾時";
+    if (_Fun.GetBaseUser() != null) { disUserName = _Fun.GetBaseUser().UserName; }
+}
+
+<script type="text/javascript">
+    $(function () {
+        $("title").text("@Html.Raw(disUserName)");;
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+
+    }; //class
+</script>
+<dir>
+    <p><font color="red" size="6">錯誤訊息:<p><strong>@ViewBag.ERRMsg</strong></p></font></p>
+</dir>

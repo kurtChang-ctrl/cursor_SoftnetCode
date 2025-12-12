@@ -1,0 +1,119 @@
+﻿
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        SYS_ClickBlock = false;
+        _me.init();
+        _crud.onFind2();//進階查詢dislpay=none
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+        init: function () {
+            //datatable config  DOCRole
+            var config = {
+                columns: [
+                    { data: 'LOGDateTime', },
+                    { data: 'StationNO',  },
+                    { data: 'StationName', },
+                    { data: 'OrderNO' },
+                    { data: 'PartNO', },
+                    { data: 'PartName', },
+                    { data: 'Specification', },
+                    { data: 'Remark', },
+                    { data: 'DisplayName',  },
+                    { data: 'UserNOName', },
+                    { data: 'OperateType' },
+                    { data: 'ProgramName' },
+                ],
+                columnDefs: [
+                    {
+                        targets: [11], render: function (data, type, full, meta) {
+                            switch (full.ProgramName) {
+                                case "RUNTimeServer": return '服務器';
+                                case "LabelWork": return '單工站';
+                                case "STView2Work": return '多工站';
+                                case "STView": return '報工網頁';
+                                case "Manufacture": return '工站網頁';
+                                case "TagResult_EnterKey": return '電子紙';
+                            }
+                            return full.ProgramName;
+                        }
+                    },
+                ],
+            };
+
+            //init crud
+            _crud.DbKeyName = 'Id';
+            _crud.DbKeyNameS = ['ServerId', 'StationNO', 'Id'];
+            _crud.init(config);
+        },
+
+
+    }; //class
+</script>
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "歷史工站操作紀錄查詢" } })
+<div class="xp-prog">
+    <div id="divRead">
+        <form id='formRead' class='xg-form'>
+            <div class="row">
+                @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "工站編號", Fid = "StationNO", Rows = (List<IdStrDto>)ViewBag.StationNOData, InRow = true })
+                @await Component.InvokeAsync("XgFindTbar", new XgFindTbarDto { HasReset = true, HasFind2 = true })
+            </div>
+        </form>
+
+        <form id='formRead2' class='xg-form xg-mb0'>
+            <div class="row">
+                <div class="col-md-2 xg-label">日期區間</div>
+                <div class="col-md-10 xg-input">
+                    @await Component.InvokeAsync("XiDate", new XiDateDto { Fid = "DOCDate", InRow = true, IsAutoDate = true, IsAutoDate_MathDay = -60, BoxClass = "xg-inline" })
+                    <span>～</span>
+                    @await Component.InvokeAsync("XiDate", new XiDateDto { Fid = "DOCDate2", InRow = true, IsAutoDate = true, BoxClass = "xg-inline" })
+                </div>
+            </div>
+            @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "操作類型", Fid = "OperateType", Rows = (List<IdStrDto>)ViewBag.OperateType })
+            @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "製程名稱", Fid = "Remark", Rows = (List<IdStrDto>)ViewBag.PPNameData })
+            @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "料件編號", Fid = "PartNO", Rows = (List<IdStrDto>)ViewBag.PartNO })
+            @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "員工編號", Fid = "OP_NO", Rows = (List<IdStrDto>)ViewBag.OP_NO })
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "品名", Fid = "PartName", MaxLen = 50 })
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "工單編號", Fid = "OrderNO", MaxLen = 50 })
+
+        </form>
+
+        <div class='xg-btns-box'>
+        </div>
+        <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>操作日期</th>
+                    <th>工站</th>
+                    <th>名稱</th>
+                    <th>工單編號</th>
+                    <th>料號</th>
+                    <th>品名</th>
+                    <th>規格</th>
+                    <th>備註</th>
+                    <th>工序名稱</th>
+                    <th>報工人員</th>
+                    <th>操作類型</th>
+                    <th>操作程式</th>
+
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div id="divEdit" class="xg-hide">
+        <form id='eform' class='xg-form' style='margin-bottom:0;'>
+            @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "ServerId" })
+            @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "Id" })
+        </form>
+
+        @await Component.InvokeAsync("XgSaveBack")
+    </div>
+</div>
+

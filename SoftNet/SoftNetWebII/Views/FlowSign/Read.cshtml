@@ -1,0 +1,135 @@
+﻿@inject IHtmlLocalizer<SoftNetWebII.R0> R
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        _me.init();
+    });
+
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+        init: function () {
+            //datatable config
+            var config = {
+                columns: [
+                    { data: '_F1' },
+                    { data: '_Fun' },
+                    { data: 'NodeName' },
+                    { data: 'DOCName' },
+                    { data: 'SourceId' },
+                    { data: 'FlowLevel' },
+                    { data: 'TotalLevel' },
+                    { data: 'SignStatus' },
+                    { data: 'SignTime' },
+                    { data: 'Note' },
+                ],
+                columnDefs: [
+				    //{ targets: [2], render: function (data, type, full, meta) {
+        //                return _date.mmToUiDt2(data);
+        //            }},
+				    //{ targets: [3], render: function (data, type, full, meta) {
+        //                return _date.mmToUiDt2(data);
+        //            }},
+				    //{ targets: [6], render: function (data, type, full, meta) {
+        //                return _date.mmToUiDt(data);
+        //            }},
+        		    { targets: [0], render: function (data, type, full, meta) {
+                        return _crud.dtCheck0(full.Id);
+				    }},
+				    { targets: [1], render: function (data, type, full, meta) {
+                        //return _str.format('<button type="button" class="btn btn-outline-secondary btn-sm" onclick="_me.onRedirect(\'{0}\')">審查</button>', full.SourceId);
+                        return _str.format('<a href=/DOCBuy/Read?key={0}>查閱</a>', full.SourceId);
+                    }},
+                ],
+            };
+
+            //initial
+             _crud.DbKeyName = ['Id'];
+            //_crud.init(config, null, '審核');
+            //_me.eform = $('#eform');
+            _crud.init(config);
+        },
+
+        //TODO: add your code
+        //onclick viewFile, called by XiFile component
+        //onViewFile: function (table, fid, elm) {
+        //    _edit.viewFile(table, fid, elm, _itext.get('LeaveId', _me.eform));
+        //},
+        onRedirect: function (data) {
+            var str = data;
+            _ajax.getJson('SignRedirect', { keys: str }, function (error) {
+            
+                if (!_str.isEmpty(error)) {_tool.msg(error);}
+            });
+        },
+        onOK: function (state) {
+            var keys = _me.getCheckedTables();
+            if (keys.length === 0)
+                return;
+            var data = {
+                ip: _crud.LocalIPPort,
+                id: keys.join(','),
+                status: state,
+                note: 'ookk',
+            };
+            _ajax.getStr('SignOK', data, function(error) {
+                if (!_str.isEmpty(error)) { _tool.msg(error); }
+                _crud.pageReload();
+            });
+        },
+
+        onSubmit: function () {
+            var form = _me.eform;
+            var data = {
+                id: _itext.get('SignId', form),
+                status: _iselect.get('SignStatus', form),
+                note: _itext.get('Note', form),
+            };
+            _ajax.getJson('SignRow', data, function (data) {
+                _crud.afterSave(data);
+            });
+        },
+        getCheckedTables: function () {
+            var values = _icheck.getCheckeds(_me.divRead);
+		    if (values.length === 0)
+			    _tool.msg('請選取資料。');
+		    return values;
+	    },
+    }; //class
+</script>
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "簽核維護" } })
+<div class="xp-prog">
+    <div id="divRead">
+
+        <div class="xg-h10"></div>
+        <div class="xg-btns-box">
+            <span class="xg-block-label">功能:</span>
+            <button id='button_setST' type='button' class='btn xg-btn' onclick='_me.onOK("Y")'>同意</button>
+            <button id='button_setSTStatus1' type='button' class='btn xg-btn' onclick='_me.onOK("N")'>簽退</button>
+            <button id='button_setSTStatus1' type='button' class='btn xg-btn' onclick='_me.onOK("P")'>退回上一關</button>
+        </div>
+
+        <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>選擇</th>
+                    <th>功能</th>
+                    <th>流程名稱</th>
+                    <th>簽核別</th>
+                    <th>簽核單據</th>
+                    <th>階層</th>
+                    <th>總階</th>
+                    <th>狀態</th>
+                    <th>簽核時間</th>
+                    <th>批示備註</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+</div>

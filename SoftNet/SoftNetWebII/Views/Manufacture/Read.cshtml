@@ -1,0 +1,255 @@
+﻿@inject IHtmlLocalizer<SoftNetWebII.R0> R
+
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        SYS_ClickBlock = false;
+        $('#stationSETForm').hide();
+        $('#button_setST_Cancel').hide();
+        _me.init();
+        _crud.onFind2();//進階查詢dislpay=none
+        //_leftmenu.onToggleMenu();
+    });
+
+    var _me = {
+        hasStaionStatus: true,
+        hasStaionChangQTY: true,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        init: function () {
+            //datatable config
+            var config = {
+                columns: [
+                    { data: '_F1' },
+                    { data: 'FactoryName', orderable: true },
+                    { data: 'LineName' , orderable: true},
+                    { data: 'StationNO', orderable: true },
+                    { data: 'StationName' },
+                    { data: 'State', orderable: true },
+                    { data: 'OrderNO' },
+                    { data: 'OP_NO' },
+                    { data: 'Master_PP_Name' },
+                    { data: 'PP_Name' },
+                    { data: 'IndexSN' },
+                    { data: 'Station_Custom_IndexSN' },
+                ],
+                columnDefs: [
+				    { targets: [0], render: function (data, type, full, meta) {
+                        return _crud.dtCheck0(full.StationNO);
+				    }},
+ 				    { targets: [5], render: function (data, type, full, meta) {
+                        return _crud.dtSataionState(data);
+				    }},
+
+                ],
+            };
+
+            _crud.DbKeyName = 'StationNO';
+            _crud.init(config);
+        },
+        //設定工站 作業員,工單,製程 
+        onSetST: function (status) {
+            switch (status) {
+                case '1':
+                    var keys = _me.getCheckedTables();
+                    if ($('#stationSETForm').is(':visible')) {
+                        
+
+                        if (keys.length == 0) {
+                            alert('選擇一個或多個工站, 在進行發送.');
+                            return;
+                        }
+                        else {
+                            var str = _crud.LocalIPPort + ',' + keys.join(',') + ',' + document.getElementById("input_OrderNO").value + ';' + document.getElementById("input_Index").value + ';' + document.getElementById("input_OPNO").value;
+                            _ajax.getStr('SetStationConfig', { keys: str }, function (error) {
+                                if (!_str.isEmpty(error)) { _tool.msg(error); }
+                                _crud.pageReload();
+                            });
+                        }
+                        $('#stationSETForm').hide();
+                        $('#button_setST').text('設定工站');
+                        $('#button_setST_Cancel').hide();
+                        $('#button_setSTStatus1').show();
+                        $('#button_setSTStatus2').show();
+                        $('#button_setSTStatus3').show();
+                        $('#button_setSTStatus4').show();
+                    }
+                    else {
+                        if (keys.length == 0) {
+                            alert('選擇一個或多個工站, 在進行發送.');
+                            return;
+                        }
+                        else {
+                            var str = keys.join(',');
+                            _ajax.getStr('Select_WO_List', { keys: str }, function (data) {
+                                if (!_str.isEmpty(data)) {
+                                    var re_data = data.split(';');
+                                    var re_wo = re_data[0].split(',');
+                                    var datalist1 = '';
+                                    for (var i = 0; i < re_wo.length; i++) {
+                                        datalist1 += '<option value="' + re_wo[i] + '" />';
+                                    }
+                                    document.getElementById('options1').innerHTML = datalist1;
+                                    if (re_data.length > 1) {
+                                        var re_indexSN = re_data[1].split(',');
+                                        var datalist2 = '';
+                                        for (var i = 0; i < re_indexSN.length; i++) {
+                                            datalist2 += '<option value="' + re_indexSN[i] + '" />';
+                                        }
+                                        document.getElementById('options2').innerHTML = datalist2;
+                                    }
+                                }
+
+                            });
+                        }
+                        $('#stationSETForm').show();
+                        $('#button_setST').text('發送設定');
+                        $('#button_setST_Cancel').show();
+                        $('#button_setSTStatus1').hide();
+                        $('#button_setSTStatus2').hide();
+                        $('#button_setSTStatus3').hide();
+                        $('#button_setSTStatus4').hide();
+                    }
+                    break;
+                case '2':
+                        $('#stationSETForm').hide();
+                        $('#button_setST').text('設定工站');
+                        $('#button_setST_Cancel').hide();
+                        $('#button_setSTStatus1').show();
+                        $('#button_setSTStatus2').show();
+                        $('#button_setSTStatus3').show();
+                        $('#button_setSTStatus4').show();
+                    break;
+            }
+        },
+
+        //設定工站狀態改變
+        onChangeSTStaus: function (status) {
+            var keys = _me.getCheckedTables();
+            if (keys.length === 0)
+                return;
+                
+            var str = keys.join(',') + ',' + status;
+            var data = {
+                ipport:_crud.LocalIPPort,
+                keys: str,
+            };
+            _ajax.getStr('WEBSETChangeStatus', data, function (error) {
+                if (!_str.isEmpty(error)) {_tool.msg(error);}
+                _crud.pageReload();
+            });
+        },
+
+	    getCheckedTables: function () {
+            var values = _icheck.getCheckeds(_me.divRead);
+		    if (values.length === 0)
+			    _tool.msg('請選取資料。');
+		    return values;
+	    },
+
+
+    }; //class
+
+</script>
+
+
+
+
+
+
+
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "製造現場總表 (不含可多工單生產之工站)" } })
+
+
+<div class="xp-prog">
+    <!-- read form-->
+    <div id="divRead">
+        <!-- condition -->
+        <form id='formRead' class='xg-form' style="margin-bottom:0;">
+            <div class="row">
+                @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "廠別", Fid = "FactoryName", Rows = (List<IdStrDto>)ViewBag.FactoryName, InRow = true })
+                @await Component.InvokeAsync("XgFindTbar", new XgFindTbarDto { HasReset = true, HasFind2 = true })
+            </div>
+        </form>
+        <form id='formRead2' class='xg-form xg-mb0'>
+            @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "線別", Fid = "LineName", Rows = (List<IdStrDto>)ViewBag.LineName})
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "工站", Fid = "StationNO", MaxLen = 30 })
+        </form>
+
+        <div class="xg-h10"></div>
+        <div class="xg-btns-box">
+            <span class="xg-block-label">功能:</span>
+            <button id='button_setST' type='button' class='btn xg-btn' onclick='_me.onSetST("1")'>工站設定</button>
+            <button id='button_setST_Cancel' type='button' class='btn xg-btn' onclick='_me.onSetST("2")'>取消</button>
+            <button id='button_setSTStatus1' type='button' class='btn xg-btn' onclick='_me.onChangeSTStaus(1)'>設定開始</button>
+            <button id='button_setSTStatus2' type='button' class='btn xg-btn' onclick='_me.onChangeSTStaus(2)'>設定停止</button>
+            <!-- <button id='button_setSTStatus3' type='button' class='btn xg-btn' onclick='_me.onChangeSTStaus(3)'>設定暫停</button>-->
+            <button id='button_setSTStatus4' type='button' class='btn xg-btn' onclick='_me.onChangeSTStaus(4)'>設定關單工站移轉</button>
+            <!--<button id='button_setSTStatus5' type='button' class='btn xg-btn' onclick='_me.onChangeSTStaus(5)'>領料</button>-->
+            <!--<button id='button_setSTStatus6' type='button' class='btn xg-btn' onclick='_me.onChangeSTStaus(6)'>入料</button>-->
+        </div>
+        <form id='stationSETForm'>
+            <div class="row">
+                <span>選擇工單:</span>
+
+                <input type="text" id='input_OrderNO' list="options1" value="">
+                <datalist id="options1">
+                </datalist>
+
+
+                <span>選擇IndexSN:</span>
+                <input type="text" id='input_Index' list="options2" value="">
+                <datalist id="options2">
+                </datalist>
+                <span>選擇作業員:</span>
+                @{
+                    List<string[]> oPNO = (List<string[]>)ViewBag.OPNO;
+                    if (oPNO != null && oPNO.Count > 0)
+                    {
+                        <input type="text" id='input_OPNO' list="options3" value="">
+                        <datalist id="options3">
+                            @foreach (string[] s in oPNO)
+                            {
+                                if (s[0].Trim() != "")
+                                {
+                                    var s_tmp = $"{s[0]}";
+                                    var s_tmp2 = $"{s[0]};{s[1]};{s[2]}";
+                                    <option value='@s_tmp'>@s_tmp2</option>
+                                }
+                            }
+                        </datalist>
+                    }
+                }
+            </div>
+        </form>
+
+        <!-- result list -->
+        <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>選擇</th>
+                    <th>廠別</th>
+                    <th>線別</th>
+                    <th>工站</th>
+                    <th>站名</th>
+                    <th>狀態</th>
+                    <th>在線工單</th>
+                    <th>作業員</th>
+                    <th>主製程</th>
+                    <th>子製程</th>
+                    <th>製程順序</th>
+                    <th>製程客編</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+
+
+
+
+

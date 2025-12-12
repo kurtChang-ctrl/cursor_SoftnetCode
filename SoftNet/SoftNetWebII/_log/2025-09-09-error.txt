@@ -1,0 +1,3 @@
+16:31:47(0); STView2WorkController.cs 多工報工 Exception: Column 'NeedQTY' does not belong to table 1.    at System.Data.DataRow.GetDataColumn(String columnName)
+   at System.Data.DataRow.get_Item(String columnName)
+   at SoftNetWebII.Services.SNWebSocketService.Reporting_STView2Work(DBADO db, DataRow dr_PP_Station, String UserNO, MUTIStationObj keys, Boolean is_Back, String& Message, String& StackTrace) in C:\04_SoftNet\SoftNet\SoftNetWebII\Services\SNWebSocketService.cs:line 4119

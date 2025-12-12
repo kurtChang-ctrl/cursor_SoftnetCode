@@ -1,0 +1,428 @@
+﻿@using Base
+@model LabelProject
+@{
+    string disUserName = "畫面逾時";
+    string Is_Use = "正常";
+    if (_Fun.Config.RUNMode != '1')
+    {
+        Is_Use = "";
+    }
+    if (_Fun.GetBaseUser() != null)    { disUserName = _Fun.GetBaseUser().UserName; }
+}
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        var isUSE = "@Html.Raw(Is_Use)";
+        if (isUSE=="") {
+            $('#displayNULL').hide();
+            document.getElementById('config_RUNMode_ERR').style.display = 'inline';
+        }
+        $("title").text("@Html.Raw(disUserName)");
+        $('#stationSet').hide();
+        $('#stationSetOPNO').hide();
+        $('#stationSetINFO').hide();
+        $('#displayStationINFO').hide();
+        _leftmenu.onToggleMenu();
+        var Type = '@Model.Type';
+        $("#PartName").change(function () {
+            var idValue1 = $("#PartName").val();
+            var elementOption1 = $("#options2 option[value='" + idValue1 + "']")
+            var data1 = elementOption1.text().split(';');
+            if (data1.length>1)
+            {
+                $("#PartNO").val(data1[0]);
+            }
+        });
+        $("#PartNO").change(function () {
+            var idValue2 = $("#PartNO").val();
+            var elementOption2 = $("#options1 option[value='" + idValue2 + "']")
+            var data2 = elementOption2.text().split(';');
+            if (data2.length > 1) {
+                $("#PartName").val(data2[0]);
+            }
+        });
+ 
+        jQuery('[data-confirm]').click(function (e) {
+            if (!confirm(jQuery(this).attr("data-confirm"))) {
+                e.preventDefault();
+            }
+        });
+
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasStaionChangQTY: false,
+        clickFunction: function (status) {
+            document.getElementById("LocalIPPort").value = _crud.LocalIPPort;
+            
+            if (status!=0)
+            {$('#displayNULL').hide();}
+            switch (status) {
+                case 0://回主頁
+                    $('#stationSet').hide();
+                    $('#stationSetOPNO').hide();
+                    $('#stationSetINFO').hide();
+                    $('#displayStationINFO').hide();
+                    $('#displayNULL').show();
+                    break;
+                case 1://設定工站
+                    $('#stationSet').show();
+                    break;
+                case 2://設定作業人員
+                    $('#stationSetOPNO').show();
+                    break;
+                case 3://報工
+                    $('#stationSetINFO').show();
+                    break;
+                case 9://顯示目前資訊
+                    $('#displayStationINFO').show();
+                    break;
+            }
+        },
+
+    }; //class
+    function submitDisabled(state) {
+        const button=null;
+        switch (status) {
+            case '設定人員':
+                button = document.getElementById("設定人員");
+                button.style.display = 'none';
+                break;
+            case '查詢歷史':
+                button = document.getElementById("查詢歷史");
+                button.style.display = 'none';
+                break;
+            case '設定工單':
+                button = document.getElementById("設定工單");
+                button.style.display = 'none';
+                break;
+            case '報工確定':
+                button = document.getElementById("報工確定");
+                button.style.display = 'none';
+                break;
+        }
+    }
+
+</script>
+
+<div id="config_RUNMode_ERR" style="display:none;">
+    <label style="color:red">系統使用模式已更換, 此頁面為舊的畫面, 請使用正確方式進入頁面功能, 或 與公司系統管理人員聯繫.</label>
+</div>
+
+
+<div data-role="page" id="displayNULL">
+    <label>工站編號:</label><label> @Model.StationNO</label>&nbsp;&nbsp;<label> @Model.StationName</label>
+    <p><label>工站目前狀態:</label><label> @Model.Station_State</label>&nbsp;&nbsp;<label>品名:</label><label>@Model.PartName &nbsp; @Model.Specification</label></p>
+    @{
+        if (Model.ERRMsg !="")
+        {
+                                                <p><font color="red" size="5">錯誤訊息:<p><strong>@Model.ERRMsg</strong></p></font></p>
+        }
+    }
+    <p><button class="ui-btn ui-icon-info ui-btn-icon-left" onclick='_me.clickFunction(9)'>顯示目前資訊</button></p>
+    <p><button class="ui-btn ui-icon-info ui-btn-icon-left" onclick='_me.clickFunction(1)'>工站 設定</button></p>
+    <p><button class="ui-btn ui-icon-info ui-btn-icon-left" onclick='_me.clickFunction(2)'>新增作業人員</button></p>
+    <p><button class="ui-btn ui-icon-info ui-btn-icon-left" onclick='_me.clickFunction(3)'>產量 報工</button></p>
+        @{
+                                                <form action=@Url.Action("SetAction") method="post">
+                                                <input type='hidden' id='State' name='State' value="開始" />
+                                                <input type='hidden' id='StationNO' name='StationNO' value="@Model.StationNO" />
+                                                <input type='hidden' name='StationName' value="@Model.StationName" />
+                                                <input type='hidden' name='PartName' value="@Model.PartName" />
+                                                <input type='hidden' name='Specification' value="@Model.Specification" />
+                                                <input type='hidden' name='TOTALWorkTime' value="@Model.TOTALWorkTime" />
+                                                <input type='hidden' name='OrderNO' value="@Model.OrderNO" />
+                                                <input type='hidden' name='IndexSN' value="@Model.IndexSN" />
+                                                <input type='hidden' name='OPNO' value="@Model.OPNO" />
+                                                <input type='hidden' name='OPNO_Name' value="@Model.OPNO_Name" />
+                                                <input type='hidden' name='PartNO' value="@Model.PartNO" />
+                                                <input type='hidden' name='PartName' value="@Model.PartName" />
+                                                <input type='hidden' name='Remark' value="@Model.Remark" />
+                                                <input type='hidden' name='PP_Name' value="@Model.PP_Name" />
+                                                <input type='hidden' name='Specification' value="@Model.Specification" />
+                                                <input type='hidden' name='TOTALWorkTime' value="@Model.TOTALWorkTime" />
+                    <p><button id='工站開始' type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" data-confirm="你確定執行 開始 作業?">工站 開始</button></p>
+                                                </form>
+        }
+        @{
+                                                <form action=@Url.Action("SetAction") method="post">
+                                                <input type='hidden' id='State' name='State' value="停止" />
+                                                <input type='hidden' id='StationNO' name='StationNO' value="@Model.StationNO" />
+                                                <input type='hidden' name='StationName' value="@Model.StationName" />
+                                                <input type='hidden' name='OrderNO' value="@Model.OrderNO" />
+                                                <input type='hidden' name='IndexSN' value="@Model.IndexSN" />
+                                                <input type='hidden' name='OPNO' value="@Model.OPNO" />
+                                                <input type='hidden' name='OPNO_Name' value="@Model.OPNO_Name" />
+                                                <input type='hidden' name='PartNO' value="@Model.PartNO" />
+                                                <input type='hidden' name='PartName' value="@Model.PartName" />
+                                                <input type='hidden' name='Remark' value="@Model.Remark" />
+                                                <input type='hidden' name='PP_Name' value="@Model.PP_Name" />
+                                                <input type='hidden' name='Specification' value="@Model.Specification" />
+                                                <input type='hidden' name='TOTALWorkTime' value="@Model.TOTALWorkTime" />
+                    <p><button id='工站停止' type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" data-confirm="你確定執行 停止 作業?">工站 停止</button></p>
+                                                </form>
+        }
+
+    @{
+        if (Model.Type != "0")
+        {
+                                                <form action=@Url.Action("SetAction") method="post">
+                                                    <input type='hidden' id='State' name='State' value="關站" />
+                                                    <input type='hidden' id='StationNO' name='StationNO' value="@Model.StationNO" />
+                                                    <input type='hidden' name='StationName' value="@Model.StationName" />
+                                                    <input type='hidden' name='OrderNO' value="@Model.OrderNO" />
+                                                    <input type='hidden' name='IndexSN' value="@Model.IndexSN" />
+                                                    <input type='hidden' name='OPNO' value="@Model.OPNO" />
+                                                    <input type='hidden' name='OPNO_Name' value="@Model.OPNO_Name" />
+                                                    <input type='hidden' name='PartNO' value="@Model.PartNO" />
+                                                    <input type='hidden' name='PartName' value="@Model.PartName" />
+                                                    <input type='hidden' name='Remark' value="@Model.Remark" />
+                                                    <input type='hidden' name='PP_Name' value="@Model.PP_Name" />
+                                                    <input type='hidden' name='Specification' value="@Model.Specification" />
+                                                    <input type='hidden' name='TOTALWorkTime' value="@Model.TOTALWorkTime" />
+                        <p><button id='關站設定' type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" data-confirm="你確定執行 關站 作業?">關站 設定</button></p>
+                                                </form>
+        }
+    }
+    @{
+                                            <form action=@Url.Action("SetAction") method="post">
+                                                <input type='hidden' id='State' name='State' value="歷史查詢" />
+                                                <input type='hidden' id='StationNO' name='StationNO' value="@Model.StationNO" />
+                                                <input type='hidden' name='StationName' value="@Model.StationName" />
+                                                <input type='hidden' name='OrderNO' value="@Model.OrderNO" />
+                                                <input type='hidden' name='IndexSN' value="@Model.IndexSN" />
+                                                <input type='hidden' name='OPNO' value="@Model.OPNO" />
+                                                <input type='hidden' name='OPNO_Name' value="@Model.OPNO_Name" />
+                                                <input type='hidden' name='PartNO' value="@Model.PartNO" />
+                                                <input type='hidden' name='PartName' value="@Model.PartName" />
+                                                <input type='hidden' name='Remark' value="@Model.Remark" />
+                                                <input type='hidden' name='PP_Name' value="@Model.PP_Name" />
+                                                <input type='hidden' name='Specification' value="@Model.Specification" />
+                                                <input type='hidden' name='TOTALWorkTime' value="@Model.TOTALWorkTime" />
+                                    <p><button id='查詢歷史' type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="submitDisabled('查詢歷史')">查詢歷史報工紀錄</button></p>
+                                            </form>
+    }
+
+</div>
+<!--顯示目前資訊-->
+<div id="displayStationINFO">
+    <button class="ui-btn ui-icon-back ui-btn-icon-left" onclick='_me.clickFunction(0)'>回到主功能表</button>
+    <input type='hidden' name='State' value="顯示目前資訊" />
+    <input type='hidden' name='StationNO' value="@Model.StationNO" />
+    <input type='hidden' name='StationName' value="@Model.StationName" />
+    <input type='hidden' name='OrderNO' value="@Model.OrderNO" />
+    <input type='hidden' name='IndexSN' value="@Model.IndexSN" />
+    <input type='hidden' name='OPNO_Name' value="@Model.OPNO_Name" />
+    <input type='hidden' name='OPNO' value="@Model.OPNO" />
+    <input type='hidden' id='LocalIPPort' name='LocalIPPort' />
+    <input type='hidden' name='PP_Name' value="@Model.PP_Name" />
+    <input type='hidden' name='PartNO' value="@Model.PartNO" />
+    <input type='hidden' name='PartName' value="@Model.PartName" />
+    <input type='hidden' name='Remark' value="@Model.Remark" />
+    <input type='hidden' name='Specification' value="@Model.Specification" />
+    <input type='hidden' name='TOTALWorkTime' value="@Model.TOTALWorkTime" />
+    <p><label>工站編號:</label><label> @Model.StationNO</label>&nbsp;&nbsp;<label> @Model.StationName</label></p>
+    @{
+        if (Model.PP_Name != null && Model.PP_Name.Trim()!="")
+        {
+                                                <p><label>製程名稱:</label><label>@Model.PP_Name</label>&nbsp;&nbsp;<label>製造順序:</label><label>@Model.IndexSN</label></p>
+                                                <p><label>工單編號:</label><label>@Model.OrderNO</label>&nbsp;&nbsp;<label>累計工時:</label><label>@Model.TOTALWorkTime</label></p>
+                                                <p><label>料件編號:</label><label>@Model.PartNO</label>&nbsp;&nbsp;<label>品名:</label><label>@Model.PartName</label>&nbsp;&nbsp;<label>規格:</label><label>@Model.Specification</label></p>
+                                                <p><label>累計良品生產數:</label><label>@Model.TOTALOKQTY</label>&nbsp;&nbsp;<label>累計不良品數:</label><label>@Model.TOTALFailQTY</label></p>
+            if (Model.HasPO_List != null && Model.HasPO_List.Count > 0)
+            {
+                                                    <h2>目前本站已加入的業人員明細</h2>
+                                                    <table id='tableRead' class='table table-bordered xg-table' cellspacing='0'>
+                                                        <thead><tr><th>員工編號</th><th>姓名</th></tr></thead>
+                                                        <tbody>
+                                                            @foreach (string[] s in Model.HasPO_List)
+                        {
+                                                                <tr><td>@s[0]</td><td>@s[1]</td></tr>
+                        }
+                                                        </tbody>
+                                                    </table>
+            }
+        }
+        else
+        {
+                                                <p><label>製程名稱:</label><label>無</label>&nbsp;&nbsp;<label>製造順序:</label><label>無</label></p>
+                                                <p><label>工單編號:</label><label>無</label>&nbsp;&nbsp;<label>累計工時:</label><label>無</label></p>
+                                                <p><label>料件編號:</label><label>無</label></p>
+        }
+    }
+</div>
+
+<!--設定工單-->
+<div id="stationSet">
+    <button class="ui-btn ui-icon-back ui-btn-icon-left" onclick='_me.clickFunction(0)'>回到主功能表</button>
+        <form action=@Url.Action("SetAction") method="post">
+        <div class="ui-field-contain">
+            <p><label>工站編號:</label><label> @Model.StationNO</label>&nbsp;&nbsp;<label> @Model.StationName</label></p>
+            <p>工單編號:<input type="text" name="OrderNO" value="@Model.OrderNO" placeholder="可以不輸入" data-clear-btn="true" /></p>
+            <p>製程名稱:
+                @{
+                    if (Model.HasPP_Name_List != null && Model.HasPP_Name_List.Count > 0)
+                    {
+                                                            <select id='PP_Name' name='PP_Name'>
+                                                                @if (Model.HasPP_Name_List.Count==1)
+                            {
+                                string[] s = Model.HasPP_Name_List[0];
+                                var s_tmp = $"{s[0]};{s[1]};{s[2]}";
+                                var s_tmp2 = $"{s[0]} {s[1]} {s[2]}";
+                                                                    <option value='@s_tmp'>@s_tmp2</option>
+                            }
+                            else
+                            {
+                                if (Model.PP_Name == null || Model.PP_Name.Trim() == "")
+                                {
+                                                                        <option value=''></option>
+                                }
+                                                                    @foreach (string[] s in Model.HasPP_Name_List)
+                                {
+                                    var s_tmp = $"{s[0]};{s[1]};{s[2]}";
+                                    var s_tmp2 = $"{s[0]} {s[1]} {s[2]}";
+                                                                        <option value='@s_tmp'>@s_tmp2</option>
+                                }
+                           }
+                                                            </select>
+                    }
+               }
+            </p>
+            <p>生產料號:
+                @{
+                    if (Model.HasPartNO_List != null && Model.HasPartNO_List.Count > 0)
+                    {
+                                                            <input type="text" id='PartNO' name='PartNO' list="options1" value="@Model.PartNO">
+                                                            <datalist id="options1">
+                                                                @foreach (string[] s in Model.HasPartNO_List)
+                            {
+                                var s_tmp = $"{s[0]}";
+                                var s_tmp2 = $"{s[1]};{s[2]}";
+                                                                    <option value='@s_tmp'>@s_tmp2</option>
+                            }
+                                                            </datalist>
+                    }
+                    else { }
+                }
+            </p>
+            <p>
+                生產品名:
+                @{
+                    if (Model.HasPartNO_List != null && Model.HasPartNO_List.Count > 0)
+                    {
+                                                            <input type="text" id='PartName' name='PartName' list="options2" value="@Model.PartName">
+                                                            <datalist id="options2">
+                                                                @foreach (string[] s in Model.HasPartNO_List)
+                            {
+                                if (s[1].Trim() != "")
+                                {
+                                    var s_tmp = $"{s[1]}";
+                                    var s_tmp2 = $"{s[0]};{s[2]}";
+                                                                        <option value='@s_tmp'>@s_tmp2</option>
+                                }
+                            }
+                                                            </datalist>
+                    }
+                    else { }
+                }
+            </p>
+
+
+            <p><label>員工編號:</label><label> @Model.OPNO</label>&nbsp;&nbsp;<label> @Model.OPNO_Name</label></p>
+            <p><button id='設定工單' type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="submitDisabled('設定工單')">異動確定</button></p>
+            <input type='hidden' name='State' value="設定工站" />
+            <input type='hidden' id='LocalIPPort' name='LocalIPPort' />
+            <input type='hidden' name='OPNO' value="@Model.OPNO" />
+            <input type='hidden' name='StationNO' value="@Model.StationNO" />
+            <input type='hidden' name='StationName' value="@Model.StationName" />
+            <input type='hidden' name='OPNO_Name' value="@Model.OPNO_Name" />
+            <input type='hidden' name='PartName' value="@Model.PartName" />
+            <input type='hidden' name='Remark' value="@Model.Remark" />
+            <input type='hidden' name='Specification' value="@Model.Specification" />
+            <input type='hidden' name='TOTALWorkTime' value="@Model.TOTALWorkTime" />
+        </div>
+        </form>
+
+</div>
+
+<!--設定作業人員-->
+<div id="stationSetOPNO">
+    <button class="ui-btn ui-icon-back ui-btn-icon-left" onclick='_me.clickFunction(0)'>回到主功能表</button>
+    <form action=@Url.Action("SetAction") method="post">
+        <input type='hidden' name='State' value="設定人員" />
+        <input type='hidden' name='StationNO' value="@Model.StationNO" />
+        <input type='hidden' name='StationName' value="@Model.StationName" />
+        <input type='hidden' name='OrderNO' value="@Model.OrderNO" />
+        <input type='hidden' name='IndexSN' value="@Model.IndexSN" />
+        <input type='hidden' name='PP_Name' value="@Model.PP_Name" />
+        <input type='hidden' name='PartNO' value="@Model.PartNO" />
+        <input type='hidden' id='LocalIPPort' name='LocalIPPort' />
+        <input type='hidden' name='Remark' value="@Model.Remark" />
+        <input type='hidden' name='PartName' value="@Model.PartName" />
+        <input type='hidden' name='Specification' value="@Model.Specification" />
+        <input type='hidden' name='TOTALWorkTime' value="@Model.TOTALWorkTime" />
+        <p><label>工站編號:</label><label> @Model.StationNO</label>&nbsp;&nbsp;<label> @Model.StationName</label></p>
+        <p><label>製程名稱:</label><label>@Model.PP_Name</label>&nbsp;&nbsp;<label>製造順序:</label><label>@Model.IndexSN</label></p>
+        <p><label>工單編號:</label><label>@Model.OrderNO</label>&nbsp;&nbsp;<label>累計工時:</label><label>@Model.TOTALWorkTime</label></p>
+        <p><label>料件編號:</label><label>@Model.PartNO</label>&nbsp;&nbsp;<label>品名:</label><label>@Model.PartName</label>&nbsp;&nbsp;<label>規格:</label><label>@Model.Specification</label></p>
+        @{
+            if (Model.HasPO_List != null && Model.HasPO_List.Count > 0)
+            {
+                                                    <h2>目前本站已加入的業人員明細</h2>
+                                                    <table id='tableRead' class='table table-bordered xg-table' cellspacing='0'>
+                                                        <thead><tr><th>員工編號</th><th>姓名</th></tr></thead>
+                                                        <tbody>
+                                                            @foreach (string[] s in Model.HasPO_List)
+                        {
+                                                                <tr><td>@s[0]</td><td>@s[1]</td></tr>
+                        }
+                                                        </tbody>
+                                                    </table>
+            }
+        }
+        <p><label>準備新增員工編號:</label><label> @Model.OPNO</label>&nbsp;&nbsp;<label>姓名:</label><label> @Model.OPNO_Name</label></p>
+        <input type='hidden' name='OPNO' value="@Model.OPNO" />
+        <input type='hidden' name='OPNO_Name' value="@Model.OPNO_Name" />
+        <p><button id='設定人員' type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="submitDisabled('設定人員')">新增確定</button></p>
+    </form>
+
+</div>
+
+<!--報工-->
+<div id="stationSetINFO">
+    <button class="ui-btn ui-icon-back ui-btn-icon-left" onclick='_me.clickFunction(0)'>回到主功能表</button>
+    <form action=@Url.Action("SetAction") method="post">
+        <input type='hidden' name='State' value="報工" />
+        <input type='hidden' name='StationNO' value="@Model.StationNO" />
+        <input type='hidden' name='StationName' value="@Model.StationName" />
+        <input type='hidden' name='OrderNO' value="@Model.OrderNO" />
+        <input type='hidden' name='IndexSN' value="@Model.IndexSN" />
+        <input type='hidden' name='OPNO_Name' value="@Model.OPNO_Name" />
+        <input type='hidden' name='OPNO' value="@Model.OPNO" />
+        <input type='hidden' id='LocalIPPort' name='LocalIPPort' />
+        <input type='hidden' name='PP_Name' value="@Model.PP_Name" />
+        <input type='hidden' name='PartNO' value="@Model.PartNO" />
+        <input type='hidden' name='PartName' value="@Model.PartName" />
+        <input type='hidden' name='Specification' value="@Model.Specification" />
+        <input type='hidden' name='TOTALWorkTime' value="@Model.TOTALWorkTime" />
+        <p><label>工站編號:</label><label> @Model.StationNO</label>&nbsp;&nbsp;<label> @Model.StationName</label></p>
+        <p><label>製程名稱:</label><label>@Model.PP_Name</label>&nbsp;&nbsp;<label>製造順序:</label><label>@Model.IndexSN</label></p>
+        <p><label>工單編號:</label><label>@Model.OrderNO</label>&nbsp;&nbsp;<label>累計工時:</label><label>@Model.TOTALWorkTime</label></p>
+        <p><label>料件編號:</label><label>@Model.PartNO</label>&nbsp;&nbsp;<label>品名:</label><label>@Model.PartName</label>&nbsp;&nbsp;<label>規格:</label><label>@Model.Specification</label></p>
+        <p><label>報工員工:</label><label> @Model.OPNO</label>&nbsp;&nbsp;<label>姓名:</label><label> @Model.OPNO_Name</label></p>
+        <p><label>累計良品生產數:</label><label>@Model.TOTALOKQTY</label>&nbsp;&nbsp;<label>累計不良品數:</label><label>@Model.TOTALFailQTY</label></p>
+        <p>本次生產量:<input type='number' name='OKQTY' placeholder="輸入本次報工良品數" data-clear-btn="true" /></p>
+        <p>本次不良量:<input type='number' name='FailQTY' placeholder="本次不良品數" data-clear-btn="true" /></p>
+        <p>備註說明:<input type='text' name='Remark' value="@Model.Remark" /></p>
+        <p><button id='報工確定' type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="submitDisabled('報工確定')">報工確定</button></p>
+    </form>
+
+</div>
+
+
+
+
+<script type="text/javascript">
+    document.getElementById("LocalIPPort").value = _crud.LocalIPPort;
+</script>
+

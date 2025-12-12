@@ -1,0 +1,117 @@
+﻿@using Base.Models
+@using BaseWeb.Models
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+        _me.init();
+    });
+
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+
+        init: function () {
+            //datatable config  DOCRole
+            var config = {
+                columns: [
+                    { data: 'StationNO',  },
+                    { data: 'TOTGrowing',  },
+                    { data: 'TOTSIDTime',  },
+                    { data: 'TOTATime', },
+                    { data: 'TOTBTime', },
+                    { data: 'C1Time', },
+                    { data: 'D1Time', },
+                    { data: 'A1Time', },
+                    { data: 'C2Time', },
+                    { data: 'D2Time', },
+                    { data: 'A2Time', },
+                    
+                    { data: 'C3Time', },
+                    { data: 'D3Time', },
+                    { data: 'A3Time', },
+                    
+                    { data: 'C4Time', },
+                    { data: 'D4Time', },
+                    { data: 'A4Time', },
+                    
+
+
+
+
+                ],
+            };
+
+            //init crud
+            _crud.DbKeyName = 'StationNO';
+            _crud.init(config);
+        },
+
+
+    }; //class
+</script>
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "以工站角度看效益(4週)查詢" } })
+<div class="xp-prog">
+    <div id="divRead">
+        <form id='formRead' class='xg-form'>
+            <div class="row">
+                @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "工站編號", Fid = "StationNO", Rows = (List<IdStrDto>)ViewBag.StationNOData, InRow = true })
+                @await Component.InvokeAsync("XgFindTbar", new XgFindTbarDto { HasReset = true, HasFind2 = false })
+            </div>
+        </form>
+
+        <div class='xg-btns-box' style="background-color:#ABBAEA;">
+            總成長率公式=比較最近4週生產能量(看有效CT進步的實際比率) &nbsp;&nbsp;&nbsp;&nbsp; 總稼動率公式=最近4週&nbsp;平均總稼動率<br />
+            總能量率公式=最近4週&nbsp;有效平均CycleTime(排除乖離值)/實際平均CycleTime &nbsp;&nbsp;&nbsp;&nbsp; 最大負荷公式=該站離最大的產能還可提升比率
+        </div>
+        <div class='xg-btns-box' style="background-color:#dd9158;">
+            總成長率=@ViewBag.Dis_totAAA %
+        </div>
+
+        <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>工站</th>
+                    <th>總成長率</th>
+                    <th>總稼動率</th>
+                    <th>總能量率</th>
+                    <th>最大負荷差</th>
+                    <th>前4週成長率</th>
+                    <th>前4週稼動率</th>
+                    <th>前4生產能量</th>
+                    <th>前3週成長率</th>
+                    <th>前3週稼動率</th>
+                    <th>前3生產能量</th>
+                    <th>前2週成長率</th>
+                    <th>前2週稼動率</th>
+                    <th>前2生產能量</th>
+                    <th>前1週成長率</th>
+                    <th>前1週稼動率</th>
+                    <th>前1生產能量</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div id="divEdit" class="xg-hide">
+        <form id='eform' class='xg-form' style='margin-bottom:0;'>
+            @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "Id" })
+            @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "StationNO" })
+            @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "LOGDateTime" })
+            @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "OP_NO" })
+            @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "ServerId" })
+
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "OK數量", Fid = "OKQTY", Required = true, MaxLen = 20 })
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "Fail數量", Fid = "FailQTY", Required = true, MaxLen = 20 })
+        </form>
+
+        @await Component.InvokeAsync("XgSaveBack")
+    </div>
+</div>
+

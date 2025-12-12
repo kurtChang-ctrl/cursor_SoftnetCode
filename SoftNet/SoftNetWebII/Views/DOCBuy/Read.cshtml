@@ -1,0 +1,303 @@
+﻿
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        SYS_ClickBlock = false;
+        _me.showIDType = '@ViewBag.ViexID';//是否簽核
+        _me.init();
+        _crud.onFind2();//進階查詢dislpay=none
+        if (_me.showIDType != '') {
+            _crud.onView(_me.showIDType);
+        }
+
+        //document.getElementById('DOCDate').value = '1000';
+        //document.getElementsByName'DOCDate').value = '2000';
+    });
+
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+        showIDType: '',
+        init: function () {
+            //datatable config
+            var config = {
+                columns: [
+                    { data: '_Fun' },
+                    { data: 'SignStatusName', orderable: true },
+                    { data: 'DOCName', orderable: true },
+                    { data: 'DOCNumberNO' , orderable: true},
+                    { data: 'SourceNO', orderable: true },
+                    { data: 'UserId', orderable: true },
+                    { data: 'MFNOName', orderable: true },
+                    { data: 'TaxMoney' },
+                    { data: 'TotalMoney' },
+                ],
+                columnDefs: [
+                    { targets: [0], render: function (data, type, full, meta) {
+                        return _crud.dtCrudFun(full.DOCNumberNO, full.Name, true, true, true);
+                    }},
+                ],
+            };
+
+            //init crud
+            _me.edit0 = new EditOne();//簽核用Table    
+            _me.mCol = new EditMany('Id', 'eformCol', 'tplCol', 'tr');//eformCol=子檔的form id編號
+            _crud.DbKeyName = 'DOCNumberNO';
+            _crud.DbKeyNameS = ['ServerId', 'DOCNumberNO'];
+
+            _crud.init(config, [_me.edit0, _me.mCol]);
+
+            _me.edit0.fnAfterOpenEdit = _me.edit0_afterOpenEdit;
+            _me.divSignRows = $('#divSignRows');
+
+
+            _me.divUrBody = $('#divCols');    //tbody of user role子檔的tbody
+            _me.tplUr = $('#tplCol').html();   //tpl of user role子檔的Edit
+            _me.subWindow = $('#subWindow');        //modal for select user
+            _me.subWindowBody = _me.subWindow.find('tbody');
+            _me.tplUser = $('#tplUser').html(); //tpl of modal user row視窗的Edit
+
+
+        },
+
+        edit0_afterOpenEdit: function (fun, json) {
+            var box = _me.divSignRows;
+            if (fun == _fun.FunC) {
+                box.empty();
+                } else {
+                    _ajax.getView('GetSignRows', { id: json['DOCNumberNO'] }, function (html) {
+                    box.html(html);
+                });
+            }
+        },
+        //開窗查詢料件
+        onShowPartNO: function () {
+            _modal.showO(_me.subWindow);
+        },
+        //查詢
+        onFindUser: function () {        
+            var data = {
+                account: _itext.get('Model', _me.subWindow),
+                deptId: _iselect.get('Class', _me.subWindow),
+            };
+            _ajax.getJson('GetPartNOData', data, function (rows) {
+                _me.subWindowBody.empty();
+                for (var i = 0; i < rows.length; i++) {
+                    _me.subWindowBody.append($(Mustache.render(_me.tplUser, rows[i])));
+                }
+            });
+        },
+        //選取
+        onUserModalOk: function () {
+            //get checked columns list
+            //var crudId = _itext.get('Id', _crud.getEform0());
+            var rows = [];
+            _me.subWindowBody.find(':checkbox:checked').each(function (idx) {
+                var obj = $(this);
+                var tr = obj.closest('tr');
+                //data 屬性不區分大小寫 !!
+                rows[idx] = {
+                    PartNO: tr.data('partno'),
+                    Model: tr.data('model'),
+                    PartName: tr.data('partname'),
+                    Specification: tr.data('specification'),
+                    PartType: tr.data('partType'),
+                    Unit: tr.data('unit'),
+                };
+            });
+            var rowLen = rows.length;
+            if (rowLen === 0) {
+                _tool.msg('請先選取資料。');
+                return;
+            }
+            //append rows if not existed
+            for (var i = 0; i < rowLen; i++) {
+                //check existed
+                var row = rows[i];
+                if (_me.divUrBody.find('[value=' + row.PartNO + ']').length > 0)
+                    continue;
+
+                var tr = $(Mustache.render(_me.tplUr, row));
+                _form.loadJson(tr, row);
+                _me.mCol.boxSetNewId(tr);
+                _me.divUrBody.append(tr);
+
+                //_me.mUserRole_getUpdJson('Z0118Z7F81FS');
+            }
+
+            //remove checked for next usage, hide modal
+            _me.subWindow.find(':checkbox:checked').prop('checked', false);
+            _modal.hideO(_me.subWindow);
+        },
+
+        //load json
+        mUserRole_loadJson: function (json) {
+        _me.mUserRole.urmLoadJson(json, _me.divUsers, _me.mUserRoleFids);
+        },
+
+        //getUpdJson
+        mUserRole_getUpdJson: function (upKey) {
+            return _me.mUserRole.urmGetUpdJson(upKey, _me.divUrBody, _me.mCol);
+        },
+
+
+    }; 
+</script>
+
+<style>
+    /* set scroll table column width(base 1) */
+    #tableUser th:nth-child(1), #tableUser td:nth-child(1) {
+        flex-basis: 10px;
+    }
+
+    #tableUser th:nth-child(2), #tableUser td:nth-child(2) {
+        flex-basis: 30px;
+    }
+
+    #tableUser th:nth-child(3), #tableUser td:nth-child(3) {
+        flex-basis: 60px;
+    }
+    /* get remain width */
+    #tableUser th:nth-child(4), #tableUser td:nth-child(4) {
+        flex-basis: 60px;
+    }
+
+    #tableUser th:nth-child(5), #tableUser td:nth-child(5) {
+        flex-basis: 60px;
+    }
+
+    #tableUser th:nth-child(6), #tableUser td:nth-child(6) {
+        flex: 30px;
+    }
+
+    #tableUser th:nth-child(7), #tableUser td:nth-child(7) {
+        flex-grow: 1;
+    }
+</style>
+
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "採購單據維護" } })
+<div class="xp-prog">
+    <!-- read form-->
+    <div id="divRead">
+        <form id='formRead' class='xg-form xg-mb0'>
+            <div class="row">
+                @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "單據別", Fid = "DOCNO", Rows = (List<IdStrDto>)ViewBag.DOCNO , InRow = true})
+                @await Component.InvokeAsync("XgFindTbar", new XgFindTbarDto { HasReset = true, HasFind2 = true })
+            </div>
+            <div class="row">
+                <div class="col-md-2 xg-label">單據日期</div>
+                <div class="col-md-10 xg-input">
+                    @await Component.InvokeAsync("XiDate", new XiDateDto { Fid = "DOCDate", InRow = true, IsAutoDate=true,IsAutoDate_MathDay=-30, BoxClass = "xg-inline" })
+                    <span>～</span>
+                    @await Component.InvokeAsync("XiDate", new XiDateDto { Fid = "DOCDate2", InRow = true, IsAutoDate=true, BoxClass = "xg-inline" })
+                </div>
+            </div>
+        </form>
+        <form id='formRead2' class='xg-form'>
+            @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "廠商編號", Fid = "MFNO", Rows = (List<IdStrDto>)ViewBag.MFNO })
+
+        </form>
+
+        <div class='xg-btns-box' style="margin-top:5px;">
+            @await Component.InvokeAsync("XgCreate")
+            <button id='button_setST' type='button' class='btn xg-btn' onclick='_me.onShowPartNO()'>自動查核採購建議需求</button>
+        </div>
+
+        <!-- result list -->
+        <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+            <thead>
+                <tr>
+                    <th width='60px'>維護</th>
+                    <th>狀態</th>
+                    <th>單據別</th>
+                    <th>單據編號</th>
+                    <th>建檔人員</th>
+                    <th>來源編號</th>
+                    <th>廠商資訊</th>
+                    <th>稅額</th>
+                    <th>總金額</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- edit form-->
+    <div id="divEdit" class="xg-hide">
+        <partial name="Edit" />
+    </div>
+</div>
+
+
+<!-- modal: select user -->
+<div id="subWindow" class="modal fade xg-modal" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content" style="width:660px; height:520px;">
+            <div class="modal-header">
+                <div class="modal-title">選取料件</div>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="row xg-mb5">
+                    <div class="col-md-3 xg-right" style="padding-top: 6px;">料件類型</div>
+                    <div class="col-md-5">
+                        @await Component.InvokeAsync("XiSelect", new XiSelectDto { Fid = "Class", Rows = (List<IdStrDto>)ViewBag.Class })
+                    </div>
+                </div>
+                <div class="row xg-mb5">
+                    <div class="col-md-3 xg-right" style="padding-top: 6px;">料件機種</div>
+                    <div class="col-md-5">
+                        @await Component.InvokeAsync("XiText", new XiTextDto { Fid = "Model" })
+                    </div>
+                    <div class="col-md-4 xg-right">
+                        <button type="button" class="btn btn-success xg-btn-size" onclick="_me.onFindUser()">查詢</button>
+                        <button type="button" class="btn btn-primary xg-btn-size" onclick="_me.onUserModalOk()">選取</button>
+                    </div>
+                </div>
+
+                <!-- query result list -->
+                <table id="tableUser" class="table table-bordered xg-table xg-table-vscroll" cellspacing="0" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>Select</th>
+                            <th>Model</th>
+                            <th>PartNO</th>
+                            <th>PartName</th>
+                            <th>Specification</th>
+                            <th>PartType</th>
+                            <th>Unit</th>
+
+                        </tr>
+                    </thead>
+                    <!-- match tplItemTr -->
+                    <tbody style="height:315px"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script id="tplUser" type="text/template">
+    <tr data-partno='{{PartNO}}'
+        data-model='{{Model}}'
+        data-partname='{{PartName}}'
+        data-specification='{{Specification}}'
+        data-partType='{{PartType}}'
+        data-unit='{{Unit}}'>
+        <td>
+            @await Component.InvokeAsync("XiCheck", new XiCheckDto { Fid = "_check0" })
+        </td>
+        <td>{{Model}}</td>
+        <td>{{PartNO}}</td>
+        <td>{{PartName}}</td>
+        <td>{{Specification}}</td>
+        <td>{{PartType}}</td>
+        <td>{{Unit}}</td>
+
+    </tr>
+</script>
+
+

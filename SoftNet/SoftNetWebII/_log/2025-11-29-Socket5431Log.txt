@@ -1,0 +1,5 @@
+08:58:38(0); S Type=1 Data=IIS_Login,SoftNet_I,
+09:00:38(0); S Type=1 Data=WebChangeStationStatus,1,A01,WEBProg,A01,00003,XX01202511100001,4,,,0,true,0,0,0,0
+09:00:45(0); S Type=1 Data=WebChangeStationStatus,2,A01,WEBProg,A01,00003,XX01202511100001,4,,,0,true,0,0,0,0
+09:44:51(0); S Type=1 Data=IIS_Login,SoftNet_I,
+09:47:37(0); S Type=1 Data=IIS_Login,SoftNet_I,

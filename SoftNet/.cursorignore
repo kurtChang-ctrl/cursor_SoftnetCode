@@ -1,0 +1,86 @@
+# .NET 專案構建輸出
+bin/
+obj/
+*.dll
+*.pdb
+*.exe
+
+# Visual Studio 配置和用戶文件
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# NuGet 包
+packages/
+*.nupkg
+*.snupkg
+
+# 日誌文件
+*.log
+logs/
+*.txt
+!README*.txt
+!CHANGELOG*.txt
+
+# 臨時文件和緩存
+*.cache
+*.tmp
+*.temp
+*.swp
+*~
+
+# 編譯和構建文件
+*.csproj.user
+*.csproj.vspscc
+*.csproj.FileListAbsolute.txt
+*.csproj.nuget.dgspec.json
+*.csproj.nuget.g.props
+*.csproj.nuget.g.targets
+project.assets.json
+project.lock.json
+
+# 測試結果
+TestResults/
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+*.coveragexml
+
+# 其他 IDE 文件
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# 系統文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 隱藏文件和目錄（但保留重要文件）
+.*
+!.cursorignore
+!.gitignore
+!.gitattributes
+
+# IIS Express 配置（Visual Studio 自動生成）
+.vs/*/config/applicationhost.config
+
+# 備份文件
+*.bak
+*.backup
+*_old
+*.old
+*.cs_old
+*.c_old
+
+# 壓縮文件（除非是專案需要的）
+*.zip
+!**/wwwroot/**/*.zip
+
+# 文檔生成
+docs/_build/
+docs/.doctrees/

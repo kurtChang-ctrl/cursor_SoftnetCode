@@ -1,0 +1,87 @@
+﻿@*
+    For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+*@
+@{
+}
+<script src="~/js/lib/chart-3.6.2.js"></script>
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+
+        onSet: function (status) {
+            var sendData = {
+                data1: 0,
+                data2: 0,
+            };
+            var ele1 = document.getElementsByName('data1');
+            for (i = 0; i < ele1.length; i++) {
+                if (ele1[i].checked) { sendData.data1 = ++i; break; }
+            };
+            var ele2 = document.getElementsByName('data2');
+            for (i = 0; i < ele2.length; i++) {
+                if (ele2[i].checked) { sendData.data2 = ++i; break; }
+            };
+            if (sendData.data1 == 0 || sendData.data2 == 0) {
+                _tool.msg('請選擇資料。');
+                return;
+            }
+            _ajax.getStr('Efficient_Request', sendData, function (data) {
+                if (_str.isEmpty(data)) { _tool.msg("無資料可分析...."); }
+                else {
+                    var _s = JSON.parse(data);
+                    var ctx = document.getElementById('myChart');
+                    var config = {
+                        type: 'scatter',
+                        data: _s.data,
+                        options: {
+                            responsive: true, // 设置图表为响应式，根据屏幕窗口变化而变化
+                            maintainAspectRatio: false,// 保持图表原有比例
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    };
+                    var myChart = new Chart(ctx, config);
+
+                }
+            });
+        },
+
+        getCheckedTables: function () {
+            var values = _icheck.getCheckeds(_me.divRead);
+            if (values.length === 0)
+                _tool.msg('請選取資料。');
+            return values;
+        },
+
+
+    }; //class
+
+
+</script>
+
+
+<div class="xp-prog">
+    <div id="divRead">
+        選擇資料統計範圍:<input type="radio" name="data1" value="每日" checked="checked">每日<input type="radio" name="data1" value="每周">每周<input type="radio" name="data1" value="每月">每月<input type="radio" name="data1" value="每年">每年
+    </div>
+    <div id="divRead2">
+        選擇分析類型方式:<input type="radio" name="data2" value="整體" checked="checked">整體<input type="radio" name="data2" value="針對製程">針對製程<input type="radio" name="data2" value="針對工站">針對工站<input type="radio" ame="data2" value="針對員工">針對員工<input type="radio" name="data2" value="針對單據">針對單據
+    </div>
+    <button id='button_setST' type='button' class='btn xg-btn' onclick='_me.onSet(1)'>確認</button>
+
+</div>
+<hr />
+<div>                <canvas id="myChart"></canvas>
+
+</div>

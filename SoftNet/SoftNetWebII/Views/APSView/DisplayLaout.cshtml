@@ -1,0 +1,287 @@
+﻿
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+        _leftmenu.onToggleMenu();
+        var element = document.getElementById("TopLayoutDiv");
+        element.style.display = "none";
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus:true,
+        STView2Work_PageReload:false,
+        hasStaionChangQTY: false,
+
+        onChangStateShow: function (errType, simulationId, actionType) {
+            //switch (errType) {
+            //    case "01": return '<div>初建</div>'//改紅燈
+            //    case "02": return '<div>模擬中</div>'
+            //    case "03": return '<div>完成模擬</div>'
+            //}
+            if (actionType == "") { document.getElementById(simulationId).className = "labelRed"; }
+            else { document.getElementById(simulationId).className = "label"; }
+        },
+        onShow: function (id) {
+            if (id == '') { return; }
+            else {
+                var str = _crud.LocalIPPort + ',' + id;
+                _ajax.getStr('OnAction', { keys: str }, function (error) {
+                    if (!_str.isEmpty(error)) { _tool.msg(error,); }
+                    //_crud.pageReload();
+                });
+            }
+        },
+        SetAction: function (id) {
+            var str = _crud.LocalIPPort + ',' + id + ',' + document.getElementById('ageID').value;
+            _ajax.getStr('OnActionII', { keys: str }, function (error) {
+
+                //if (!_str.isEmpty(error)) {_tool.msg(error);}
+                //_crud.pageReload();
+            });
+        },
+    }; //class
+
+</script>
+
+
+
+<style>
+
+    *, *:before, *:after {
+        -webkit-box-sizing: border-box;
+        -moz-box-sizing: border-box;
+        box-sizing: border-box;
+    }
+
+    #container1 {
+        width: 250px;
+        height: 200px;
+        display: inline-block;
+        margin: 1em;
+    }
+
+    #wrapper {
+        position: relative;
+    }
+
+    .branch {
+        position: relative;
+        margin-left: 250px;
+    }
+
+        .branch:before {
+            content: "";
+            width: 50px;
+            border-top: 2px solid #eee9dc;
+            position: absolute;
+            left: -100px;
+            top: 50%;
+            margin-top: 1px;
+        }
+
+    .entry {
+        position: relative;
+        min-height: 60px;
+    }
+
+        .entry:before {
+            content: "";
+            height: 100%;
+            border-left: 2px solid #eee9dc;
+            position: absolute;
+            left: -50px;
+        }
+
+        .entry:after {
+            content: "";
+            width: 50px;
+            border-top: 2px solid #eee9dc;
+            position: absolute;
+            left: -50px;
+            top: 50%;
+            margin-top: 1px;
+        }
+
+        .entry:first-child:before {
+            width: 10px;
+            height: 50%;
+            top: 50%;
+            margin-top: 2px;
+            border-radius: 10px 0 0 0;
+        }
+
+        .entry:first-child:after {
+            height: 10px;
+            border-radius: 10px 0 0 0;
+        }
+
+        .entry:last-child:before {
+            width: 10px;
+            height: 50%;
+            border-radius: 0 0 0 10px;
+        }
+
+        .entry:last-child:after {
+            height: 10px;
+            border-top: none;
+            border-bottom: 2px solid #eee9dc;
+            border-radius: 0 0 0 10px;
+            margin-top: -9px;
+        }
+
+        .entry.sole:before {
+            display: none;
+        }
+
+        .entry.sole:after {
+            width: 50px;
+            height: 0;
+            margin-top: 1px;
+            border-radius: 0;
+        }
+
+    .label {
+        display: block;
+        min-width: 150px;
+        padding: 5px 10px;
+        line-height: 20px;
+        text-align: center;
+        border: 2px solid #eee9dc;
+        border-radius: 5px;
+        position: absolute;
+        left: 0;
+        top: 50%;
+        margin-top: -15px;
+    }
+
+    .labelRed {
+        display: block;
+        min-width: 150px;
+        padding: 5px 10px;
+        line-height: 20px;
+        text-align: center;
+        border: 2px solid red;
+        border-radius: 5px;
+        position: absolute;
+        left: 0;
+        top: 50%;
+        margin-top: -15px;
+    }
+
+
+
+
+
+
+    <!--        read2              -->
+    body {
+        font-family: Calibri, Segoe, "Segoe UI", "Gill Sans", "Gill Sans MT", sans-serif;
+    }
+
+
+    .tree, .tree ul, .tree li {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        position: relative;
+    }
+
+    .tree {
+        margin: 0 0 1em;
+        text-align: center;
+    }
+
+        .tree, .tree ul {
+            display: table;
+        }
+
+            .tree ul {
+                width: 100%;
+            }
+
+            .tree li {
+                display: table-cell;
+                padding: .5em 0;
+                vertical-align: top;
+            }
+
+                .tree li:before {
+                    outline: solid 1px #666;
+                    content: "";
+                    left: 0;
+                    position: absolute;
+                    right: 0;
+                    top: 0;
+                }
+
+                .tree li:first-child:before {
+                    left: 50%;
+                }
+
+                .tree li:last-child:before {
+                    right: 50%;
+                }
+
+            .tree code, .tree span {
+                border: solid .1em #666;
+                border-radius: .2em;
+                display: inline-block;
+                margin: 0 .2em .5em;
+                padding: .2em .5em;
+                position: relative;
+            }
+
+            .tree code {
+                font-family: monaco, Consolas, 'Lucida Console', monospace;
+            }
+
+
+                .tree ul:before,
+                .tree code:before,
+                .tree span:before {
+                    outline: solid 1px #666;
+                    content: "";
+                    height: .5em;
+                    left: 50%;
+                    position: absolute;
+                }
+
+            .tree ul:before {
+                top: -.5em;
+            }
+
+            .tree code:before,
+            .tree span:before {
+                top: -.55em;
+            }
+
+
+            .tree > li {
+                margin-top: 0;
+            }
+
+                .tree > li:before,
+                .tree > li:after,
+                .tree > li > code:before,
+                .tree > li > span:before {
+                    outline: none;
+                }
+
+</style>
+
+
+
+<div class="container1">
+    <div class="row">
+        <div class="col-md-8 xg-input" id="divSignRowsBOM">@Html.Raw(ViewBag.HtmlOutputBOM)</div>
+    </div>
+</div>
+
+
+<div class="container2">
+    <div class="row">
+        <div class="col-md-8 xg-input" id="divSignRows">@Html.Raw(ViewBag.HtmlOutputProcess)</div>
+    </div>
+</div>

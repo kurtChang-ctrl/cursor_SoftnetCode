@@ -1,0 +1,159 @@
+﻿
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        SYS_ClickBlock = false;
+        _me.init();
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+        init: function () {
+            //datatable config
+            var config = {
+                columns: [
+                    { data: '_F1' },
+                    { data: '_Crud' },
+                    { data: 'WorkType', orderable: true },
+                    { data: 'Class', orderable: true },
+                    { data: 'PartNO', orderable: true },
+                    { data: 'PartNameSpecification' },
+                    { data: 'NeedQTY' },
+                    { data: 'Price' },
+                    { data: 'SName', orderable: true },
+                    { data: 'IN_StoreNO', orderable: true },
+                    { data: 'IN_StoreSpacesNO' },
+                    { data: 'APS_StationNO', orderable: true },
+                    { data: 'StartTime', orderable: true },
+                    { data: 'ArrivalDate', orderable: true },
+                    { data: 'DOCNumberNO' },
+                    { data: 'Remark' },
+                ],
+                columnDefs: [
+                    {
+                        targets: [0], render: function (data, type, full, meta) {
+                            return _crud.dtCheck0(full.Id);
+                        }
+                    },
+                    {
+                        targets: [1], render: function (data, type, full, meta) {
+                            return _crud.dtCrudFun(full.Id, full.Name, true, true, false);
+                        }
+                    },
+                    {
+                        targets: [2], render: function (data, type, full, meta) {
+                            switch (full.WorkType) {
+                                case "1": return '排程採購';
+                                case "2": return '排程委外';
+                                case "3": return '補存貨量';
+                                case "4": return '廠內生產';
+                            }
+                            return '未定';
+                        }
+                    },
+                    {
+                        targets: [3], render: function (data, type, full, meta) {
+                            switch (full.Class) {
+                                case "1": return '原物料';
+                                case "2": return '採購件';
+                                case "3": return '委外件';
+                                case "4": return '製造半成品';
+                                case "5": return '製造成品';
+                                case "6": return '加工刀具';
+                            }
+                            return '未定';
+                        }
+                    },
+                ],
+            };
+
+            //initial
+            _crud.DbKeyName = 'Id';
+            _crud.init(config);
+        },
+        onChangeSTStaus: function (type) {
+            var skeys = _icheck.getCheckeds(_me.divRead);
+            if (skeys.length == 0) {
+                _tool.msg('請選取資料。');
+                return;
+            }
+            var str = _crud.LocalIPPort + ',' + skeys.join(',');
+            switch (type) {
+                case '1':
+                    if (confirm('是否確定將已勾選的項目, 正式發出單據?')) {
+
+                        _ajax.getStr('GOTORUNDOC', { keys: str }, function (error) {
+                            if (!_str.isEmpty(error)) { _tool.msg(error); }
+                            _crud.pageReload();
+                        });
+                    }
+                    break;
+            }
+        },
+
+    };
+</script>
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "排程系統 沿生物料 採購, 委外加工, 補足存貨之內容維護" } })
+<div class="xp-prog">
+    <div id="divRead">
+        <form id='formRead' class='xg-form xg-mb0'>
+            <div class="row">
+                @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "底稿類型", Fid = "WorkType", InRow = true, Rows = (List<IdStrDto>)ViewBag.WorkType })
+                @await Component.InvokeAsync("XgFindTbar", new XgFindTbarDto { HasReset = true })
+            </div>
+
+
+        </form>
+
+        <div class="xg-btns-box">
+            <span class="xg-block-label">功能:</span>
+            <button id='button_setSTStatus1' type='button' class='btn xg-btn' onclick='_me.onChangeSTStaus("1")'>發出正式單據</button>
+        </div>
+
+
+        <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+            <thead>
+                <tr>
+                    <th width='15px'>選</th>
+                    <th width='35px'>功能</th>
+                    <th width='60px'>底稿類型</th>
+                    <th>類型</th>
+                    <th>料件編號</th>
+                    <th>品名規格</th>
+                    <th>需求量</th>
+                    <th>單價</th>
+                    <th>供應商</th>
+                    <th>入庫倉</th>
+                    <th>儲位</th>
+                    <th>需求站</th>
+                    <th>預計發出日</th>
+                    <th>預計入庫日</th>
+                    <th>單據編號</th>
+                    <th>備註</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div id="divEdit" class="xg-hide">
+        <form id='eform' class='xg-form'>
+            @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "Id" })
+            @await Component.InvokeAsync("XiRead", new XiReadDto { Title = "料件編號", Fid = "PartNO" })
+            @await Component.InvokeAsync("XiRead", new XiReadDto { Title = "品名", Fid = "PartName" })
+            @await Component.InvokeAsync("XiRead", new XiReadDto { Title = "規格", Fid = "Specification" })
+            @await Component.InvokeAsync("XiRead", new XiReadDto { Title = "需求工站", Fid = "APS_StationNO" })
+            @await Component.InvokeAsync("XiInt", new XiIntDto { Title = "需求數量", Fid = "NeedQTY", Required = true })
+            @await Component.InvokeAsync("XiDec", new XiDecDto { Title = "單價", Fid = "Price" })
+            @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "供應商", Fid = "MFNO", Rows = (List<IdStrDto>)ViewBag.MFNO, AddEmptyRow = false, Required = true })
+            @await Component.InvokeAsync("XiDt", new XiDtDto { Title = "預計發出日", Fid = "StartTime",  Cols = "2,4" })
+            @await Component.InvokeAsync("XiDt", new XiDtDto { Title = "預計入庫日", Fid = "ArrivalDate", Cols = "2,4" })
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "備註", Fid = "Remark", MaxLen = 255 })
+        </form>
+
+        @await Component.InvokeAsync("XgSaveBack")
+    </div>
+</div>

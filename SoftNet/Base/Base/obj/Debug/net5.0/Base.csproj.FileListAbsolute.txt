@@ -1,0 +1,11 @@
+D:\書_sampleCode\Base\Base\bin\Debug\net5.0\Base.deps.json
+D:\書_sampleCode\Base\Base\bin\Debug\net5.0\Base.dll
+D:\書_sampleCode\Base\Base\bin\Debug\net5.0\ref\Base.dll
+D:\書_sampleCode\Base\Base\bin\Debug\net5.0\Base.pdb
+D:\書_sampleCode\Base\Base\obj\Debug\net5.0\Base.GeneratedMSBuildEditorConfig.editorconfig
+D:\書_sampleCode\Base\Base\obj\Debug\net5.0\Base.AssemblyInfoInputs.cache
+D:\書_sampleCode\Base\Base\obj\Debug\net5.0\Base.AssemblyInfo.cs
+D:\書_sampleCode\Base\Base\obj\Debug\net5.0\Base.csproj.CoreCompileInputs.cache
+D:\書_sampleCode\Base\Base\obj\Debug\net5.0\Base.dll
+D:\書_sampleCode\Base\Base\obj\Debug\net5.0\ref\Base.dll
+D:\書_sampleCode\Base\Base\obj\Debug\net5.0\Base.pdb

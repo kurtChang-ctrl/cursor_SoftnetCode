@@ -1,0 +1,89 @@
+﻿@*
+    For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+*@
+@{
+}
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+
+        onCommand: function (key) {
+            var data = {
+                ipport: _crud.LocalIPPort,
+                type: key,
+                arg: '',
+            };
+            _ajax.getStr('SetCommand', data, function (error) {
+                if (!_str.isEmpty(error)) { _tool.msg(error); }
+            });
+        },
+    }; //class
+
+</script>
+<!--
+<button id='button_set1' type='button' class='btn xg-btn' onclick='_me.onCommand("99")'>製程回寫BOM StationNO_Merge與MFNO</button><br />
+<button id='button_set1' type='button' class='btn xg-btn' onclick='_me.onCommand("97")'>已發出大正寫A01A05共用站</button>
+<br />
+<button id='button_set1' type='button' class='btn xg-btn' onclick='_me.onCommand("96")'>xxxx</button>
+<br />
+<button id='button_set1' type='button' class='btn xg-btn' onclick='_me.onCommand("95")'>yyyyyy</button>
+<br />
+<button id='button_set1' type='button' class='btn xg-btn' onclick='_me.onCommand("94")'>zzzzzz</button>
+<br />
+-->
+<button id='button_set1' type='button' class='btn xg-btn' onclick='_me.onCommand("A1")'>整理歷史資料</button>
+<button id='button_set1' type='button' class='btn xg-btn' onclick='_me.onCommand("1")'>發送Mail測試</button>
+<button id='button_set2' type='button' class='btn xg-btn' onclick='_me.onCommand("2")'>建立目前BOM ESOP資料夾目錄</button>
+<button id='button_set3' type='button' class='btn xg-btn' onclick='_me.onCommand("3")'>複寫BOM ESOP資料夾目錄的文檔至資料庫</button>
+<!--
+<button id='button_set4' type='button' class='btn xg-btn' onclick='_me.onCommand("4")'>修正 萬銓 行事曆</button>
+<button id='button_set5' type='button' class='btn xg-btn' onclick='_me.onCommand("5")'>建立第一次刀庫</button>
+-->
+
+<div class="xp-prog">
+    <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+        <thead>
+            <tr>
+                <th>屬性</th>
+                <th>參數值</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td>Version</td><td>V4.7382.003</td></tr>
+            <tr><td>Db</td><td>@_Fun.Config.Db</td></tr>
+            <tr><td>Locale</td><td>@_Fun.Config.Locale</td></tr>
+            <tr><td>LogSql</td><td>@_Fun.Config.LogSql</td></tr>
+            <tr><td>LogDebug</td><td>@_Fun.Config.LogDebug</td></tr>
+            <tr><td>ServerId</td><td>@_Fun.Config.ServerId</td></tr>
+            <tr><td>OutPackStationName</td><td>@_Fun.Config.OutPackStationName</td></tr>
+            <tr><td>DefaultStoreNO</td><td>@_Fun.Config.DefaultStoreNO</td></tr>
+            <tr><td>DefaultFactoryName</td><td>@_Fun.Config.DefaultFactoryName</td></tr>
+            <tr><td>DefaultLineName</td><td>@_Fun.Config.DefaultLineName</td></tr>
+            <tr><td>AdministratorEmail</td><td>@_Fun.Config.AdministratorEmail</td></tr>
+            <tr><td>SystemEmail</td><td>@_Fun.Config.SystemEmail</td></tr>
+            <tr><td>MailSmtpServer</td><td>@_Fun.Config.MailSmtpServer</td></tr>
+            <tr><td>MailSmtpPort</td><td>@_Fun.Config.MailSmtpPort</td></tr>
+            <tr><td>MailCredentialsAccount</td><td>@_Fun.Config.MailCredentialsAccount</td></tr>
+            <tr><td>MailCredentialsPWD</td><td>@_Fun.Config.MailCredentialsPWD</td></tr>
+            <tr><td>ElectronicTagsURL</td><td>@_Fun.Config.ElectronicTagsURL</td></tr>
+            <tr><td>LocalWebURL</td><td>@_Fun.Config.LocalWebURL</td></tr>
+            <tr><td>WesocketURL</td><td>@_Fun.Config.WesocketURL</td></tr>
+            <tr><td>RUNMode</td><td>@_Fun.Config.RUNMode</td></tr>
+            <tr><td>DefaultCalendarName</td><td>@_Fun.Config.DefaultCalendarName</td></tr>
+            <tr><td>AdminKey03</td><td>@_Fun.Config.AdminKey03</td></tr>
+            <tr><td>AdminKey14</td><td>@_Fun.Config.AdminKey14</td></tr>
+            <tr><td>IsAutoDispatch</td><td>@_Fun.Config.IsAutoDispatch</td></tr>
+            <tr><td>RunTimeServerLoopTime</td><td>@_Fun.Config.RunTimeServerLoopTime</td></tr>
+            <tr><td>APS_CT_Custom_Rate</td><td>@_Fun.Config.RunTimeServerLoopTime</td></tr>
+        </tbody>
+    </table>
+</div>

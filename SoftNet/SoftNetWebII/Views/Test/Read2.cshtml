@@ -1,0 +1,313 @@
+﻿
+    <style>
+      body {
+        text-align: center;
+      }
+      
+      #container1, #container2, #container3, #container4 {
+        width:250px; height:200px;
+        display: inline-block;
+        margin: 1em;
+      }
+          
+      p {
+        display: block;
+        width: 450px;
+        margin: 2em auto;
+        text-align: left;
+      }
+    </style>
+    <script src="~/js/lib/gaugeSVG.js"></script>
+
+    <script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        ffff();
+    });
+
+    var _me = {
+        hasStaionStatus: false,
+        hasStaionChangQTY: false,
+        onChangeDIV: function (type) {
+            _me.hideall();
+            switch (type) {
+                case "1":
+                    $('#formRead_right_1').show();
+                    break;
+                case "2":
+                    $('#formRead_right_2').show();
+                    break;
+                case "3":
+                    $('#formRead_right_3').show();
+                    break;
+                case "4":
+                    $('#formRead_right_4').show();
+                    break;
+                case "5":
+                    $('#formRead_right_5').show();
+                    break;
+            }
+        },
+        hideall:function () {
+            $('#formRead_right_1').hide();
+            $('#formRead_right_2').hide();
+            $('#formRead_right_3').hide();
+            $('#formRead_right_4').hide();
+            $('#formRead_right_5').hide();
+        },
+    }; //class
+
+</script>
+
+
+
+     <script>
+        function ffff() {
+
+            // var gauge1 = new GaugeSVG({
+            //     id: "container1"
+            // });
+            /*
+                        var gauge2 = new GaugeSVG({
+                id: "container2"
+            });
+                        var gauge3 = new GaugeSVG({
+                id: "container3"
+            });
+                        var gauge4 = new GaugeSVG({
+                id: "container4"
+            });
+                        var gauge5 = new GaugeSVG({
+                id: "container5"
+            });
+                        var gauge6 = new GaugeSVG({
+                id: "container6"
+            });
+                        var gauge7 = new GaugeSVG({
+                id: "container7"
+            });
+                        var gauge8 = new GaugeSVG({
+                id: "container8"
+            });
+            */
+           
+            var gauge2 = new GaugeSVG({
+                id: "container2",
+            value: 90,
+            title: "Gauge 3",
+            label: "hits/min (beat)",
+            min: 0,
+            max: 100,
+            lowerWarningLimit: 20,
+            upperWarningLimit: 40,
+            lowerActionLimit: 41,
+            upperActionLimit: 100,//操作上限
+            optimumRangeColor: "#ecec2b",//最佳範圍
+            warningRangeColor: "#58df29",//警告範圍
+            actionRangeColor: "#ff8888",//操作範圍
+            });
+
+            var gauge3 = new GaugeSVG({
+                id: "container3",
+                value: 81,
+                title: "Gauge 3",
+                label: "hits/min (beat)",
+                min: 0,
+                max: 100,
+                lowerWarningLimit: 20,
+                upperWarningLimit: 40,
+                lowerActionLimit: 50,
+                upperActionLimit: 100,//操作上限
+                optimumRangeColor: "#58df29",//最佳範圍
+            warningRangeColor: "#2bd1ec",//警告範圍
+                actionRangeColor: "#ff8888",//操作範圍
+            });
+
+            var gauge4 = new GaugeSVG({
+                id: "container4",
+            value: 10,
+            title: "Gauge 4",
+            label: "hits/min (beat)",
+            min: 0,
+            max: 100,
+            lowerWarningLimit: 20,
+            upperWarningLimit: 40,
+            lowerActionLimit: 50,
+            upperActionLimit: 100,//操作上限
+            optimumRangeColor: "#2bd1ec",//最佳範圍
+            warningRangeColor: "#ecec2b",//警告範圍
+            actionRangeColor: "#2bec2e",//操作範圍
+            });
+
+        var gauge5 = new GaugeSVG({
+            id: "container5",
+            value: 35.0,
+            title: "Gauge 4",
+            label: "turns per minute",
+            gaugeWidthScale: 1.0,
+            min: 0.0,
+            max: 60.0,
+            lowerActionLimit: -1,
+            lowerWarningLimit: 0.0,
+            needleColor: "#880088",
+            optimumRangeColor: "#88ff88",
+            warningRangeColor: "#f4f444",
+            actionRangeColor: "#ff8888",
+        });
+
+        var gauge6 = new GaugeSVG({
+            id: "container6",
+            value: 49,
+            valueColor: "#444488",
+            min: 30,
+            max: 70,
+            minmaxColor: "#444488",
+            title: "Gauge 2",
+            titleColor: "#8888cc",
+            label: "m³/h (passage)",
+            labelColor: "#8888cc",
+            gaugeWidthScale: 1.25,
+            gaugeBorderColor: "#222244",
+            gaugeBorderWidth: 1.5,
+            gaugeShadowColor: "#444488",
+            gaugeShadowScale: 1.35,
+            canvasBackColor: "#f8eeff",
+            gaugeBackColor: "#ccccff",
+            needleColor: "#8888cc",
+            lowerActionLimit: 0,
+            lowerWarningLimit: 0,
+            upperWarningLimit: 0,
+            upperActionLimit: 0,
+        });
+
+        var gauge7 = new GaugeSVG({
+            id: "container7",
+            value: 81,
+            title: "Gauge 3",
+            label: "hits/min (beat)",
+            min: 20,
+            max: 120,
+            lowerActionLimit: 0,
+            lowerWarningLimit: 60,
+            upperWarningLimit: 105,
+            upperActionLimit: 0,
+            optimumRangeColor: "#88ff88",
+            warningRangeColor: "#f4f444"
+        });
+
+        var gauge8 = new GaugeSVG({
+            id: "container8",
+            value: 35.0,
+            title: "Gauge 4",
+            label: "turns per minute",
+            gaugeWidthScale: 1.0,
+            min: 0.0,
+            max: 60.0,
+            lowerActionLimit: -1,
+            lowerWarningLimit: 0.0,
+            needleColor: "#880088",
+            optimumRangeColor: "#88ff88",
+            warningRangeColor: "#f4f444",
+            actionRangeColor: "#ff8888"
+        });
+
+            // var gauge5 = new GaugeSVG({
+            //     id: "container5"
+            // });
+
+            // var gauge6 = new GaugeSVG({
+            //     id: "container6",
+            //     value: 49,
+            //     valueColor: "#444488",
+            //     min: 30,
+            //     max: 70,
+            //     minmaxColor: "#444488",
+            //     title: "Gauge 2",
+            //     titleColor: "#8888cc",
+            //     label: "m³/h (passage)",
+            //     labelColor: "#8888cc",
+            //     gaugeWidthScale: 1.25,
+            //     gaugeBorderColor: "#222244",
+            //     gaugeBorderWidth: 1.5,
+            //     gaugeShadowColor: "#444488",
+            //     gaugeShadowScale: 1.35,
+            //     canvasBackColor: "#f8eeff",
+            //     gaugeBackColor: "#ccccff",
+            //     needleColor: "#8888cc",
+            //     lowerActionLimit: 0,
+            //     lowerWarningLimit: 0,
+            //     upperWarningLimit: 0,
+            //     upperActionLimit: 0,
+            // });
+
+            // var gauge7 = new GaugeSVG({
+            //     id: "container7",
+            //     value: 81,
+            //     title: "Gauge 3",
+            //     label: "hits/min (beat)",
+            //     min: 20,
+            //     max: 120,
+            //     lowerActionLimit: 0,
+            //     lowerWarningLimit: 60,
+            //     upperWarningLimit: 105,
+            //     upperActionLimit: 0,
+            //     optimumRangeColor: "#88ff88",
+            //     warningRangeColor: "#f4f444"
+            // });
+
+            // var gauge8 = new GaugeSVG({
+            //     id: "container8",
+            //     value: 35.0,
+            //     title: "Gauge 4",
+            //     label: "turns per minute",
+            //     gaugeWidthScale: 1.0,
+            //     min: 0.0,
+            //     max: 60.0,
+            //     lowerActionLimit: -1,
+            //     lowerWarningLimit: 0.0,
+            //     needleColor: "#880088",
+            //     optimumRangeColor: "#88ff88",
+            //     warningRangeColor: "#f4f444",
+            //     actionRangeColor: "#ff8888"
+            // });
+          
+
+            /*
+            setInterval(function () {
+                gauge1.refresh(gauge1.randomSampleValue(0, 100));
+                //gauge2.refresh(gauge2.randomSampleValue(34, 65), true);
+                //gauge3.refresh(gauge3.randomSampleValue(66, 100), true);
+                //gauge4.refresh(gauge4.randomSampleValue(0, 600) / 10.0, true);
+                //gauge5.refresh(gauge1.randomSampleValue(0, 100));
+                //gauge6.refresh(gauge2.randomSampleValue(34, 65), true);
+                //gauge7.refresh(gauge3.randomSampleValue(66, 100), true);
+                //gauge8.refresh(gauge4.randomSampleValue(0, 600) / 10.0, true);
+            }, 1000);
+            */
+        };
+    </script>
+
+    <div>
+        <button type='button' class='btn xg-btn-size btn-primary' onclick='ffff()'>ShowData</button>
+    </div>
+
+    <div class="row">
+    <div id="container1"></div>
+    </div><div class="row">
+    <div id="container2"></div>
+    </div><div class="row">
+    <div id="container3"></div>
+    </div><div class="row">
+    <div id="container4"></div>
+    </div><div class="row">
+    <div id="container5"></div>
+    </div><div class="row">
+    <div id="container6"></div>
+    </div><div class="row">
+    <div id="container7"></div>
+    </div><div class="row">
+    <div id="container8"></div>
+    </div>
+
+
+    

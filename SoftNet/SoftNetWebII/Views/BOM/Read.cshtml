@@ -1,0 +1,123 @@
+﻿
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        SYS_ClickBlock = false;
+        _me.init();
+        _crud.onFind2();//進階查詢dislpay=none
+    });
+
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+
+        init: function () {
+            //datatable config
+            var config = {
+                columns: [
+                    { data: '_Fun' },
+                    { data: 'Main_Item' },
+                    { data: 'Version' },
+                    { data: 'PartNO', orderable: true },
+                    { data: 'PartName' },
+                    { data: 'Specification' },
+                    { data: 'Apply_PP_Name', orderable: true },
+                    { data: 'Apply_StationNO', orderable: true },
+                    { data: 'IndexSN' },
+                    { data: 'Station_Custom_IndexSN' },
+                    { data: 'StationNO_Custom_DisplayName' },
+                    { data: 'OutPackType' },
+                    { data: 'IsEnd' },
+                ],
+                columnDefs: [
+                    { targets: [0], render: function (data, type, full, meta) {
+                        return _crud.dtCrudFun(full.Id, full.Name, true, true, false);
+                    }},
+                    {
+                        targets: [1], render: function (data, type, full, meta) {
+                            if (full.Main_Item == '1') { return '是'; }
+                            else { return '否'; }
+                        }
+                    },
+                    {
+                        targets: [11], render: function (data, type, full, meta) {
+                            if (full.OutPackType == '1') { return '是'; }
+                            else { return '否'; }
+                        }
+                    },
+                    {
+                        targets: [12], render: function (data, type, full, meta) {
+                            if (full.IsEnd == '1') { return '是'; }
+                            else { return '否'; }
+                        }
+                    },
+                ],
+            };
+
+            //init crud
+            _me.mCol = new EditMany('Id', 'eformCol', 'tplCol', 'tr');
+            _crud.DbKeyName = 'Id';
+            _crud.init(config, [null, _me.mCol]);
+        },
+
+
+    }; //class
+</script>
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "BOM維護" } })
+<div class="xp-prog">
+    <!-- read form-->
+    <div id="divRead">
+        <!-- condition -->
+        <form id='formRead' class='xg-form xg-mb0'>
+            <div class="row">
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "料號", Fid = "PartNO", InRow = true })
+                @await Component.InvokeAsync("XgFindTbar", new XgFindTbarDto { HasReset = true, HasFind2 = true })
+            </div>
+        </form>
+        <form id='formRead2' class='xg-form'>
+            @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "適用製程", Fid = "Apply_PP_Name", Rows = (List<IdStrDto>)ViewBag.Apply_PP_Name, InRow = true })
+            <div class="row">
+                <div class="col-md-2 xg-label">生效日</div>
+                <div class="col-md-10 xg-input">
+                    @await Component.InvokeAsync("XiDate", new XiDateDto { Fid = "EffectiveDate", InRow = true, IsAutoDate = true, IsAutoDate_MathDay = -30, BoxClass = "xg-inline" })
+                    <span>～</span>
+                    @await Component.InvokeAsync("XiDate", new XiDateDto { Fid = "ExpiryDate", InRow = true, IsAutoDate = true, BoxClass = "xg-inline" })
+                </div>
+            </div>
+        </form>
+
+        <div class='xg-btns-box' style="margin-top:5px;">
+            @await Component.InvokeAsync("XgCreate")
+        </div>
+
+        <!-- result list -->
+        <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+            <thead>
+                <tr>
+                    <th width='60px'>維護</th>
+                    <th>母階</th>
+                    <th>版本</th>
+                    <th>料號</th>
+                    <th>品名</th>
+                    <th>規格</th>
+                    <th>適用製程</th>
+                    <th>適用工站</th>
+                    <th>順序</th>
+                    <th>工序</th>
+                    <th>工序名稱</th>
+                    <th>委外</th>
+                    <th>末階</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- edit form-->
+    <div id="divEdit" class="xg-hide">
+        <partial name="Edit" />
+    </div>
+</div>

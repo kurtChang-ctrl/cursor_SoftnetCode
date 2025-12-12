@@ -1,0 +1,512 @@
+﻿@using Base
+@model MUTIStationObj
+@{
+    MUTIStationObj DATAObj = (MUTIStationObj)ViewBag.DATA;
+    string err = DATAObj.ERRMsg;
+    string disUserName = "畫面逾時";
+    string thisStationNO = DATAObj.StationNO;
+    if (_Fun.GetBaseUser() != null) { disUserName = _Fun.GetBaseUser().UserName; }
+}
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+        $("title").text("@Html.Raw(disUserName)");
+        _leftmenu.onToggleMenu();
+
+        $('input[type=checkbox][name=optradio]').change(function () {
+            if ($(this).is(':checked')) {
+                var tmp = $("#Select_ID").val() + this.value + ";";
+                //$("#Select_ID").val(tmp);
+                $("input[name=Select_ID]").val(tmp);
+            }
+            else {
+                var tmp = $("#Select_ID").val();
+                var tmp02 = this.value + ";";
+                //$("#Select_ID").val(tmp.replace(tmp02, ""));
+                $("input[name=Select_ID]").val(tmp.replace(tmp02, ""));
+            }
+        });
+        jQuery('[data-confirm]').click(function (e) {
+            if (!confirm(jQuery(this).attr("data-confirm"))) {
+                e.preventDefault();
+            }
+        });
+        $('#woClosebutton').click(function (e) {
+            var tmp = $("#Select_ID").val();
+            var ckINFO = '你確定執行 將工單結束 作業?\n\r';
+            if (tmp != '') {
+                $.each(tmp.split(';'), function (id, data) {
+                    if (data != '') {
+                        var ckValue = $("#" + data).val();
+                        if (ckValue != '') {
+                            ckINFO = ckINFO + '\n\r' + ckValue;
+                        }
+                    }
+                });
+            }
+            var result = window.confirm(ckINFO);
+            if (result == false) {
+                e.preventDefault();
+            }
+            else {
+                this.form.action = "@Url.Action("SetStation_Close", "STView2Work")";
+            }
+        });
+    });
+    var meStationNO = '@Html.Raw(thisStationNO)';
+    var _me = {
+        hasStaionStatus: false,
+        hasStaionChangQTY: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: true,
+
+        onSTView2Work_PageReload: function (staionNO) {
+            if (staionNO == meStationNO) {
+                var conObj = document.getElementById('bn_PageReload');
+                if (conObj.style.display == '') { conObj.style.display = 'inline'; }
+            }
+        },
+        sortCMD: function (id) {
+            //目前沒用到,下code 為Mobile 呼叫 ajax, 而非 _ajax.getStr
+            var str = meStationNO + ',' + id + ',' + _me.is_Sort_Desc;
+            $.ajax({
+                url: 'SET_Sort_CMD',
+                type: 'POST',
+                dataType: 'text',
+                data: { key: str },
+                success: function (res) {
+                    if (!_str.isEmpty(res)) {
+                        //$("#DisManufacture").empty();
+                        //alert(res);
+                        //$('#DisManufacture').html(data);
+                        // if (_me.is_Sort_Desc == '1') { _me.is_Sort_Desc = '0'; }
+                        // else { _me.is_Sort_Desc = '1'; }
+                    }
+                },
+                error: function (err) { console.log(err) },
+            });
+        },
+        clickFunction: function (status) {
+            switch (status) {
+                case 0://回主頁
+                    //$('#stationSetINFO').hide();
+                    //$('#displayNULL').show();
+                    break;
+                case 3://報工
+                    //$('#displayNULL').hide();
+                    //$('#stationSetINFO').show();
+                    break;
+            }
+        },
+        radioChange: function (data) {
+            var tmp = data.split(';');
+            $("input[name=SI_OrderNO]").val(tmp[0]);
+            $("input[name=SI_IndexSN]").val(tmp[1]);
+            $("input[name=SI_SimulationId]").val(tmp[2]);
+        },
+        qqww: function () {
+            var arr = new Array();
+            $("input:checkbox[id='SI_OPNO']:checked").each(function () {
+                arr.push($(this).val()); //向数组中添加元素
+            }); //获取界面复选框的所有值
+            $("input[name=SI_Slect_OPNOs]").val(arr.join(';'));
+        },
+        woCloseCheck: function () {
+            alert('dddddddddddd');
+            var tmp = $("#Select_ID").val();
+            var ckINFO = '你確定執行 將工單結束 作業?';
+            if (tmp != '') { 
+                $.each(tmp.split(';'), function (id,data) {
+                    if (data != '') {
+                        var ckValue = $("#" + data).val();
+                        if (ckValue != '') {
+                            alert(ckValue);
+                        }
+                    }
+                });
+            }
+        },
+        changeOrderCMD: function (type) {
+            var tmp = $("input[name=OrderBY_CMD]").val();
+            var tmparry = tmp.split(',');
+            // $('input[type=checkbox][name=optradio]').prop('checked', false);
+            // $("input[name=Select_ID]").val('');
+            // alert('aaa');
+            var tmpint = tmparry[0].indexOf('desc')
+            switch (type) {
+                case "狀態":
+                    if (tmpint < 0) { $("input[name=OrderBY_CMD]").val('order by RemarkTimeS desc,PartNO,IndexSN,OrderNO'); }
+                    else { $("input[name=OrderBY_CMD]").val('order by RemarkTimeS,PartNO,IndexSN,OrderNO'); }
+                    break;
+                case "料件編號":
+                    if (tmpint < 0) { $("input[name=OrderBY_CMD]").val('order by PartNO desc,IndexSN,OrderNO,RemarkTimeS desc'); }
+                    else { $("input[name=OrderBY_CMD]").val('order by PartNO,IndexSN,OrderNO,RemarkTimeS desc'); }
+                    break;
+                case "品名":
+                    if (tmpint < 0) { $("input[name=OrderBY_CMD]").val('order by PartName desc,PartNO desc,IndexSN,OrderNO,RemarkTimeS desc'); }
+                    else { $("input[name=OrderBY_CMD]").val('order by PartName,PartNO,IndexSN,OrderNO,RemarkTimeS desc'); }
+                    break;
+                case "工序":
+                    if (tmpint < 0) { $("input[name=OrderBY_CMD]").val('order by StationNO_Custom_DisplayName desc,IndexSN desc,PartNO desc,OrderNO,RemarkTimeS desc'); }
+                    else { $("input[name=OrderBY_CMD]").val('order by StationNO_Custom_DisplayName,IndexSN,PartNO,OrderNO,RemarkTimeS desc'); }
+                    break;
+                case "工單編號":
+                    if (tmpint < 0) { $("input[name=OrderBY_CMD]").val('order by OrderNO desc,PartNO,IndexSN,RemarkTimeS desc'); }
+                    else { $("input[name=OrderBY_CMD]").val('order by OrderNO,PartNO,IndexSN,RemarkTimeS desc'); }
+                    break;
+            }
+        },
+    };
+
+
+
+</script>
+
+<style>
+    #bn_PageReload {
+        display: none;
+        border: 0;
+        background-color: #FF6363;
+        color: #fff;
+        border-radius: 10px;
+        height: 300px;
+        font-size: 60px;
+        text-shadow: 0 0 20px #fff,0 0 40px #fff,0 0 60px #fff;
+    }
+
+
+    th {
+        border-bottom: 1px solid #d6d6d6;
+    }
+
+    tr:nth-child(even) {
+        background: #e9e9e9;
+    }
+
+    .stateRed {
+        color: red;
+        font-weight: bold;
+    }
+
+    .stateGreen {
+        color: forestgreen;
+        font-weight: bold;
+    }
+
+    .stateNOT {
+        background: #b8b8b8;
+    }
+
+    .div-1 {
+        background-color: #EBEBEB;
+    }
+
+    .div-2 {
+        background-color: #ABBAEA;
+    }
+
+    .div-3 {
+        background-color: #FBD603;
+    }
+</style>
+
+<!--最上層顯示-->
+<div class="div-1">
+    <p><a href="@Url.Action("Read", "STView2Work")" class="ui-btn ui-icon-back ui-btn-icon-left">回到工站選單畫面</a></p>
+    @if (err != "")
+    {
+        <dir>
+            <p><font color="red" size="6">錯誤訊息:<strong>@err</strong></font></p>
+        </dir>
+        <hr />
+    }
+    @*    @if (DATAObj.MES_String.Trim() != "")
+    {
+    <dir>
+    @Html.Raw(DATAObj.MES_String)
+    </dir>
+    <hr />
+    }*@
+    <p><label>工站編號:</label><label> @DATAObj.StationNO</label>&nbsp;&nbsp;<label> @DATAObj.StationName</label></p>
+</div>
+
+
+<!--所有項目表-->
+<div id="displayHasWorkData_List">
+    <form method="post">
+        <input type='hidden' name='Station_Config_Store_Type' value="@DATAObj.Station_Config_Store_Type" />
+        <input type='hidden' name='OrderBY_CMD' value="@DATAObj.OrderBY_CMD" />
+        <input type='hidden' name='Has_Knives' value="@DATAObj.Has_Knives" />
+        <input type='hidden' name='StationNO' value="@DATAObj.StationNO" />
+        <input type='hidden' id="Select_ID" name='Select_ID' value="@DATAObj.Select_ID" />
+
+        @{
+            if (DATAObj.HasWorkData_List == null)
+            {
+                                                <h2>已有項目筆數:&nbsp;&nbsp;0</h2>
+            }
+            else
+            {
+                                                <h2>已有項目筆數:&nbsp;&nbsp;@DATAObj.HasWorkData_List.Count</h2>
+            }
+        }
+        <button id="bn_PageReload" class="ui-btn ui-icon-search ui-btn-icon-left" type="submit" onclick='this.style.display="none";this.form.action="@Url.Action("MUTIStation", "STView2Work")" '>資料須更新<br />請按我一下</button>
+        
+        @{
+            if (DATAObj.HasWorkData_List != null)
+            {
+                <label id="showdata"></label>
+                <table data-role="table" data-mode="columntoggle" class="ui-responsive ui-shadow" id="DisplayDataTable">
+                    <thead>
+                        <tr>
+                            <th>選擇</th>
+                            <th>
+                                <button type='submit' onclick='this.style.display="none";_me.changeOrderCMD("狀態");this.form.action="@Url.Action("MUTIStation", "STView2Work")" '>狀態</button>
+                            </th>
+                            <!--<th><button id="sort_State" onclick="_me.sortCMD('State')">狀態</button></th>-->
+                            <th><button type='submit' onclick='this.style.display="none";_me.changeOrderCMD("料件編號");this.form.action="@Url.Action("MUTIStation", "STView2Work")" '>料件編號</button></th>
+                            <th data-priority="1"><button type='submit' onclick='this.style.display="none";_me.changeOrderCMD("品名");this.form.action="@Url.Action("MUTIStation", "STView2Work")" '>品名/規格</button></th>
+                            <th data-priority="2"><button type='submit' onclick='this.style.display="none";_me.changeOrderCMD("工序");this.form.action="@Url.Action("MUTIStation", "STView2Work")" '>工序</button></th>
+                            <th data-priority="3"><button type='submit' onclick='this.style.display="none";_me.changeOrderCMD("工單編號");this.form.action="@Url.Action("MUTIStation", "STView2Work")" '>工單編號</button></th>
+                            <th data-priority="4">工單量</th>
+                            <th data-priority="5">累計OK量</th>
+                            <th data-priority="6">Fail量</th>
+                            <th data-priority="7">前站報工</th>
+                            <th data-priority="8">實際CT</th>
+                            <th data-priority="9">目標CT</th>
+                            <th data-priority="10">開始時間</th>
+                            <th data-priority="11">停止時間</th>
+                            <th data-priority="12">製程</th>
+                        </tr>
+                    </thead>
+                    <tbody id="DisManufacture">
+                         @{
+                            var fontClass = "stateNOT";
+                            for (int i = 0; i < DATAObj.HasWorkData_List.Count; i++)
+                            {
+                                string[] data = DATAObj.HasWorkData_List[i];
+                                                                                                <tr>
+                                                                                                    <td><input type="checkbox" name="optradio" value="@data[0]"></td>
+                                                                                                    @{
+                                        fontClass = "stateNOT";
+                                        if (data[1] == "生產") { fontClass = "stateGreen"; }
+                                        else if (data[1] == "停止") { fontClass = "stateRed"; }
+                                                                                                    }
+                                                                                                    <td class="@fontClass">@data[1]</td>
+                                                                                                    <td>@data[2]</td>
+                                                                                                    <td>@data[3]&nbsp;@data[4]</td>
+                                                                                                    <td>@data[6]</td>
+                                                                                                    <td>@data[7]</td>
+                                                                                                    <td>@data[14]</td>
+                                                                                                    <td>@data[8]</td>
+                                                                                                    <td>@data[9]</td>
+                                                                                                    <td>@data[17]</td>
+                                                                                                    <td>@data[10]</td>
+                                                                                                    <td>@data[11]</td>
+                                                                                                    <td>@data[12]</td>
+                                                                                                    <td>@data[13]</td>
+                                                                                                    <td>@data[5]</td>
+
+                                                                                                </tr>
+                                                                        
+                            }
+                                                        }
+                                                    </tbody>
+                                                </table>
+                for (int i = 0; i < DATAObj.HasWorkData_List.Count; i++)
+                {
+                    string[] data = DATAObj.HasWorkData_List[i];
+                            <input type='hidden' id='@data[0]' value="@data[18]" />
+                }
+            }
+        }
+        <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" data-confirm="你確定執行 開工 作業?" onclick='this.form.action="@Url.Action("SetStation_Open", "STView2Work")"'>開工</button></p>
+        <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" data-confirm="你確定執行 停工 作業?" onclick='this.form.action="@Url.Action("SetStation_Stop","STView2Work")"'>停工</button></p>
+        <p><button type='submit' id="woClosebutton" class="ui-btn ui-icon-grid ui-btn-icon-left">結束工單項目</button></p>
+
+    </form>
+</div>
+
+<hr />
+
+<!--報工-->
+<div id="stationSetINFO" class="div-2">
+    <h2>報工作業</h2>
+    <form action=@Url.Action("SetAction") method="post">
+        <input type='hidden' name='Station_Config_Store_Type' value="@DATAObj.Station_Config_Store_Type" />
+        <input type='hidden' name='OrderBY_CMD' value="@DATAObj.OrderBY_CMD" />
+        <input type='hidden' name='Has_Knives' value="@DATAObj.Has_Knives" />
+        <input type='hidden' name='State' value="報工" />
+        <input type='hidden' name='StationNO' value="@DATAObj.StationNO" />
+        <input type='hidden' name='StationName' value="@DATAObj.StationName" />
+        <input type='hidden' name='SI_OrderNO' value="@DATAObj.SI_OrderNO" />
+        <input type='hidden' name='SI_SimulationId' value="@DATAObj.SI_SimulationId" />
+        <input type='hidden' name='SI_Slect_OPNOs' value="" />
+        <input type='hidden' id="Select_ID" name='Select_ID' value="@DATAObj.Select_ID" />
+        <p>
+            選擇報工員工:
+            @{
+                if (DATAObj.HasPO_List != null && DATAObj.HasPO_List.Count > 0)
+                {
+
+                                                    @foreach (string[] s in DATAObj.HasPO_List)
+                    {
+                        var s_tmp = s[0];
+                        var s_tmp2 = s[1];
+                                                        <input class="input_arg" type="checkbox" id="SI_OPNO" name="SI_OPNO" value='@s_tmp'>
+                                                        <label for="cbox1">@s_tmp2</label>
+                    }
+
+                }
+            }
+
+        </p>
+        <p>本次生產量:<input type='number' name='SI_OKQTY' placeholder="輸入本次報工良品數" data-clear-btn="true" /></p>
+        <p>本次不良量:<input type='number' name='SI_FailQTY' placeholder="本次不良品數" data-clear-btn="true" /></p>
+        <p>備註說明:<input type='text' name='Remark' /></p>
+        <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none'; _me.qqww()">報工確定</button></p>
+    </form>
+    <!--<button class="ui-btn ui-icon-back ui-btn-icon-left" onclick='_me.clickFunction(0)'>回到資料設定</button>-->
+
+</div>
+
+<!--新增項目-->
+<div id="displayNULL" class="div-3">
+    <h2>新增項目</h2>
+    <form action=@Url.Action("SetAction") method="post">
+        <input type='hidden' name='Station_Config_Store_Type' value="@DATAObj.Station_Config_Store_Type" />
+        <input type='hidden' name='OrderBY_CMD' value="@DATAObj.OrderBY_CMD" />
+        <input type='hidden' name='Has_Knives' value="@DATAObj.Has_Knives" />
+        <input type='hidden' name='SI_SimulationId' value="@DATAObj.SI_SimulationId" />
+        <input type='hidden' name='SI_OrderNO' value="@DATAObj.SI_OrderNO" />
+        <input type='hidden' name='SI_IndexSN' value="@DATAObj.SI_IndexSN" />
+        @{
+            if (DATAObj.HasWO_List != null && DATAObj.HasWO_List.Count > 0)
+            {
+                                                <table id='tableRead' class='table table-bordered xg-table' cellspacing='0'>
+                                                    <thead><tr><th>選擇</th><th>工單編號</th><th>料號</th><th>品名</th><th>規格</th><th>需求量</th><th>需求型態</th><th>需求名稱</th><th>製程名稱</th><th>順序</th><th>工序</th><th>工序名稱</th></tr></thead>
+                                                    <tbody>
+                                                        @foreach (string[] s in DATAObj.HasWO_List)
+                        {
+                                                            <tr>
+                                                                <td>
+                                                                    <input type="radio" name="woList" onchange="_me.radioChange('@s[0];@s[7];@s[8]')" />
+                                                                </td>
+                                                                <td>@s[0]</td>
+                                                                <td>@s[1]</td>
+                                                                <td>@s[2]</td>
+                                                                <td>@s[3]</td>
+                                                                <td>@s[11]</td>
+                                                                <td>@s[4]</td>
+                                                                <td>@s[5]</td>
+                                                                <td>@s[6]</td>
+                                                                <td>@s[7]</td>
+                                                                <td>@s[9]</td>
+                                                                <td>@s[10]</td>
+                                                            </tr>
+                        }
+                                                    </tbody>
+                                                </table>
+            }
+            else
+            {
+                                                <label>目前本站無其他生產計劃需求工單.    </label>
+                                                <button type="submit" onclick='this.style.display="none";this.form.action="@Url.Action("MUTIStation", "STView2Work")" '>查詢看看有沒有新的工單</button>
+            }
+        }
+
+        <input type='hidden' id='LocalIPPort' name='LocalIPPort' />
+        <input type='hidden' name='State' value="新增項目" />
+        <input type='hidden' name='StationNO' value="@DATAObj.StationNO" />
+        <input type='hidden' name='StationName' value="@DATAObj.StationName" />
+        <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none'">新增項目 確認</button></p>
+    </form>
+</div>
+
+<!--領料-->
+<div id="displayESOP" class="div-3">
+    <form action=@Url.Action("SetAction") method="post">
+        <input type='hidden' name='Station_Config_Store_Type' value="@DATAObj.Station_Config_Store_Type" />
+        <input type='hidden' name='OrderBY_CMD' value="@DATAObj.OrderBY_CMD" />
+        <input type='hidden' name='Has_Knives' value="@DATAObj.Has_Knives" />
+        <input type='hidden' name='State' value="領料" />
+        <input type='hidden' name='StationNO' value="@DATAObj.StationNO" />
+        <input type='hidden' name='StationName' value="@DATAObj.StationName" />
+        <input type='hidden' name='SI_OrderNO' value="@DATAObj.SI_OrderNO" />
+        <input type='hidden' name='SI_SimulationId' value="@DATAObj.SI_SimulationId" />
+        <input type='hidden' name='SI_Slect_OPNOs' value="" />
+        <input type='hidden' id="Select_ID" name='Select_ID' value="@DATAObj.Select_ID" />
+        <input type='hidden' id='LocalIPPort' name='LocalIPPort' />
+        <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none'">領料</button></p>
+    </form>
+</div>
+
+<!--入料-->
+@{
+    if (DATAObj.Station_Config_Store_Type == "1")
+    {
+        <div id="displayESOP" class="div-3">
+            <form action=@Url.Action("SetAction") method="post">
+                <input type='hidden' name='Station_Config_Store_Type' value="@DATAObj.Station_Config_Store_Type" />
+                <input type='hidden' name='OrderBY_CMD' value="@DATAObj.OrderBY_CMD" />
+                <input type='hidden' name='Has_Knives' value="@DATAObj.Has_Knives" />
+                <input type='hidden' name='State' value="入料" />
+                <input type='hidden' name='StationNO' value="@DATAObj.StationNO" />
+                <input type='hidden' name='StationName' value="@DATAObj.StationName" />
+                <input type='hidden' name='SI_OrderNO' value="@DATAObj.SI_OrderNO" />
+                <input type='hidden' name='SI_SimulationId' value="@DATAObj.SI_SimulationId" />
+                <input type='hidden' name='SI_Slect_OPNOs' value="" />
+                <input type='hidden' id="Select_ID" name='Select_ID' value="@DATAObj.Select_ID" />
+                <input type='hidden' id='LocalIPPort' name='LocalIPPort' />
+                <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none'">入料</button></p>
+            </form>
+        </div>
+    }
+}
+
+<!--刀具功能-->
+@{
+    if (DATAObj.Has_Knives != null && DATAObj.Has_Knives == "1")
+    {
+                                        <div id="displayKnives" class="div-3">
+                                            <form action=@Url.Action("SetAction") method="post">
+                <input type='hidden' name='Station_Config_Store_Type' value="@DATAObj.Station_Config_Store_Type" />
+                                                <input type='hidden' name='OrderBY_CMD' value="@DATAObj.OrderBY_CMD" />
+                                                <input type='hidden' name='Has_Knives' value="@DATAObj.Has_Knives" />
+                                                <input type='hidden' name='StationName' value="@DATAObj.StationName" />
+                                                <input type='hidden' name='State' value="Knives" />
+                                                <input type='hidden' name='StationNO' value="@DATAObj.StationNO" />
+                                                <input type='hidden' name='StationName' value="@DATAObj.StationName" />
+                                                <input type='hidden' name='SI_OrderNO' value="@DATAObj.SI_OrderNO" />
+                                                <input type='hidden' name='SI_SimulationId' value="@DATAObj.SI_SimulationId" />
+                                                <input type='hidden' name='SI_Slect_OPNOs' value="" />
+                                                <input type='hidden' id="Select_ID" name='Select_ID' value="@DATAObj.Select_ID" />
+                                                <input type='hidden' id='LocalIPPort' name='LocalIPPort' />
+                                                <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none'">刀具 與 製工具 歷程查詢</button></p>
+                                            </form>
+                                        </div>
+    }
+}
+
+<!--ESOP-->
+<div id="displayESOP" class="div-3">
+    <form action=@Url.Action("SetAction") method="post">
+        <input type='hidden' name='Station_Config_Store_Type' value="@DATAObj.Station_Config_Store_Type" />
+        <input type='hidden' name='OrderBY_CMD' value="@DATAObj.OrderBY_CMD" />
+        <input type='hidden' name='Has_Knives' value="@DATAObj.Has_Knives" />
+        <input type='hidden' name='State' value="ESOP" />
+        <input type='hidden' name='StationNO' value="@DATAObj.StationNO" />
+        <input type='hidden' name='StationName' value="@DATAObj.StationName" />
+        <input type='hidden' name='SI_OrderNO' value="@DATAObj.SI_OrderNO" />
+        <input type='hidden' name='SI_SimulationId' value="@DATAObj.SI_SimulationId" />
+        <input type='hidden' name='SI_Slect_OPNOs' value="" />
+        <input type='hidden' id="Select_ID" name='Select_ID' value="@DATAObj.Select_ID" />
+        <input type='hidden' id='LocalIPPort' name='LocalIPPort' />
+        <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none'">ESOP 電子作業程序書</button></p>
+    </form>
+</div>
+
+

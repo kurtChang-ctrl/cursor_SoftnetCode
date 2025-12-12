@@ -1,0 +1,80 @@
+﻿@inject IHtmlLocalizer<SoftNetWebII.R0> R0
+@inject IViewLocalizer R
+
+<script src="~/js/view/User.js"></script>
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        SYS_ClickBlock = false;
+        _me.init();
+        _crud.onFind2();//進階查詢dislpay=none
+    });
+</script>
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "員工基本資料維護" } })
+<div class="xp-prog">
+    <div id="divRead">
+        <form id='formRead' class='xg-form'>
+            <div class="row">
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "員工編號", Fid = "UserNO", MaxLen = 20, InRow = true })
+                @await Component.InvokeAsync("XgFindTbar", new XgFindTbarDto { HasReset = true, HasFind2 = true })
+            </div>
+        </form>
+        <form id='formRead2' class='xg-form xg-mb0'>
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "員工姓名", Fid = "Name", MaxLen = 20 })
+            @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "部門名稱", Fid = "DeptId", Rows = (List<IdStrDto>)ViewBag.Depts })
+        </form>
+
+        <div class='xg-btns-box'>
+            @await Component.InvokeAsync("XgCreate")
+        </div>
+        <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>@R0["Crud"]</th>
+                    <th>登入帳號</th>
+                    <th>員工編號</th>
+                    <th>員工姓名</th>
+                    <th>部門名稱</th>
+                    <th>資料狀態</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div id="divEdit" class="xg-hide">
+        <form id='eform' class='xg-form' style='margin-bottom:0;'>
+            @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "ServerId"})
+            @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "Id" })
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "員工編號", Fid = "UserNO", Required = true, MaxLen = 50 })
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "員工姓名", Fid = "Name", Required = true, MaxLen = 50 })
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "登入帳號", Fid = "Account", Required = true, MaxLen = 50 })
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "登入密碼", Fid = "Pwd", Required = true,IsPwd = true, MaxLen = 50 })
+            @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "部門名稱", Fid = "DeptId", Rows = (List<IdStrDto>)ViewBag.Depts })
+            @await Component.InvokeAsync("XiCheck", new XiCheckDto { Title = "帳號狀態", Fid = "Status", Label = R0["Active"].Value })
+        </form>
+
+        <form class='xg-form'>
+            <div class='row'>
+                <div class='col-md-2 xg-label'>簽核級別</div>
+                <div class='col-md-8 xg-input'>
+                    <!-- table for control rows column has same width -->
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                        <tbody>
+                            <tr>
+                                <td id="divRoles">
+                                    @foreach (var row in (List<IdStrDto>)ViewBag.Roles)
+                                    {
+                                        @await Component.InvokeAsync("XiCheck", new XiCheckDto { Fid = row.Id, Value = row.Id, Label = row.Str })
+                                    }
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </form>
+        @await Component.InvokeAsync("XgSaveBack")
+    </div>
+</div>

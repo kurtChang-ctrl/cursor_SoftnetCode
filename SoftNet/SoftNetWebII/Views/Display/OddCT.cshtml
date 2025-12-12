@@ -1,0 +1,87 @@
+﻿<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+
+        onSet: function () {
+            var sendData = {
+                Key: '',
+                Value: '',
+            };
+            // var rates = document.getElementsByName('data1');
+            // for (var i = 0; i < rates.length; i++) {
+            //     if (rates[i].checked) {
+            //         sendData.Key = rates[i].value;
+            //         break;
+            //     }
+            // }
+
+            var ele2 = new Array();
+            $("input:checkbox[name='data2']:checked").each(function () {
+                ele2.push($(this).val()); //向数组中添加元素
+            }); //获取界面复选框的所有值
+            if (ele2.length > 0) {
+                sendData.Value = ele2.join(';');
+            }
+            if (ele2.length==0) {
+                _tool.msg('最少須選擇一個工站。');
+                return;
+            }
+            _ajax.getStr('OddCT_GetData', sendData, function (data) {
+                if (_str.isEmpty(data)) { _tool.msg("無資料可分析...."); }
+                else
+                {
+                    var sdata=data;
+                    document.getElementById("divSignRows").innerHTML = sdata;
+                }
+            });
+
+        },
+
+        getCheckedTables: function () {
+            var values = _icheck.getCheckeds(_me.divRead);
+            if (values.length === 0)
+                _tool.msg('請選取資料。');
+            return values;
+        },
+
+
+    }; //class
+</script>
+
+
+
+<div class="xp-prog">
+    <!--
+    <div id="divRead">
+        搜尋資料範圍:<input type="radio" name="data1" value="1" checked="checked" />3日內<input type="radio" name="data1" value="2" />7日內<input type="radio" name="data1" value="3" />14日內<input type="radio" name="data1" value="4" />30日內<input type="radio" name="data1" value="5" />3個月內<input type="radio" name="data1" value="6" />1年內<input type="radio" name="data1" value="7" />全部
+    </div>
+    -->
+    <div id="divRead2">
+        選擇工站:<input type="checkbox" name="data2" value='ALL_Station'><label>所有全部工站</label><br />
+        @{
+            foreach (string[] s in ViewBag.HasStationNO_List)
+            {
+                var s_tmp = s[0];
+                var s_tmp2 = s[0] + s[1];
+                <input type="checkbox" name="data2" value='@s_tmp'><label>@s_tmp2</label>
+            }
+        }
+    </div>
+    <button id='button_setST' type='button' class='btn xg-btn' onclick='_me.onSet()'>搜尋</button>
+
+</div>
+<hr />
+
+<div class="xp-prog">
+    <div id="divSignRows"></div>
+</div>
+
+

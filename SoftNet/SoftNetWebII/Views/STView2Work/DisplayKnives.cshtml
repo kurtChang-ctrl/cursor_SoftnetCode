@@ -1,0 +1,44 @@
+﻿@{
+    string disUserName = "畫面逾時";
+    if (_Fun.GetBaseUser() != null) { disUserName = _Fun.GetBaseUser().UserName; }
+}
+<script type="text/javascript">
+    $(function () {
+        $("title").text("@Html.Raw(disUserName)");
+    });
+
+        var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+        }; //class
+
+</script>
+
+
+<p><a href="@Url.Action("Index", "Home")" class="ui-btn ui-icon-back ui-btn-icon-left">回到網站主功能選單畫面</a></p>
+
+
+<dir>
+    @if (ViewBag.ERRMsg != null && ViewBag.ERRMsg != "")
+    {
+        <p><font color="red" size="6">錯誤訊息:<p><strong>@ViewBag.ERRMsg</strong></p></font></p>
+    }
+    @if (ViewBag.Report != null && ViewBag.Report != "")
+    {
+        <hr />
+        @Html.Raw(ViewBag.Report)
+        <hr />
+    }
+</dir>
+
+@if (ViewBag.ErrType == "SystemError")
+{
+    <hr />
+    <form action=@Url.Action("SetAction") method="post">
+        <input type='hidden' id='State' name='State' value="發Mail" />
+        <input type='hidden' id='ERRMsg' name='ERRMsg' value="@ViewBag.ERRMsg" />
+        <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none'">將處錯訊息主動 Mail 給管理者</button></p>
+    </form>
+}

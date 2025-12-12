@@ -1,0 +1,43 @@
+﻿<script src="~/js/view/Factory.js"></script>
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        SYS_ClickBlock = false;
+        _me.init();
+    });
+
+</script>
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "工廠基本資料維護" } })
+<div class="xp-prog">
+    <div id="divRead">
+		<form id='formRead' class='xg-form xg-mb0'>
+			<div class="row">
+                @await Component.InvokeAsync("XiText", new XiTextDto{ Title = "工廠名稱", Fid = "FactoryName", MaxLen = 255, InRow = true})
+       			@await Component.InvokeAsync("XgFindTbar", new XgFindTbarDto{ HasReset = true })
+			</div>
+    		
+
+        </form>
+
+		<div class='xg-btns-box'>
+			@await Component.InvokeAsync("XgCreate")
+        </div>
+        <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+            <thead>
+                <tr>
+                    <th width='80px'>功能</th>
+					<th>工廠名稱</th>
+					<th>工廠管理者</th>
+					<th>工廠地址</th>
+                    <th>工廠電話</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div id="divEdit" class="xg-hide">
+        <partial name="Edit" />
+    </div>
+</div>

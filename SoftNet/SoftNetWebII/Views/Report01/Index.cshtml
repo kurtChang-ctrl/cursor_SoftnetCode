@@ -1,0 +1,91 @@
+﻿@using Base.Models
+@using BaseWeb.Models
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        SYS_ClickBlock = false;
+        _me.init();
+        _crud.onFind2();//進階查詢dislpay=none
+        $('#show_Advanced_form2').hide();
+    });
+
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+
+        init: function () {
+            //datatable config  DOCRole
+            var config = {
+                columns: [
+                    { data: 'OrderNO', orderable: true },
+                    { data: 'StationNO', orderable: true },
+                    { data: 'PP_Name', orderable: true },
+                    { data: 'StartTime', orderable: true },
+                    { data: 'TotalOutput' },
+                    { data: 'TotalFail' },
+                    { data: 'FPY', },
+                    { data: 'YieldRate', },
+                    { data: 'StationYieldRate' },
+                    { data: 'AvarageWaitTime' },
+                    { data: 'StatndCycleTime' },
+                    { data: 'AvarageCycleTime' },
+                ],
+                columnDefs: [
+                    //{
+                    //    targets: [0], render: function (data, type, full, meta) {
+                    //        return _crud.dtCheck0(full.Id);
+                    //    }
+                    //},
+
+                ],
+            };
+
+            //init crud
+            //_crud.DbKeyName = 'Id';
+            _crud.init(config);
+        },
+    }; 
+</script>
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "工單與工站製造現狀資訊" } })
+<div class="xp-prog">
+    <div id="divRead">
+        <form id='formRead' class='xg-form'>
+            <div class="row">
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "工單編號", Fid = "OrderNO", MaxLen = 50, InRow = true })
+                @await Component.InvokeAsync("XgFindTbar", new XgFindTbarDto { HasReset = true, HasFind2 = true })
+            </div>
+
+        </form>
+        <form id='formRead2' class='xg-form xg-mb0'>
+            @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "工站編號", Fid = "StationNO", Rows = (List<IdStrDto>)ViewBag.StationNO })
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "製程名稱", Fid = "PP_Name", MaxLen = 50 })
+        </form>
+
+        <div class="xg-h10"></div>
+
+        <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>工單編號</th>
+                    <th>工站</th>
+                    <th>製程名稱</th>
+                    <th>投產日期</th>
+                    <th>總生產數量</th>
+                    <th>總不良數量</th>
+                    <th>FPY</th>
+                    <th>YieldRate</th>
+                    <th>StationYieldRate</th>
+                    <th>WT工時</th>
+                    <th>標準工時</th>
+                    <th>平均工時</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+</div>

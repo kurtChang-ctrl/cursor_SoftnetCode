@@ -1,0 +1,16 @@
+C:\04_SoftNet\SoftNet\SoftNetCommLib\bin\Debug\net10.0\SoftNetCommLib.deps.json
+C:\04_SoftNet\SoftNet\SoftNetCommLib\bin\Debug\net10.0\SoftNetCommLib.dll
+C:\04_SoftNet\SoftNet\SoftNetCommLib\bin\Debug\net10.0\SoftNetCommLib.pdb
+C:\04_SoftNet\SoftNet\SoftNetCommLib\bin\Debug\net10.0\Newtonsoft.Json.dll
+C:\04_SoftNet\SoftNet\SoftNetCommLib\obj\Debug\net10.0\SoftNetCommLib.csproj.AssemblyReference.cache
+C:\04_SoftNet\SoftNet\SoftNetCommLib\obj\Debug\net10.0\SoftNetCommLib.GeneratedMSBuildEditorConfig.editorconfig
+C:\04_SoftNet\SoftNet\SoftNetCommLib\obj\Debug\net10.0\SoftNetCommLib.AssemblyInfoInputs.cache
+C:\04_SoftNet\SoftNet\SoftNetCommLib\obj\Debug\net10.0\SoftNetCommLib.AssemblyInfo.cs
+C:\04_SoftNet\SoftNet\SoftNetCommLib\obj\Debug\net10.0\SoftNetCommLib.csproj.CoreCompileInputs.cache
+C:\04_SoftNet\SoftNet\SoftNetCommLib\obj\Debug\net10.0\SoftNetC.0B31BFCD.Up2Date
+C:\04_SoftNet\SoftNet\SoftNetCommLib\obj\Debug\net10.0\SoftNetCommLib.dll
+C:\04_SoftNet\SoftNet\SoftNetCommLib\obj\Debug\net10.0\refint\SoftNetCommLib.dll
+C:\04_SoftNet\SoftNet\SoftNetCommLib\obj\Debug\net10.0\SoftNetCommLib.pdb
+C:\04_SoftNet\SoftNet\SoftNetCommLib\obj\Debug\net10.0\ref\SoftNetCommLib.dll
+C:\04_SoftNet\SoftNet\SoftNetCommLib\bin\Debug\net10.0\Base.dll
+C:\04_SoftNet\SoftNet\SoftNetCommLib\bin\Debug\net10.0\Base.pdb

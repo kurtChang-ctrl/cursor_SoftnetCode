@@ -1,0 +1,64 @@
+﻿@using BaseWeb.Models
+
+@* 1.Table *@
+<form id='eform' class='xg-form'>
+    @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "ServerId" })
+    @await Component.InvokeAsync("XiText", new XiTextDto { Title = "製程名稱", Fid = "PP_Name", MaxLen = 30, Required = true })
+    @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "適用工廠", Fid = "FactoryName", Rows = (List<IdStrDto>)ViewBag.FactoryName, Required = true })
+    @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "適用行事曆", Fid = "CalendarName", Rows = (List<IdStrDto>)ViewBag.CalendarName, Required = true })
+    @await Component.InvokeAsync("XiText", new XiTextDto { Title = "適用生產線", Fid = "LineName", MaxLen = 50, Required = true })
+    @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "末階數量到自動關工單", Fid = "IsAutoCloseWO", Rows = (List<IdStrDto>)ViewBag.IsYesNo })
+    @await Component.InvokeAsync("XiText", new XiTextDto { Title = "備註說明", Fid = "Remark", MaxLen = 100 })
+
+</form>
+
+@* 2.Column *@
+<div class='xg-btns-box'>
+    @await Component.InvokeAsync("XgAddRow", "_me.mCol.onAddRow()")
+</div>
+<form id='eformCol' class='xg-form' style="border:none">
+    <table class="table table-bordered xg-table xg-no-hline" cellspacing="0">
+        <thead>
+            <tr>
+                @* 3.XgTh component *@
+                <th>維護</th>
+                @await Component.InvokeAsync("XgTh", new XgThDto { Title = "顯示序", Required = true })
+                @await Component.InvokeAsync("XgTh", new XgThDto { Title = "流程序", Required = true })
+                @await Component.InvokeAsync("XgTh", new XgThDto { Title = "客製序" })
+                @await Component.InvokeAsync("XgTh", new XgThDto { Title = "工序名稱" })
+                @await Component.InvokeAsync("XgTh", new XgThDto { Title = "工站名稱", Required = true })
+                @await Component.InvokeAsync("XgTh", new XgThDto { Title = "接子製程" })
+                @await Component.InvokeAsync("XgTh", new XgThDto { Title = "合併"})
+                @await Component.InvokeAsync("XgTh", new XgThDto { Title = "委外" })
+                @await Component.InvokeAsync("XgTh", new XgThDto { Title = "委外指定商" })
+            </tr>
+        </thead>
+
+        <tbody id="divCols"></tbody>
+    </table>
+</form>
+@await Component.InvokeAsync("XgSaveBack")
+
+@* 4.row template, set td width, Nullable set false first then set by js *@
+<script id="tplCol" type="text/template">
+    <tr>
+                <td class="text-center">@await Component.InvokeAsync("XgDeleteRow", "_me.mCol.onDeleteRow(this)")</td>
+
+    @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "Id" })
+    @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "ServerId" })
+    @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "FactoryName" })
+    @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "LineName" })
+    @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "PP_Name" })
+        <td>@await Component.InvokeAsync("XiInt", new XiIntDto { Fid = "DisplaySN", Value = "{{DisplaySN}}",  Required = true })</td>
+                <td>@await Component.InvokeAsync("XiInt", new XiIntDto { Fid = "IndexSN", Value = "{{IndexSN}}", Required = true })</td>
+        <td>@await Component.InvokeAsync("XiText", new XiTextDto { Fid = "Station_Custom_IndexSN", Value = "{{Station_Custom_IndexSN}}", MaxLen = 10 })</td>
+        <td>@await Component.InvokeAsync("XiText", new XiTextDto { Fid = "DisplayName", Value = "{{DisplayName}}", MaxLen = 50 })</td>
+                     <td>@await Component.InvokeAsync("XiSelect", new XiSelectDto { Fid = "StationNO", Rows = (List<IdStrDto>)ViewBag.StationNO, Value = "{{StationNO}}", AddEmptyRow = false, Required = true })</td>
+                                <td>@await Component.InvokeAsync("XiSelect", new XiSelectDto { Fid = "Sub_PP_Name", Rows = (List<IdStrDto>)ViewBag.Apply_PP_Name, Value = "{{Sub_PP_Name}}", AddEmptyRow = false, Required = true })</td>
+
+
+        <td>@await Component.InvokeAsync("XiSelect", new XiSelectDto { Fid = "IndexSN_Merge", Rows = (List<IdStrDto>)ViewBag.IsYesNo, Value = "{{IndexSN_Merge}}", AddEmptyRow = false, Required = true })</td>
+            <td>@await Component.InvokeAsync("XiSelect", new XiSelectDto { Fid = "OutPackType", Rows = (List<IdStrDto>)ViewBag.IsYesNo, Value = "{{OutPackType}}", AddEmptyRow = false, Required = true })</td>
+            <td>@await Component.InvokeAsync("XiSelect", new XiSelectDto { Fid = "MFNO", Rows = (List<IdStrDto>)ViewBag.MFNO, Value = "{{MFNO}}" })</td>
+    </tr>
+</script>

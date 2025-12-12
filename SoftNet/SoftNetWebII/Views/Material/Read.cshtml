@@ -1,0 +1,54 @@
+﻿ <script src="~/js/view/Material.js"></script>
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        SYS_ClickBlock = false;
+        _me.init();
+        _crud.onFind2();//進階查詢dislpay=none
+    });
+</script>
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "料件基本資料維護" } })
+<div class="xp-prog">
+    <div id="divRead">
+        <form id='formRead' class='xg-form'>
+			<div class="row">
+                @await Component.InvokeAsync("XiText", new XiTextDto{ Title = "料件編號", Fid = "PartNO", MaxLen = 255, InRow = true})
+                @await Component.InvokeAsync("XgFindTbar", new XgFindTbarDto{ HasReset = true, HasFind2 = true })
+			</div>
+        </form>
+        <form id='formRead2' class='xg-form xg-mb0'>
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "料件品名", Fid = "PartName", MaxLen = 100 })
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "料件機種", Fid = "Model", MaxLen = 100 })
+            @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "類型", Fid = "Class", Rows = (List<IdStrDto>)ViewBag.Class })
+        </form>
+
+		<div class='xg-btns-box'>
+			@await Component.InvokeAsync("XgCreate")
+        </div>
+        <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+            <thead>
+                <tr>
+                    <th width='80px'>功能</th>
+                	<th>料件編號</th>
+					<th>品名</th>
+					<th>規格</th>
+					<th>機種</th>
+					<th>類型</th>
+                    <th>安全量</th>
+                    <th>單位</th>
+                    <th>備料工時</th>
+                    <th>檢驗</th>
+                    <th>指定供應商</th>
+                    <th>指定倉庫</th>
+                    <th>定義</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div id="divEdit" class="xg-hide">
+        <partial name="Edit" />
+    </div>
+</div>

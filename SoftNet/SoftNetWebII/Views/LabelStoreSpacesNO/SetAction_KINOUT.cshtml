@@ -1,0 +1,633 @@
+﻿@using System.Data
+@using Base
+@model StoreList
+
+@{
+    StoreList _model = (StoreList)ViewBag.StoreList;
+    string err = _model.ERRMsg;
+}
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+
+        $('input[type=checkbox][name=optradio_A]').change(function () {
+            if ($(this).is(':checked')) {
+                var tmp = $("#Select_ID").val() + this.value + ";";
+                //$("#Select_ID").val(tmp);
+                $("input[name=Select_ID]").val(tmp);
+            }
+            else {
+                var tmp = $("#Select_ID").val();
+                var tmp02 = this.value + ";";
+                //$("#Select_ID").val(tmp.replace(tmp02, ""));
+                $("input[name=Select_ID]").val(tmp.replace(tmp02, ""));
+            }
+        });
+        $('input[type=checkbox][name=optradio_B]').change(function () {
+            if ($(this).is(':checked')) {
+                var tmp = $("#Select_ID").val() + this.value + ";";
+                //$("#Select_ID").val(tmp);
+                $("input[name=Select_ID]").val(tmp);
+            }
+            else {
+                var tmp = $("#Select_ID").val();
+                var tmp02 = this.value + ";";
+                //$("#Select_ID").val(tmp.replace(tmp02, ""));
+                $("input[name=Select_ID]").val(tmp.replace(tmp02, ""));
+            }
+        });
+        $('input[type=checkbox][name=optradio_D]').change(function () {
+            if ($(this).is(':checked')) {
+                var tmp = $("#Select_ID").val() + this.value + ";";
+                //$("#Select_ID").val(tmp);
+                $("input[name=Select_ID]").val(tmp);
+            }
+            else {
+                var tmp = $("#Select_ID").val();
+                var tmp02 = this.value + ";";
+                //$("#Select_ID").val(tmp.replace(tmp02, ""));
+                $("input[name=Select_ID]").val(tmp.replace(tmp02, ""));
+            }
+        });
+
+        $("#Station_by_C").change(function () {
+            cityvalue = $("#Station_by_C").val();  //取值
+            $("#OLD_C_Select_ID").empty(); //清空上次的值
+            $("#OLD_C_Select_ID").css("display", "inline"); //顯現
+            _ajax.getStr('On_OLD_C_Select_ID', { data: cityvalue }, function (tableData) {
+                if ((tableData != null || tableData != undefined) && tableData != "") {
+                    var datas = tableData.split(',');
+                    datas.forEach(function (value) {
+                        $('#OLD_C_Select_ID').append('<option value="' + value + '">' + value + '</option>');
+                    });
+                }
+            });
+        });
+        $("#Station_by_E").change(function () {
+            cityvalue = $("#Station_by_E").val();  //取值
+            $("#E_DisplayHTML").val('');
+            _ajax.getStr('On_E_GetDATA', { data: cityvalue }, function (tableData) {
+                $("#E_DisplayHTML").html(tableData);
+            });
+        });
+
+        var $li = $('ul.tab-title li');
+        $($li.eq(0).addClass('active').find('a').attr('href')).siblings('.tab-inner').hide();
+        $li.click(function () {
+            $($(this).find('a').attr('href')).show().siblings('.tab-inner').hide();
+            $(this).addClass('active').siblings('.active').removeClass('active');
+        });
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+        // controlCMD: function (id) {
+        //     var Main = [{
+        //             "x": 1,
+        //             "y": 1,
+        //             "cabinetNo": 1
+        //         },
+        //         {
+        //             "x": 2,
+        //             "y": 3,
+        //             "cabinetNo": 1
+        //         }
+        //     ];
+        //     $.ajax({
+        //         url: 'http://125.227.75.8:8088/machine/openapi/machineAisleInfo/openAisle',
+        //         type: 'POST',
+        //         headers: { 'machine-token': '1078710835543977984' },
+        //         dataType: 'json',
+        //         data: JSON.stringify(Main),
+        //         success: function () {
+        //             alert('success');
+        //         },
+        //         error: function () 
+        //         { 
+        //             alert('error');
+        //         },
+        //     });
+        // },
+
+    }; //class
+
+
+
+</script>
+<p><a href="@Url.Action("StroeFUN", "LabelStoreSpacesNO", new { id = $"{_model.StoreNO};{_model.StoreSpacesNO}"  })" class="ui-btn ui-icon-back ui-btn-icon-left">回到功能選單畫面</a></p>
+@if (err != "")
+{
+    <dir>
+        <p><font color="red" size="6">錯誤訊息:<strong>@Html.Raw(err)</strong></font></p>
+    </dir>
+    <hr />
+}
+<div id="tab-demo">
+    <ul class="tab-title">
+        <li><a href="#tab01">新刀領取</a></li>
+        <li><a href="#tab02">舊刀領取</a></li>
+        <li><a href="#tab03">舊刀歸回</a></li>
+        <li><a href="#tab04">作廢再生</a></li>
+        <li><a href="#tab05">使用歷程</a></li>
+
+    </ul>
+    <div id="tab01" class="tab-inner">
+        <form method="post">
+            <input type='hidden' name='StoreNO' value="@_model.StoreNO" />
+            <input type='hidden' name='StoreSpacesNO' value="@_model.StoreSpacesNO" />
+            <input type='hidden' id="Select_ID" name='Select_ID' value="@_model.Select_ID" />
+            <input type='hidden' name='ActionType' value="A" />
+            <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none';">確定領取</button></p>
+            <p>
+                選擇工站編號:
+                <select name="Station">
+                    @{
+                        if (_model != null && _model.Station_List != null && _model.Station_List.Count > 0)
+                        {
+                            foreach (string[] s in _model.Station_List)
+                            {
+                                                                <option value="@s[0]">@s[0] @s[1]</option>
+                            }
+                        }
+                    }
+
+                </select>
+            </p>
+
+            <p>
+                @{
+                    if (_model != null && _model.New_K_List != null && _model.New_K_List.Rows.Count > 0)
+                    {
+                                                        <table data-role="table" data-mode="columntoggle" class="ui-responsive ui-shadow" id="DisplayDataTable" border="1">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>選擇</th>
+                                                                    <th>儲位</th>
+                                                                    <th>料件編號/品名/規格</th>
+                                                                    <th>存貨數量</th>
+                                                                    <th>單位</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                @{
+                                    using (DBADO db = new DBADO("1", _Fun.Config.Db))
+                                    {
+                                        DataRow tmp = null;
+                                        DataRow dataRow = null;
+                                        for (int i = 0; i < _model.New_K_List.Rows.Count; i++)
+                                        {
+                                            dataRow = _model.New_K_List.Rows[i];
+                                                                                                            <tr>
+                                                                                                                <td><input type="checkbox" name="optradio_A" value="@dataRow["Id"].ToString()"></td>
+                                                                                                                <td>@dataRow["StoreSpacesNO"].ToString()</td>
+                                                                                                                 <td>
+                                                                                                                    @dataRow["PartNO"].ToString()
+                                                                                                                    @{
+                                                        tmp = db.DB_GetFirstDataByDataRow($"SELECT PartName,Specification FROM SoftNetMainDB.[dbo].[Material] where PartNO='{dataRow["PartNO"].ToString()}'");
+                                                        if (tmp != null)
+                                                        {
+                                                                                                                                                            @tmp["PartName"].ToString()
+                                                                                                                                                            @tmp["Specification"].ToString()
+                                                        }
+                                                                                                                    }
+                                                                                                                </td>
+                                                                                                                <td>@dataRow["QTY"].ToString()</td>
+                                                                                                                <td>@dataRow["Unit"].ToString()</td>
+                                                                                                            </tr>
+                                        }
+                                    }
+                                                                }
+                                                            </tbody>
+                                                        </table>
+
+                    }
+                    else
+                    {
+                                                        <label>目前倉庫沒有刀具料件資料</label>
+                    }
+                }
+            </p>
+        </form>
+    </div>
+    <div id="tab02" class="tab-inner">
+        <p>
+            <form method="post">
+                <input type='hidden' name='StoreNO' value="@_model.StoreNO" />
+                <input type='hidden' name='StoreSpacesNO' value="@_model.StoreSpacesNO" />
+                <input type='hidden' id="Select_ID" name='Select_ID' value="@_model.Select_ID" />
+                <input type='hidden' name='ActionType' value="B" />
+                <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none';">確定領取</button></p>
+                 <p>
+                    選擇舊刀欲工作的工站編號:
+                    <select name="Station">
+                        @{
+                            if (_model != null && _model.Station_List != null && _model.Station_List.Count > 0)
+                            {
+                                foreach (string[] s in _model.Station_List)
+                                {
+                                                                <option value="@s[0]">@s[0] @s[1]</option>
+                                }
+                            }
+                        }
+
+                    </select>
+                </p>
+                <p>
+                    選擇舊刀在倉清單:
+                    @{
+                        if (_model != null && _model.OLD_K_List != null && _model.OLD_K_List.Rows.Count > 0)
+                        {
+                                                        <table data-role="table" data-mode="columntoggle" class="ui-responsive ui-shadow" id="DisplayDataTable" border="1">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>選擇</th>
+                                                                    <th>儲位</th>
+                                                                    <th>舊刀編號</th>
+                                                                    <th>刀具編號/品名/規格</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                @{
+                                        using (DBADO db = new DBADO("1", _Fun.Config.Db))
+                                        {
+                                            DataRow tmp = null;
+                                            DataRow dataRow = null;
+                                            for (int i = 0; i < _model.OLD_K_List.Rows.Count; i++)
+                                            {
+                                                dataRow = _model.OLD_K_List.Rows[i];
+                                                                                                        <tr>
+                                                                                                            <td><input type="checkbox" name="optradio_B" value="@dataRow["KId"].ToString()"></td>
+                                                                                                            <td>@dataRow["StoreSpacesNO"].ToString()</td>
+                                                                                                            <td>@dataRow["KId"].ToString()</td>
+                                                                                                            <td>
+                                                                                                                @{
+                                                            tmp = db.DB_GetFirstDataByDataRow($@"SELECT a.Id,a.PartNO,b.PartName,b.Specification FROM SoftNetMainDB.[dbo].[TotalStock] as a
+                                                            join SoftNetMainDB.[dbo].[Material] as b on a.PartNO=b.PartNO and b.ServerId='{_Fun.Config.ServerId}'
+                                                            where a.ServerId='{_Fun.Config.ServerId}' and a.Id='{dataRow["MId"].ToString()}'");
+                                                            if (tmp != null)
+                                                            {
+                                                                                                                                                    @tmp["PartNO"].ToString()
+                                                                                                                                                    @tmp["PartName"].ToString()
+                                                                                                                                                    @tmp["Specification"].ToString()
+                                                            }
+                                                                                                                }
+                                                                                                            </td>
+
+                                                                                                        </tr>
+                                            }
+                                        }
+                                                                }
+                                                            </tbody>
+                                                        </table>
+
+                        }
+                        else
+                        {
+                                                        <label>目前倉庫沒有刀具料件資料</label>
+                        }
+                    }
+                </p>
+            </form>
+        </p>
+    </div>
+    <div id="tab03" class="tab-inner">
+        <p>
+            <form method="post">
+                <input type='hidden' name='StoreNO' value="@_model.StoreNO" />
+                <input type='hidden' name='StoreSpacesNO' value="@_model.StoreSpacesNO" />
+                <input type='hidden' name='ActionType' value="C" />
+                <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none';">確定歸還入庫</button></p>
+                <p>
+                    選擇舊刀來源工站編號:
+                    <select id="Station_by_C" name="Station">
+                        @{
+                            if (_model != null && _model.Station_List != null && _model.Station_List.Count > 0)
+                            {
+                                foreach (string[] s in _model.Station_List)
+                                {
+                                                                    <option value="@s[0]">@s[0] @s[1]</option>
+                                }
+                            }
+                        }
+
+                    </select>
+                </p>
+                <p>
+                    選擇工站舊刀在現清單:
+                    <select id="OLD_C_Select_ID" name="Select_ID" style="display:none;">
+                        <option value="">請選擇</option>
+                    </select>
+                </p>
+                <p>
+                    選擇本倉放置儲位:
+                    <select name="StoreSpacesNO">
+                        @{
+                            if (_model != null && _model.StoreSpacesNO_List != null && _model.StoreSpacesNO_List.Count > 0)
+                            {
+                                                            <option value=""></option>
+                                foreach (string s in _model.StoreSpacesNO_List)
+                                {
+                                                                <option value="@s">@s</option>
+                                }
+                            }
+                        }
+
+                    </select>
+                </p>
+                <hr />
+                <p>
+                    本倉目前領出在各工站舊刀清單:
+                    @{
+                        if (_model != null && _model.OLD_K_IN_Station_List != null && _model.OLD_K_IN_Station_List.Rows.Count > 0)
+                        {
+                                                        <table data-role="table" data-mode="columntoggle" class="ui-responsive ui-shadow" id="DisplayDataTable_id_inStation" border="1">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>舊刀編號</th>
+                                                                    <th>刀具編號/品名/規格</th>
+                                                                    <th>所在工站</th>
+                                                                    <th>刀具使用總時數</th>
+                                                                    <th>總次數</th>
+                                                                    <th>第一次使用時間</th>
+                                                                    <th>使用年限</th>
+                                                                    <th>最多使用時數</th>
+                                                                    <th>最多使用次數</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                @{
+                                        using (DBADO db = new DBADO("1", _Fun.Config.Db))
+                                        {
+                                            DataRow tmp = null;
+                                            DataRow dataRow = null;
+                                            string use_ONLineTime = "無";
+                                            string use_LimitDay = "無";
+                                            string use_Count = "無";
+                                            for (int i = 0; i < _model.OLD_K_IN_Station_List.Rows.Count; i++)
+                                            {
+                                                use_ONLineTime = "無";
+                                                use_LimitDay = "無";
+                                                use_Count = "無";
+                                                dataRow = _model.OLD_K_IN_Station_List.Rows[i];
+                                                string startTime = dataRow.IsNull("StartTime") ? "尚未使用" : Convert.ToDateTime(dataRow["StartDate"]).ToString("yy-MM-dd HH:mm");
+                                                                                                        <tr>
+                                                                                                            <td>@dataRow["KId"].ToString()</td>
+                                                                                                            <td>
+                                                                                                                @{
+                                                            tmp = db.DB_GetFirstDataByDataRow($@"SELECT a.Id,a.PartNO,b.PartName,b.Specification,b.Use_ONLineTime,b.Use_LimitDay,b.Use_Count FROM SoftNetMainDB.[dbo].[TotalStock] as a
+                                                            join SoftNetMainDB.[dbo].[Material] as b on a.PartNO=b.PartNO and b.ServerId='{_Fun.Config.ServerId}'
+                                                            where a.ServerId='{_Fun.Config.ServerId}' and a.Id='{dataRow["MId"].ToString()}'");
+                                                            if (tmp != null)
+                                                            {
+                                                                if (tmp["Use_ONLineTime"].ToString().Trim() != "0") { use_ONLineTime = $"{tmp["Use_ONLineTime"].ToString()}小時"; }
+                                                                if (tmp["Use_LimitDay"].ToString().Trim() != "0") { use_LimitDay = $"{tmp["Use_LimitDay"].ToString()}天"; }
+                                                                if (tmp["Use_Count"].ToString().Trim() != "0") { use_Count = $"{tmp["Use_Count"].ToString()}次"; }
+                                                                                                                                                    @tmp["PartNO"].ToString()
+                                                                                                                                                    @tmp["PartName"].ToString()
+                                                                                                                                                    @tmp["Specification"].ToString()
+                                                            }
+                                                                                                                }
+                                                                                                            </td>
+                                                                                                            <td>@dataRow["StationNO"].ToString()</td>
+                                                                                                            <td>@dataRow["TOTWorkTime"].ToString()</td>
+                                                                                                            <td>@dataRow["TOTCount"].ToString()</td>
+                                                                                                            <td>@startTime</td>
+                                                                                                            <td>@use_LimitDay</td>
+                                                                                                            <td>@use_ONLineTime</td>
+                                                                                                            <td>@use_Count</td>
+                                                                                                        </tr>
+                                            }
+                                        }
+                                                                }
+                                                            </tbody>
+                                                        </table>
+
+                        }
+                        else
+                        {
+                                                        <label>目前倉庫沒有刀具領出紀錄 或 舊刀均已歸回</label>
+                        }
+                    }
+                </p>
+            </form>
+
+        </p>
+    </div>
+    <div id="tab04" class="tab-inner">
+        <p>
+            <form method="post">
+                <input type='hidden' name='StoreNO' value="@_model.StoreNO" />
+                <input type='hidden' name='StoreSpacesNO' value="@_model.StoreSpacesNO" />
+                <input type='hidden' id="Select_ID" name='Select_ID' value="@_model.Select_ID" />
+                <input type='hidden' name='ActionType' value="D" />
+                <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none';">確定選擇資料</button></p>
+                <p>
+                    <div>
+                        選擇行為:<input type="radio" name="Select_DroneType" value="1" checked>刀具作廢<input type="radio" name="Select_DroneType" value="2">刀具重新再生
+                    </div>
+                </p>
+                <p>
+                    選擇舊刀清單:
+                    @{
+                        if (_model == null || (_model.OLD_K_List == null && _model.OLD_K_IN_Station_List == null))
+                        {
+                                                        <label>目前倉庫沒有刀具領出紀錄 或 舊刀均已歸回</label>
+                        }
+                        else
+                        {
+                                                        <table data-role="table" data-mode="columntoggle" class="ui-responsive ui-shadow" id="DisplayDataTable_id_inStation_D" border="1">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>選擇</th>
+                                                                    <th>舊刀編號</th>
+                                                                    <th>刀具編號/品名/規格</th>
+                                                                    <th>所在工站</th>
+                                                                    <th>所在倉儲</th>
+                                                                    <th>儲位</th>
+                                                                    <th>刀具使用總時數</th>
+                                                                    <th>總次數</th>
+                                                                    <th>第一次使用時間</th>
+                                                                    <th>使用年限</th>
+                                                                    <th>最多使用時數</th>
+                                                                    <th>最多使用次數</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                @{
+                                        using (DBADO db = new DBADO("1", _Fun.Config.Db))
+                                        {
+                                            DataRow tmp = null;
+                                            DataRow dataRow = null;
+                                            string use_ONLineTime = "無";
+                                            string use_LimitDay = "無";
+                                            string use_Count = "無";
+                                            if (_model.OLD_K_IN_Station_List != null)
+                                            {
+                                                for (int i = 0; i < _model.OLD_K_IN_Station_List.Rows.Count; i++)
+                                                {
+                                                    use_ONLineTime = "無";
+                                                    use_LimitDay = "無";
+                                                    use_Count = "無";
+                                                    dataRow = _model.OLD_K_IN_Station_List.Rows[i];
+                                                    string startTime = dataRow.IsNull("StartTime") ? "尚未使用" : Convert.ToDateTime(dataRow["StartDate"]).ToString("yy-MM-dd HH:mm");
+                                                                                                            <tr>
+                                                                                                                <td><input type="checkbox" name="optradio_D" value="@dataRow["KId"].ToString()"></td>
+                                                                                                                <td>@dataRow["KId"].ToString()</td>
+                                                                                                                <td>
+                                                                                                                    @{
+                                                                tmp = db.DB_GetFirstDataByDataRow($@"SELECT a.Id,a.PartNO,b.PartName,b.Specification,b.Use_ONLineTime,b.Use_LimitDay,b.Use_Count FROM SoftNetMainDB.[dbo].[TotalStock] as a
+                                    join SoftNetMainDB.[dbo].[Material] as b on a.PartNO=b.PartNO and b.ServerId='{_Fun.Config.ServerId}'
+                                    where a.ServerId='{_Fun.Config.ServerId}' and a.Id='{dataRow["MId"].ToString()}'");
+                                                                if (tmp != null)
+                                                                {
+                                                                    if (tmp["Use_ONLineTime"].ToString().Trim() != "0") { use_ONLineTime = $"{tmp["Use_ONLineTime"].ToString()}小時"; }
+                                                                    if (tmp["Use_LimitDay"].ToString().Trim() != "0") { use_LimitDay = $"{tmp["Use_LimitDay"].ToString()}天"; }
+                                                                    if (tmp["Use_Count"].ToString().Trim() != "0") { use_Count = $"{tmp["Use_Count"].ToString()}次"; }
+                                                                                                                                                        @tmp["PartNO"].ToString()
+                                                                                                                                                        @tmp["PartName"].ToString()
+                                                                                                                                                        @tmp["Specification"].ToString()
+                                                                }
+                                                                                                                    }
+                                                                                                                </td>
+                                                                                                                <td>@dataRow["StationNO"].ToString()</td>
+                                                                                                                <td>@dataRow["StoreNO"].ToString()</td>
+                                                                                                                <td>@dataRow["StoreSpacesNO"].ToString()</td>
+                                                                                                                <td>@dataRow["TOTWorkTime"].ToString()</td>
+                                                                                                                <td>@dataRow["TOTCount"].ToString()</td>
+                                                                                                                <td>@startTime</td>
+                                                                                                                <td>@use_LimitDay</td>
+                                                                                                                <td>@use_ONLineTime</td>
+                                                                                                                <td>@use_Count</td>
+                                                                                                            </tr>
+                                                }
+                                            }
+                                            if (_model.OLD_K_List != null)
+                                            {
+                                                for (int i = 0; i < _model.OLD_K_List.Rows.Count; i++)
+                                                {
+                                                    use_ONLineTime = "無";
+                                                    use_LimitDay = "無";
+                                                    use_Count = "無";
+                                                    dataRow = _model.OLD_K_List.Rows[i];
+                                                    string startTime = dataRow.IsNull("StartTime") ? "尚未使用" : Convert.ToDateTime(dataRow["StartDate"]).ToString("yy-MM-dd HH:mm");
+                                                                                                            <tr>
+                                                                                                                <td><input type="checkbox" name="optradio_D" value="@dataRow["KId"].ToString()"></td>
+                                                                                                                <td>@dataRow["KId"].ToString()</td>
+                                                                                                                <td>
+                                                                                                                    @{
+                                                                tmp = db.DB_GetFirstDataByDataRow($@"SELECT a.Id,a.PartNO,b.PartName,b.Specification,b.Use_ONLineTime,b.Use_LimitDay,b.Use_Count FROM SoftNetMainDB.[dbo].[TotalStock] as a
+                                    join SoftNetMainDB.[dbo].[Material] as b on a.PartNO=b.PartNO and b.ServerId='{_Fun.Config.ServerId}'
+                                    where a.ServerId='{_Fun.Config.ServerId}' and a.Id='{dataRow["MId"].ToString()}'");
+                                                                if (tmp != null)
+                                                                {
+                                                                    if (tmp["Use_ONLineTime"].ToString().Trim() != "0") { use_ONLineTime = $"{tmp["Use_ONLineTime"].ToString()}小時"; }
+                                                                    if (tmp["Use_LimitDay"].ToString().Trim() != "0") { use_LimitDay = $"{tmp["Use_LimitDay"].ToString()}天"; }
+                                                                    if (tmp["Use_Count"].ToString().Trim() != "0") { use_Count = $"{tmp["Use_Count"].ToString()}次"; }
+                                                                                                                                                        @tmp["PartNO"].ToString()
+                                                                                                                                                        @tmp["PartName"].ToString()
+                                                                                                                                                        @tmp["Specification"].ToString()
+                                                                }
+                                                                                                                    }
+                                                                                                                </td>
+                                                                                                                <td>@dataRow["StationNO"].ToString()</td>
+                                                                                                                <td>@dataRow["StoreNO"].ToString()</td>
+                                                                                                                <td>@dataRow["StoreSpacesNO"].ToString()</td>
+                                                                                                                <td>@dataRow["TOTWorkTime"].ToString()</td>
+                                                                                                                <td>@dataRow["TOTCount"].ToString()</td>
+                                                                                                                <td>@startTime</td>
+                                                                                                                <td>@use_LimitDay</td>
+                                                                                                                <td>@use_ONLineTime</td>
+                                                                                                                <td>@use_Count</td>
+                                                                                                            </tr>
+                                                }
+                                            }
+                                        }
+                                                                }
+
+                                                            </tbody>
+                                                        </table>
+                        }
+                    }
+                </p>
+            </form>
+        </p>
+
+    </div>
+    <div id="tab05" class="tab-inner">
+        <p>
+            選擇工站編號:
+            <select id="Station_by_E" name="Station">
+                @{
+                    if (_model != null && _model.Station_List != null && _model.Station_List.Count > 0)
+                    {
+                        foreach (string[] s in _model.Station_List)
+                        {
+                                                        <option value="@s[0]">@s[0] @s[1]</option>
+                        }
+                    }
+                }
+
+            </select>
+        </p>
+        <p>
+            <div id="E_DisplayHTML">@_model.DisplayHTML</div>
+        </p>
+    </div>
+</div>
+
+
+
+<style>
+    #tab-demo {
+        width: 100%;
+    }
+
+        #tab-demo > ul {
+            display: block;
+            margin: 0;
+            list-style: none;
+        }
+
+    .tab-title {
+        list-style: none;
+    }
+
+    #tab-demo > ul > li {
+        display: inline-block;
+        vertical-align: top;
+        font-family: '微軟正黑體';
+        margin: 0 -1px -1px 0;
+        border: 1px solid #BCBCBC;
+        height: 25px;
+        line-height: 25px;
+        background: #cdcdcd;
+        padding: 0 15px;
+        list-style: none;
+        box-sizing: border-box;
+    }
+
+        #tab-demo > ul > li a {
+            color: #000;
+            text-decoration: none;
+        }
+
+        #tab-demo > ul > li.active {
+            border-bottom: 1px solid #fff;
+            background: #fff;
+        }
+
+    #tab-demo > .tab-inner {
+        clear: both;
+        color: #000;
+        border: 1px #BCBCBC solid;
+    }
+
+    .tab-inner {
+        padding: 15px;
+    }
+</style>

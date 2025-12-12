@@ -1,0 +1,74 @@
+﻿@using Base.Models
+@using BaseWeb.Models
+
+<script type="text/javascript">
+    $(function () {
+        _me.init();
+    });
+
+    var _me = {
+        init: function () {
+            //datatable config  DOCRole
+            var config = {
+                columns: [
+                    { data: '_Fun' },
+                    { data: 'NodeName' },
+                    { data: 'DOCName' },
+                    { data: 'SourceId' },
+                    { data: 'FlowLevel' },
+                    { data: 'TotalLevel' },
+                    { data: 'SignStatus' },
+                    { data: 'SignTime' },
+                    { data: 'Note' },
+                ],
+                columnDefs: [
+				    { targets: [0], render: function (data, type, full, meta) {
+                        return _str.format('<button type="button" class="btn btn-outline-secondary btn-sm" onclick="_crud.onUpdate(\'{0}\')">審查</button>', full.Id);
+                    }},
+                ],
+            };
+
+            //init crud
+            _crud.DbKeyName = 'Id';
+            _crud.init(config);
+        },
+
+
+    }; //class
+</script>
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "單據簽核" } })
+<div class="xp-prog">
+    <div id="divRead">
+
+        <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>功能</th>
+                    <th>流程名稱</th>
+                    <th>簽核別</th>
+                    <th>簽核單據</th>
+                    <th>階層</th>
+                    <th>總階</th>
+                    <th>狀態</th>
+                    <th>簽核時間</th>
+                    <th>批示備註</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div id="divEdit" class="xg-hide">
+        <form id='eform' class='xg-form' style='margin-bottom:0;'>
+            @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "Id" })
+            @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "單據類型", Fid = "DOCType", Rows = (List<IdStrDto>)ViewBag.DOCType })
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "單據別", Fid = "DOCNO", Required = true, MaxLen = 20 })
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "單據名稱", Fid = "DOCName", Required = true, MaxLen = 20 })
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "備註", Fid = "Remark", MaxLen = 255 })
+        </form>
+
+        @await Component.InvokeAsync("XgSaveBack")
+    </div>
+</div>
+

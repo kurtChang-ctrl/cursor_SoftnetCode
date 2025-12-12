@@ -1,0 +1,95 @@
+﻿@using System.Data
+
+@using Base
+@using SoftNetWebII.Services
+@model StoreList
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        SYS_ClickBlock = false;
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+    }
+</script>
+
+<div>
+    <p><a href="@Url.Action("Index", "Home")" class="ui-btn ui-icon-back ui-btn-icon-left">回到網站主功能選單畫面</a></p>
+</div>
+<div id="divDisplayTree" class="panel-body">
+    <label>倉庫編號:</label><label>@ViewBag.StoreNO</label><label>倉庫名稱:</label><label>@ViewBag.StoreName</label>
+</div>
+@{
+    using (DBADO db = new DBADO("1", _Fun.Config.Db))
+    {
+        DataRow dr = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetMainDB.[dbo].[Store] where ServerId='{_Fun.Config.ServerId}' and StoreNO='{ViewBag.StoreNO}'");
+        if (dr!=null)
+        {
+            if (dr["Default_IN_OUT"].ToString()=="4")
+            {
+                <div id="SetAction_02" class="div-3">
+                    <form action=@Url.Action("SetAction_MOUT") method="post">
+                        <input type='hidden' name='StoreNO' value="@ViewBag.StoreNO" />
+                        <input type='hidden' name='Station' value="@ViewBag.Station" />
+                        <input type='hidden' name='ActionType' value="" />
+                        <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none'">物料 入庫</button></p>
+                    </form>
+                </div>
+                <div id="SetAction_03" class="div-3">
+                    <form action=@Url.Action("SetAction_KINOUT") method="post">
+                        <input type='hidden' name='StoreNO' value="@ViewBag.StoreNO" />
+                        <input type='hidden' name='Station' value="@ViewBag.Station" />
+                        <input type='hidden' name='ActionType' value="" />
+                        <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none'">刀具 領取/歸還/再生</button></p>
+                    </form>
+                </div>
+            }
+            else
+            {
+                <div id="SetAction_01" class="div-3">
+                    <form action=@Url.Action("SetAction_MIN") method="post">
+                        <input type='hidden' name='StoreNO' value="@ViewBag.StoreNO" />
+                        <input type='hidden' name='Station' value="@ViewBag.Station" />
+                        <input type='hidden' name='ActionType' value="" />
+                        <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none'">物料 領取</button></p>
+                    </form>
+                </div>
+                <div id="SetAction_02" class="div-3">
+                    <form action=@Url.Action("SetAction_MOUT") method="post">
+                        <input type='hidden' name='StoreNO' value="@ViewBag.StoreNO" />
+                        <input type='hidden' name='Station' value="@ViewBag.Station" />
+                        <input type='hidden' name='ActionType' value="" />
+                        <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none'">物料 入庫</button></p>
+                    </form>
+                </div>
+                dr = db.DB_GetFirstDataByDataRow($@"SELECT a.*  FROM SoftNetMainDB.[dbo].[TotalStock] as a
+                join SoftNetMainDB.[dbo].[Material] as b on (b.Class='6' or b.Class='7') and a.PartNO=b.PartNO and b.ServerId='{_Fun.Config.ServerId}'
+                where a.ServerId='{_Fun.Config.ServerId}' and a.StoreNO='{ViewBag.StoreNO}' order by PartNO,StoreSpacesNO desc,QTY desc");
+                if (dr != null)
+                {
+                    <div id="SetAction_03" class="div-3">
+                        <form action=@Url.Action("SetAction_KINOUT") method="post">
+                            <input type='hidden' name='StoreNO' value="@ViewBag.StoreNO" />
+                            <input type='hidden' name='Station' value="@ViewBag.Station" />
+                            <input type='hidden' name='ActionType' value="" />
+                            <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none'">刀具 領取/歸還/再生</button></p>
+                        </form>
+                    </div>
+                }
+            }
+            <div id="SetAction_04" class="div-3">
+                <form action=@Url.Action("SetAction_Check") method="post">
+                    <input type='hidden' name='StoreNO' value="@ViewBag.StoreNO" />
+                    <input type='hidden' name='Station' value="@ViewBag.Station" />
+                    <input type='hidden' name='ActionType' value="" />
+                    <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none'">物料 盤點</button></p>
+                </form>
+            </div>
+        }
+    }
+}
+

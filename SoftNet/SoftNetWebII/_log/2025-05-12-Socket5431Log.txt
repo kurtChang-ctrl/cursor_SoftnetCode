@@ -1,0 +1,1 @@
+14:08:00(0); S Type=1 Data=IIS_Login,SoftNet_I,

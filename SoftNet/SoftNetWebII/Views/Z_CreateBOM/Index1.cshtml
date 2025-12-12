@@ -1,0 +1,76 @@
+﻿@model Z_CreateBOM_Data
+@{
+    string disUserName = "畫面逾時";
+    if (_Fun.GetBaseUser() != null) { disUserName = _Fun.GetBaseUser().UserName; }
+}
+<script type="text/javascript">
+    $(function () {
+
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+        $("title").text("@Html.Raw(disUserName)");
+    });
+            var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+        };
+
+
+
+</script>
+
+<!--最上層顯示-->
+<div>
+    <p><a href="@Url.Action("Index", "Home")" class="ui-btn ui-icon-back ui-btn-icon-left">回到網站主功能選單畫面</a></p>
+    @if (Model.ERRMsg != "")
+    {
+        <dir>
+            <p><font color="red">錯誤訊息:<strong>Model.ERRMsg</strong></font></p>
+        </dir>
+        <hr />
+    }
+    @if (Model.ERRMsg.Trim() != "")
+    {
+        <dir>
+            @Html.Raw(Model.ERRMsg)
+        </dir>
+        <hr />
+    }
+</div>
+<div id="selectStationPage">
+    <p>
+        <label>選擇車號工站:</label>
+        @{
+            if (Model.StationNOList != null && Model.StationNOList.Count > 0)
+            {
+                <form action=@Url.Action("SetAction") method="post">
+                    <input type='hidden' name='State' value="工站確認" />
+                    <input type='hidden' name='MES_Report' />
+                    <input type="text" name='StationNO' list="options1">
+                    <datalist id="options1">
+                        @foreach (string[] s in Model.StationNOList)
+                        {
+                            var s_tmp2 = $"{s[0]} {s[1]}";
+                            var s_tmp = $"{s[0]}";
+                            <option value='@s_tmp'>@s_tmp2</option>
+                        }
+                    </datalist>
+                    <p><label>輸入電視數量:</label><input type='number' name='QTY' placeholder="輸入台車上電視數量" data-clear-btn="true" /></p>
+                    <p><label>輸入台車重量:</label><input type='number' name='Weight' placeholder="輸入台車地磅重量" data-clear-btn="true" /></p>
+                    <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left">確認執行電視拆解排程</button></p>
+                </form>
+                @if (Model.MES_Report != null && Model.MES_Report.Trim() != "")
+                {
+                    @Html.Raw(Model.MES_Report);
+                }
+            }
+            else
+            {
+                <label>無任何可多工處裡的車號工站</label>
+            }
+        }
+    </p>
+</div>

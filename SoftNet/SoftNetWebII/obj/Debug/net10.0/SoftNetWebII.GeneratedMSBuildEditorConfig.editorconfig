@@ -1,0 +1,607 @@
+is_global = true
+build_property.TargetFramework = net10.0
+build_property.TargetFrameworkIdentifier = .NETCoreApp
+build_property.TargetFrameworkVersion = v10.0
+build_property.TargetPlatformMinVersion = 
+build_property.UsingMicrosoftNETSdkWeb = true
+build_property.ProjectTypeGuids = 
+build_property.InvariantGlobalization = 
+build_property.PlatformNeutralAssembly = 
+build_property.EnforceExtendedAnalyzerRules = 
+build_property._SupportedPlatformList = Linux,macOS,Windows
+build_property.RootNamespace = SoftNetWebII
+build_property.RootNamespace = SoftNetWebII
+build_property.ProjectDir = c:\04_SoftNet\SoftNet\SoftNetWebII\
+build_property.EnableComHosting = 
+build_property.EnableGeneratedComInterfaceComImportInterop = 
+build_property.RazorLangVersion = 9.0
+build_property.SupportLocalizedComponentNames = 
+build_property.GenerateRazorMetadataSourceChecksumAttributes = 
+build_property.MSBuildProjectDirectory = c:\04_SoftNet\SoftNet\SoftNetWebII
+build_property._RazorSourceGeneratorDebug = 
+build_property.EffectiveAnalysisLevelStyle = 10.0
+build_property.EnableCodeStyleSeverity = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/APSView/ALLSimulation.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQVBTVmlld1xBTExTaW11bGF0aW9uLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/APSView/APSSETRead.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQVBTVmlld1xBUFNTRVRSZWFkLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/APSView/DisplayLaout.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQVBTVmlld1xEaXNwbGF5TGFvdXQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/APSView/DOCBuyRead.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQVBTVmlld1xET0NCdXlSZWFkLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/APSView/OLDALLSimulation.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQVBTVmlld1xPTERBTExTaW11bGF0aW9uLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/APSView/ProductCourse.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQVBTVmlld1xQcm9kdWN0Q291cnNlLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/APSView/Read.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQVBTVmlld1xSZWFkLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/APSView/Read2.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQVBTVmlld1xSZWFkMi5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/BOM/Edit.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQk9NXEVkaXQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/BOM/Read.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQk9NXFJlYWQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/CIR/APSErrorData.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQ0lSXEFQU0Vycm9yRGF0YS5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/CIR/APSEventLog.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQ0lSXEFQU0V2ZW50TG9nLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/CIR/Read1.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQ0lSXFJlYWQxLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/CIR/Read2.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQ0lSXFJlYWQyLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/CIR/Read3.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQ0lSXFJlYWQzLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/CIR/Read4.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQ0lSXFJlYWQ0LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/CIR/Read5.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQ0lSXFJlYWQ1LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/CIR/Read6.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQ0lSXFJlYWQ2LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/CIR/Read7.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQ0lSXFJlYWQ3LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Config/ImportCustomization.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQ29uZmlnXEltcG9ydEN1c3RvbWl6YXRpb24uY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Config/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQ29uZmlnXEluZGV4LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Config/Index3.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQ29uZmlnXEluZGV4My5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Config/ThreadState.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQ29uZmlnXFRocmVhZFN0YXRlLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/CreateBOM/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQ3JlYXRlQk9NXEluZGV4LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Dashboard/CapacityIncreaseRate.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRGFzaGJvYXJkXENhcGFjaXR5SW5jcmVhc2VSYXRlLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Dispatch/Read.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRGlzcGF0Y2hcUmVhZC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Dispatch/Read2.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRGlzcGF0Y2hcUmVhZDIuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Display/ALLLabelLog.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRGlzcGxheVxBTExMYWJlbExvZy5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Display/AllMaterial.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRGlzcGxheVxBbGxNYXRlcmlhbC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Display/ALLMFData.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRGlzcGxheVxBTExNRkRhdGEuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Display/ALLOperateLog.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRGlzcGxheVxBTExPcGVyYXRlTG9nLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Display/ALLQTYMaterial.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRGlzcGxheVxBTExRVFlNYXRlcmlhbC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Display/ALLStationDetail.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRGlzcGxheVxBTExTdGF0aW9uRGV0YWlsLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Display/ALLStationOrderNO.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRGlzcGxheVxBTExTdGF0aW9uT3JkZXJOTy5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Display/ALLStore.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRGlzcGxheVxBTExTdG9yZS5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Display/BOMProductProcess.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRGlzcGxheVxCT01Qcm9kdWN0UHJvY2Vzcy5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Display/DefineStandardsCT.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRGlzcGxheVxEZWZpbmVTdGFuZGFyZHNDVC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Display/OddCT.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRGlzcGxheVxPZGRDVC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Display/SelectOLDSID.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRGlzcGxheVxTZWxlY3RPTERTSUQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Display/SelectStationState.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRGlzcGxheVxTZWxlY3RTdGF0aW9uU3RhdGUuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Display/StationEfficient.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRGlzcGxheVxTdGF0aW9uRWZmaWNpZW50LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/DOC3confirm/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRE9DM2NvbmZpcm1cSW5kZXguY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/DOC4confirm/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRE9DNGNvbmZpcm1cSW5kZXguY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/DOCBuy/Edit.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRE9DQnV5XEVkaXQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/DOCBuy/Read.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRE9DQnV5XFJlYWQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/DOCconfirm/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRE9DY29uZmlybVxJbmRleC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/DOC/Read.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRE9DXFJlYWQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/ExcelDB/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRXhjZWxEQlxJbmRleC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Factory/Edit.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRmFjdG9yeVxFZGl0LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Factory/Read.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRmFjdG9yeVxSZWFkLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/FlowSign/Read.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRmxvd1NpZ25cUmVhZC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Home/Error.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9tZVxFcnJvci5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Home/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9tZVxJbmRleC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Home/Login.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9tZVxMb2dpbi5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelProject/CreateBarCode.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxQcm9qZWN0XENyZWF0ZUJhckNvZGUuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelProject/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxQcm9qZWN0XEluZGV4LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelProject/ResuItDisplay.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxQcm9qZWN0XFJlc3VJdERpc3BsYXkuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelProject/ResuItTimeOUT.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxQcm9qZWN0XFJlc3VJdFRpbWVPVVQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelProject/StoreSpacesNOBarCode.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxQcm9qZWN0XFN0b3JlU3BhY2VzTk9CYXJDb2RlLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelProject/_ViewStart.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxQcm9qZWN0XF9WaWV3U3RhcnQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelStoreSpacesNO/ResuItTimeOUT.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxTdG9yZVNwYWNlc05PXFJlc3VJdFRpbWVPVVQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelStoreSpacesNO/SetAction_Check.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxTdG9yZVNwYWNlc05PXFNldEFjdGlvbl9DaGVjay5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelStoreSpacesNO/SetAction_KINOUT.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxTdG9yZVNwYWNlc05PXFNldEFjdGlvbl9LSU5PVVQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelStoreSpacesNO/SetAction_MIN.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxTdG9yZVNwYWNlc05PXFNldEFjdGlvbl9NSU4uY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelStoreSpacesNO/SetAction_MOUT.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxTdG9yZVNwYWNlc05PXFNldEFjdGlvbl9NT1VULmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelStoreSpacesNO/StroeFUN.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxTdG9yZVNwYWNlc05PXFN0cm9lRlVOLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelStoreSpacesNO/UpdateTagResult.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxTdG9yZVNwYWNlc05PXFVwZGF0ZVRhZ1Jlc3VsdC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelStoreSpacesNO/_ViewStart.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxTdG9yZVNwYWNlc05PXF9WaWV3U3RhcnQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelStroe/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxTdHJvZVxJbmRleC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelStroe/ResuItTimeOUT.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxTdHJvZVxSZXN1SXRUaW1lT1VULmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelStroe/SetAction_Check.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxTdHJvZVxTZXRBY3Rpb25fQ2hlY2suY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelStroe/SetAction_KINOUT.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxTdHJvZVxTZXRBY3Rpb25fS0lOT1VULmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelStroe/SetAction_MIN.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxTdHJvZVxTZXRBY3Rpb25fTUlOLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelStroe/SetAction_MOUT.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxTdHJvZVxTZXRBY3Rpb25fTU9VVC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelStroe/StroeFUN.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxTdHJvZVxTdHJvZUZVTi5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelStroe/UpdateTagResult.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxTdHJvZVxVcGRhdGVUYWdSZXN1bHQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelStroe/_ViewStart.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxTdHJvZVxfVmlld1N0YXJ0LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelWork/DisplayESOP.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxXb3JrXERpc3BsYXlFU09QLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelWork/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxXb3JrXEluZGV4LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelWork/ResuItDisplay.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxXb3JrXFJlc3VJdERpc3BsYXkuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelWork/ResuItTimeOUT.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxXb3JrXFJlc3VJdFRpbWVPVVQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/LabelWork/_ViewStart.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGFiZWxXb3JrXF9WaWV3U3RhcnQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Manufacture/Read.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTWFudWZhY3R1cmVcUmVhZC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Material/Edit.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTWF0ZXJpYWxcRWRpdC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Material/Read.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTWF0ZXJpYWxcUmVhZC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/MFData/Read.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTUZEYXRhXFJlYWQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/ProductProcess/Edit.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUHJvZHVjdFByb2Nlc3NcRWRpdC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/ProductProcess/Read.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUHJvZHVjdFByb2Nlc3NcUmVhZC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Report01/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUmVwb3J0MDFcSW5kZXguY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Report02/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUmVwb3J0MDJcSW5kZXguY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Report02/Index3.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUmVwb3J0MDJcSW5kZXgzLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Report03/Index01.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUmVwb3J0MDNcSW5kZXgwMS5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Report04/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUmVwb3J0MDRcSW5kZXguY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Report05/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUmVwb3J0MDVcSW5kZXguY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Report06/EditWorkTime.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUmVwb3J0MDZcRWRpdFdvcmtUaW1lLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Select2/Read.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2VsZWN0MlxSZWFkLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Select3/DataUpdate.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2VsZWN0M1xEYXRhVXBkYXRlLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Select/Efficient.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2VsZWN0XEVmZmljaWVudC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Select/Read.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2VsZWN0XFJlYWQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Shared/NoProgAuth.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXE5vUHJvZ0F1dGguY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Shared/_Layout.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9MYXlvdXQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Shared/_LayoutMobile.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9MYXlvdXRNb2JpbGUuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Shared/_SignRows.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9TaWduUm93cy5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Shared/_Top.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9Ub3AuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Shared/_ValidationScriptsPartial.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9WYWxpZGF0aW9uU2NyaXB0c1BhcnRpYWwuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Simulation/Read.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2ltdWxhdGlvblxSZWFkLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Station/Read.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU3RhdGlvblxSZWFkLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Store/Edit.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU3RvcmVcRWRpdC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Store/Read.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU3RvcmVcUmVhZC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/STView2Work/DisplayESOP.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU1RWaWV3MldvcmtcRGlzcGxheUVTT1AuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/STView2Work/DisplayEStore.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU1RWaWV3MldvcmtcRGlzcGxheUVTdG9yZS5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/STView2Work/DisplayKnives.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU1RWaWV3MldvcmtcRGlzcGxheUtuaXZlcy5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/STView2Work/FGD01.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU1RWaWV3MldvcmtcRkdEMDEuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/STView2Work/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU1RWaWV3MldvcmtcSW5kZXguY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/STView2Work/MUTIStation.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU1RWaWV3MldvcmtcTVVUSVN0YXRpb24uY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/STView2Work/Read.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU1RWaWV3MldvcmtcUmVhZC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/STView2Work/ResuItTimeOUT.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU1RWaWV3MldvcmtcUmVzdUl0VGltZU9VVC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/STView2Work/_ViewStart.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU1RWaWV3MldvcmtcX1ZpZXdTdGFydC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/STView2/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU1RWaWV3MlxJbmRleC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/STView2/MUTIStation.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU1RWaWV3MlxNVVRJU3RhdGlvbi5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/STView2/Read.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU1RWaWV3MlxSZWFkLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/STView2/ResuItTimeOUT.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU1RWaWV3MlxSZXN1SXRUaW1lT1VULmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/STView2/_ViewStart.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU1RWaWV3MlxfVmlld1N0YXJ0LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/STView/Read.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU1RWaWV3XFJlYWQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/TagResult_EnterKey/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcVGFnUmVzdWx0X0VudGVyS2V5XEluZGV4LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/TagResult_Update/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcVGFnUmVzdWx0X1VwZGF0ZVxJbmRleC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Test/Index1.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcVGVzdFxJbmRleDEuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Test/Index4.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcVGVzdFxJbmRleDQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Test/Index5.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcVGVzdFxJbmRleDUuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Test/Index6.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcVGVzdFxJbmRleDYuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Test/Read.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcVGVzdFxSZWFkLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Test/Read2.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcVGVzdFxSZWFkMi5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/User/Read.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcVXNlclxSZWFkLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/WorkingPaper/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcV29ya2luZ1BhcGVyXEluZGV4LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/WorkingPaper/MailAutoAction.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcV29ya2luZ1BhcGVyXE1haWxBdXRvQWN0aW9uLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/XpFlow/FlowTest.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcWHBGbG93XEZsb3dUZXN0LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/XpFlow/Read.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcWHBGbG93XFJlYWQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/XpProg/Read.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcWHBQcm9nXFJlYWQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/ZTest/Test01.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcWlRlc3RcVGVzdDAxLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/ZTest/Test02.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcWlRlc3RcVGVzdDAyLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/ZTest/Test03.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcWlRlc3RcVGVzdDAzLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Z_CreateBOM/Index1.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcWl9DcmVhdGVCT01cSW5kZXgxLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Z_CreateBOM/ResuItTimeOUT.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcWl9DcmVhdGVCT01cUmVzdUl0VGltZU9VVC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/Z_CreateBOM/_ViewStart.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcWl9DcmVhdGVCT01cX1ZpZXdTdGFydC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/_ViewImports.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcX1ZpZXdJbXBvcnRzLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[c:/04_SoftNet/SoftNet/SoftNetWebII/Views/_ViewStart.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcX1ZpZXdTdGFydC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 

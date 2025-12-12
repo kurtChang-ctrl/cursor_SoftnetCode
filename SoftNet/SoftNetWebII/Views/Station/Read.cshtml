@@ -1,0 +1,236 @@
+﻿@using Base.Models
+@using BaseWeb.Models
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        SYS_ClickBlock = false;
+        _me.init();
+        _crud.onFind2();//進階查詢dislpay=none
+        $('#show_Advanced_form2').hide();
+    });
+
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+        meShowform2:false,
+        me_tmp_stationNO: '',
+
+        init: function () {
+            //datatable config  DOCRole
+            var config = {
+                columns: [
+                    { data: '_Crud' },
+                    { data: '_Fun' },
+                    { data: 'FactoryName' , orderable: true},
+                    { data: 'LineName' , orderable: true},
+                    { data: 'StationNO', orderable: true },
+                    { data: 'StationName' },
+                    { data: 'RMSName' },
+                    { data: 'Station_Type', orderable: true },
+                    { data: 'StationUI_type', orderable: true },
+                    { data: 'CalendarName' },
+                    { data: 'Remark' },
+                    
+                ],
+                columnDefs: [
+                    { targets: [0], render: function (data, type, full, meta) {
+                            var tmp = full.ServerId + ';' + full.StationNO;
+                            return _me.edit_Advanced1(tmp, full.Name);
+                    }},
+                    { targets: [1], render: function (data, type, full, meta) {
+                        return _str.format('<button type="button" class="btn btn-outline-secondary btn-sm" onclick="_me.edit_Advanced2(\'{0}\')">進階設定', full.StationNO);
+                    }},
+                    { targets: [7], render: function (data, type, full, meta) {
+                        if (full.Station_Type == '1') { return '作業站'; }
+                        else if (full.Station_Type == '2') { return '維修站'; }
+                        else if (full.Station_Type == '3') { return '控制站'; }
+                        else if (full.Station_Type == '7') { return '虛擬站'; }
+                        else if (full.Station_Type == '8') { return '多工站'; }
+                    }},
+                    { targets: [8], render: function (data, type, full, meta) {
+                        if (full.StationUI_type == '1') { return '追朔'; }
+                        else {return '不追朔'; }
+                    }},
+
+                ],
+            };
+
+            //init crud
+            _crud.DbKeyName = 'StationNO';
+            _crud.DbKeyNameS = ['ServerId', 'StationNO'];
+            _crud.init(config);
+        },
+        //按進階時呼叫
+        edit_Advanced2: function (key) {
+            me_tmp_stationNO = key;
+            $('#show_Advanced_form1').hide();
+            $('#show_Advanced_form2').show();
+            _crud.onUpdate(key);
+        },
+        //按修改時呼叫
+        edit_Advanced1: function (stationNO, rowName) {
+            var funs = '';
+            funs += _str.format('<button type="button" class="btn btn-link" onclick="_me.edit_Advanced1_Edit(\'{1}\')"><i class="ico-pen" title="{2}"></i></button>','', stationNO, _BR.TipUpdate);
+            funs += _str.format('<button type="button" class="btn btn-link" onclick="_me.edit_Advanced1_Delete(\'{1}\',\'{2}\')"><i class="ico-delete" title="{3}"></i></button>', '', stationNO, rowName, _BR.TipDelete);
+            return funs;
+        },
+        //修改存檔
+        edit_Advanced1_Edit: function (key) {
+            $('#show_Advanced_form1').show();
+            $('#show_Advanced_form2').hide();
+            _crud.onUpdate(key);
+        },
+        edit_Advanced1_Delete: function (key,rowName) {
+            _crud.onDelete(key,rowName);
+        },
+        onSave_Manufacture: function () {
+            var str = me_tmp_stationNO + ',' + document.getElementById("input_Config_WaitTime_Formula").value + ',' + document.getElementById("input_Config_CycleTime_Formula").value + ',' + document.getElementById("input_Config_CalculatePauseTime").value + ',' + document.getElementById("input_Config_OutQtyTagName").value + ',' + document.getElementById("input_Config_FailQtyTagName").value + ',' + document.getElementById("input_Config_WaitTagValueDIO").value + ',' + document.getElementById("input_Config_IsTagValueCumulative").value + ',' + document.getElementById("input_Config_IsWaitTargetFinish").value
+             _ajax.getStr('Update_Manufacture', { keys: str }, function (error) {
+                if (!_str.isEmpty(error)) {_tool.msg(error);}
+            });
+            me_tmp_stationNO = '';
+            _crud.onToRead();
+        },
+        onToRead: function () {
+            $('#show_Advanced_form1').show();
+            $('#show_Advanced_form2').hide();
+            _crud.onToRead();
+        },
+    }; //class
+</script>
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "工站維護" } })
+<div class="xp-prog">
+    <div id="divRead">
+        <form id='formRead' class='xg-form'>
+            <div class="row">
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "工站編號", Fid = "StationNO", MaxLen = 50, InRow = true })
+                @await Component.InvokeAsync("XgFindTbar", new XgFindTbarDto { HasReset = true, HasFind2 = true })
+            </div>
+
+        </form>
+        <form id='formRead2' class='xg-form xg-mb0'>
+            @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "廠別", Fid = "FactoryName", Rows = (List<IdStrDto>)ViewBag.FactoryName })
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "線別", Fid = "LineName", MaxLen = 50 })
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "後台Service", Fid = "RMSName", MaxLen = 50 })
+        </form>
+
+        <div class='xg-btns-box'>
+            @await Component.InvokeAsync("XgCreate")
+        </div>
+        <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>維護</th>
+                    <th>設定</th>
+                    <th>廠別</th>
+                    <th>線別</th>
+                    <th>工站編號</th>
+                    <th>工站名稱</th>
+                    <th>後台Service</th>
+                    <th>工站類型</th>
+                    <th>追朔模式</th>
+                    <th>適用行事曆</th>
+                    <th>備註</th>
+                    
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div id="divEdit" class="xg-hide">
+        <form id='eform' class='xg-form' style='margin-bottom:0;'>
+            <div id="show_Advanced_form1">
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "工站編號", Fid = "StationNO", Required = true,MaxLen = 50 })
+                @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "廠別", Fid = "FactoryName", Required = true,Rows = (List<IdStrDto>)ViewBag.FactoryName })
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "線別", Fid = "LineName", Required = true, MaxLen = 20 })
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "工站名稱", Fid = "StationName", Required = true, MaxLen = 50 })
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "後台Service", Fid = "RMSName", Required = true, MaxLen = 50 })
+                @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "工站類型", Fid = "Station_Type",Required = true, Rows = (List<IdStrDto>)ViewBag.Station_Type })
+                @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "追朔模式", Fid = "StationUI_type",Required = true, Rows = (List<IdStrDto>)ViewBag.StationUI_type })
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "適用行事曆", Fid = "Remark", MaxLen = 255 })
+                @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "廠別", Fid = "CalendarName", Required = true, Rows = (List<IdStrDto>)ViewBag.CalendarName })
+                @await Component.InvokeAsync("XgSaveBack")
+            </div>
+
+        </form>
+       
+    </div>
+
+    <div id="show_Advanced_form2" class='xg-form'>
+        <div class="box">                <h1>進階設定項目</h1>            </div>
+        <div class="row">
+            <span>Wait計算方式:</span>
+            <span>
+                <select id="input_Config_WaitTime_Formula">
+                    <option>依本站出到進時間差</option>
+                    <option selected>依前站出到本站進時間差</option>
+                    <option>依本站進與進時間差(相同工單)</option>
+                    <option>Null</option>
+                    <option>依本站進與進時間差(不管工單)</option>
+                </select>
+            </span>
+        </div>
+        <div class="row">
+            <span>Cycle時間計算方式:</span>
+            <span>
+                <select id="input_Config_CycleTime_Formula">
+                    <option selected>依行事曆範圍</option>
+                    <option>依實際進出時間差</option>
+                </select>
+            </span>
+        </div>
+        <div class="row">
+            <span>Pause Cycle是否扣除:</span>
+            <span>
+                <select id="input_Config_CalculatePauseTime">
+                    <option selected>是</option>
+                    <option>否</option>
+                </select>
+            </span>
+        </div>
+        <div class="row">
+            <span>設定產出訊號來源:</span>
+            <span><input id="input_Config_OutQtyTagName" type="text" value="" /></span><p />
+        </div>
+        <div class="row">
+            <span>設定不良訊號來源:</span>
+            <span><input id="input_Config_FailQtyTagName" type="text" value="" /></span><p />
+        </div>
+        <div class="row">
+            <span>設定訊號類型:</span>
+            <span>
+                <select id="input_Config_WaitTagValueDIO">
+                    <option>Null</option>
+                    <option selected>True</option>
+                    <option>False</option>
+                    <option>Both</option>
+                </select>
+            </span>
+        </div>
+        <div class="row">
+            <span>設定訊號數量異動量:</span>
+            <span><input id="input_Config_IsTagValueCumulative" type="text" value="0" /></span><p />
+        </div>
+        <div class="row">
+            <span>是否等程式碼訊號:</span>
+            <span>
+                <select id="input_Config_IsWaitTargetFinish">
+                    <option>是</option>
+                    <option selected>否</option>
+                </select>
+            </span>
+        </div>
+
+        <div class='xg-center xg-mt10'>
+            <button type='button' class='btn xg-btn-size btn-primary' onclick='_me.onSave_Manufacture()'>儲存<i class='ico-save'></i></button>
+            <button type='button' class='btn xg-btn-size btn-secondary' onclick='_me.onToRead()'>回上一頁<i class='ico-back'></i></button>
+        </div>
+    </div>
+
+</div>
+

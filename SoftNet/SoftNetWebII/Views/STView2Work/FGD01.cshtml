@@ -1,0 +1,89 @@
+﻿@using Base
+
+@model MUTIStationObj
+@{
+    string disUserName = "畫面逾時";
+    if (_Fun.GetBaseUser() != null) { disUserName = _Fun.GetBaseUser().UserName; }
+
+}
+
+<script type="text/javascript">
+        jQuery(function () {
+            $("title").text("@Html.Raw(disUserName)");
+
+        });
+        var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+            qqww: function (data) {
+                $("input[name=StationNO]").val(data.value);
+                /*
+                var arr = new Array();
+                $("input:checkbox[id='SI_OPNO']:checked").each(function () {
+                    arr.push($(this).val()); //向数组中添加元素
+                }); //获取界面复选框的所有值
+                $("input[name=SI_Slect_OPNOs]").val(arr.join(';'));
+    */
+            },
+        };
+</script>
+<!--最上層顯示-->
+<div>
+    <p><a href="@Url.Action("Index", "Home")" class="ui-btn ui-icon-back ui-btn-icon-left">回到網站主功能選單畫面</a></p>
+    @if (Model.ERRMsg != "")
+    {
+        <dir>
+            <p><font color="red">錯誤訊息:<strong>Model.ERRMsg</strong></font></p>
+        </dir>
+        <hr />
+    }
+    @if (Model.MES_String.Trim() != "")
+    {
+        <dir>
+            @Html.Raw(Model.MES_String)
+        </dir>
+        <hr />
+    }
+</div>
+<div id="selectStationPage">
+    <p>
+        <label>選擇作業車號:</label>
+        @{
+            if (Model.StationNOList != null && Model.StationNOList.Count > 0)
+            {
+                <form action=@Url.Action("MUTIStation") method="post">
+                    <input type='hidden' name='State' value="工站確認" />
+                    <input type='hidden' name='MES_Report' />
+                    <input type="text" id="StationNO" name='StationNO' list="options1" onchange="_me.qqww(this)">
+                    <datalist id="options1">
+                        @foreach (string[] s in Model.StationNOList)
+                        {
+                            var s_tmp2 = $"{s[0]} {s[1]}";
+                            var s_tmp = $"{s[0]}";
+                            <option value='@s_tmp'>@s_tmp2</option>
+                        }
+                    </datalist>
+                    <p><label>輸入總重:</label><input type="text" name='SPartName1' list="options2" value=""></p>
+                    <label>輸入總量:</label><input type="text" name='SPartName2' list="options2" value="">
+                    <p><button id="工站確認" type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left">派工 確認</button></p>
+                </form>
+
+                <form action=@Url.Action("Index") method="post">
+                    <input type='hidden' name='State' value="工站確認" />
+                    <input type='hidden' name='MES_Report' />
+                    <input type="hidden" name='StationNO'>
+                    <p><button id="查詢歷史派工" type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left">切換至 查詢歷史派工紀錄</button></p>
+                </form>
+            }
+            else
+            {
+                <label>無任何可多工處裡的工站</label>
+            }
+        }
+    </p>
+</div>
+
+
+

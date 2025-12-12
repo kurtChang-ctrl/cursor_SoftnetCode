@@ -1,0 +1,15 @@
+C:\04_SoftNet\SoftNet\Base\BaseApi\bin\Debug\net10.0\BaseApi.deps.json
+C:\04_SoftNet\SoftNet\Base\BaseApi\bin\Debug\net10.0\BaseApi.dll
+C:\04_SoftNet\SoftNet\Base\BaseApi\bin\Debug\net10.0\BaseApi.pdb
+C:\04_SoftNet\SoftNet\Base\BaseApi\bin\Debug\net10.0\Base.dll
+C:\04_SoftNet\SoftNet\Base\BaseApi\bin\Debug\net10.0\Base.pdb
+C:\04_SoftNet\SoftNet\Base\BaseApi\obj\Debug\net10.0\BaseApi.csproj.AssemblyReference.cache
+C:\04_SoftNet\SoftNet\Base\BaseApi\obj\Debug\net10.0\BaseApi.GeneratedMSBuildEditorConfig.editorconfig
+C:\04_SoftNet\SoftNet\Base\BaseApi\obj\Debug\net10.0\BaseApi.AssemblyInfoInputs.cache
+C:\04_SoftNet\SoftNet\Base\BaseApi\obj\Debug\net10.0\BaseApi.AssemblyInfo.cs
+C:\04_SoftNet\SoftNet\Base\BaseApi\obj\Debug\net10.0\BaseApi.csproj.CoreCompileInputs.cache
+C:\04_SoftNet\SoftNet\Base\BaseApi\obj\Debug\net10.0\BaseApi.csproj.Up2Date
+C:\04_SoftNet\SoftNet\Base\BaseApi\obj\Debug\net10.0\BaseApi.dll
+C:\04_SoftNet\SoftNet\Base\BaseApi\obj\Debug\net10.0\refint\BaseApi.dll
+C:\04_SoftNet\SoftNet\Base\BaseApi\obj\Debug\net10.0\BaseApi.pdb
+C:\04_SoftNet\SoftNet\Base\BaseApi\obj\Debug\net10.0\ref\BaseApi.dll

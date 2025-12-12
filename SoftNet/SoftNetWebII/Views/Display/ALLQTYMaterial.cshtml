@@ -1,0 +1,71 @@
+﻿@model APSViewData
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+        onSet: function (s) {
+            var tmp_01 = '';
+            var rates = document.getElementsByName('data2');
+            for (var i = 0; i < rates.length; i++) {
+                if (rates[i].checked) {
+                    tmp_01 = tmp_01 + rates[i].value + ';';
+                }
+            }
+            $("input[name=SelectFun3]").val(tmp_01);
+        },
+    };
+</script>
+
+<div id="selectStationPage" class="xp-prog">
+    <form action=@Url.Action("ALLQTYMaterial") method="post">
+        <input type='hidden' name='SelectFun3' value="" />
+        <input type='hidden' name='SelectFun5' value="@Model.SelectFun5" />
+        <table>
+            <tr>
+                <td>
+                    查詢日期區間:<input type="date" name="SelectFun1" value="@Model.SelectFun1" min="2023-01-01" max="2035-12-31" />~<input type="date" name="SelectFun2" value="@Model.SelectFun2" min="2023-01-01" max="@Model.SelectFun5" />
+                    <button type='submit' onclick="this.style.display='none';_me.onSet();">確認</button>
+                </td>
+            </tr>
+            <tr>
+                <td>顯示料件類型:<input type="checkbox" name="data2" value='1' />原物料<input type="checkbox" name="data2" value='2' />採購件<input type="checkbox" name="data2" value='3' />委外件<input type="checkbox" name="data2" value='4' />製造半成品<input type="checkbox" name="data2" value='5' />製造成品</td>
+            </tr>
+            <tr>
+                <td>泛查料號或品名或規格:<input type="text" name="SelectFun4" value="@Model.SelectFun4" /></td>
+            </tr>
+        </table>
+    </form>
+</div>
+
+@{
+    if (ViewBag.ERRMsg != null && ViewBag.ERRMsg != "")
+    {
+        <dir>
+            <p><font color="red" size="6">錯誤訊息:<p><strong>@ViewBag.ERRMsg</strong></p></font></p>
+        </dir>
+    }
+}
+
+<div class="xp-prog">
+    @Html.Raw(ViewBag.HtmlOutput)
+</div>
+
+<style>
+    label {
+        display: block;
+        font: 1rem "Fira Sans", sans-serif;
+    }
+
+    input,
+    label {
+        margin: 0.4rem 0;
+    }
+</style>

@@ -1,0 +1,143 @@
+﻿
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        SYS_ClickBlock = false;
+        _me.init();
+        _modal.hideO(_me.modalImport);
+    });
+
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+        init: function () {
+            //datatable config
+            var config = {
+                columns: [
+                    { data: '_Fun' },
+                    { data: 'PP_Name', orderable: true },
+                    { data: 'FactoryName', orderable: true },
+                    { data: 'LineName', orderable: true },
+                    { data: 'CalendarName', orderable: true },
+                    { data: 'UpdateTime' },
+                    { data: 'Remark' },
+                    { data: 'IsAutoCloseWO', orderable: true },
+                ],
+                columnDefs: [
+                    {
+                        targets: [0], render: function (data, type, full, meta) {
+                            var tmp = full.ServerId + ';' + full.PP_Name;
+                            return _crud.dtCrudFun(tmp, full.Name, true, true, false);
+                        }
+                    },
+                    {
+                        targets: [7], render: function (data, type, full, meta) {
+                            if (full.IsAutoCloseWO == '1') { return '是'; }
+                            else { return '否'; }
+                        }
+                    },
+                ],
+            };
+
+            //init crud
+            _me.mCol = new EditMany('Id', 'eformCol', 'tplCol', 'tr');
+            _crud.DbKeyName = 'PP_Name';
+            _crud.DbKeyNameS = ['ServerId', 'PP_Name'];
+            _crud.init(config, [null, _me.mCol]);
+            _me.modalImport = $('#modalImport');
+        },
+        onImportExcel: function () {
+            _modal.showO(_me.modalImport);
+        },
+        onImportExcelII: function () {
+            var modal = _me.modalImport;
+            var fileObj = modal.find(':file');
+            var file = _ifile.getUploadFile(fileObj);
+            if (file == null) {
+                _tool.msg('無匯入Excel檔案');
+                return;
+            }
+
+            var formData = new FormData();
+            formData.append('file', file);
+            _ajax.getJsonByFormData('ImportExcel', formData, function (data) {
+                _modal.hideO(modal);
+                if (data.ErrorMsg != "") {
+                    _tool.msg(_str.format('xxx', data.OkCount, data.FailCount));
+                }
+                //_me.dt.reload();
+            });
+        },
+
+    }; //class
+</script>
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "製造流程 維護" } })
+<div class="xp-prog">
+    <!-- read form-->
+    <div id="divRead">
+        <!-- condition -->
+        <form id='formRead' class='xg-form xg-mb0'>
+            <div class="row">
+                @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "適用工廠", Fid = "FactoryName", Rows = (List<IdStrDto>)ViewBag.FactoryName, InRow = true })
+                @await Component.InvokeAsync("XgFindTbar", new XgFindTbarDto { HasReset = true, HasFind2 = true })
+            </div>
+        </form>
+
+        <div class="xg-btns-box">
+            <span class="xg-block-label">功能:</span>
+            @await Component.InvokeAsync("XgCreate")
+            <button id='button_setST1' type='button' class='btn xg-btn' onclick='_me.onImportExcel()'>加工獨立製程Excel匯入</button>
+
+        </div>
+
+
+
+        <!-- result list -->
+        <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+            <thead>
+                <tr>
+                    <th width='60px'>維護</th>
+                    <th>製程名稱</th>
+                    <th>適用工廠</th>
+                    <th>適用線</th>
+                    <th>適用行事曆</th>
+                    <th>最近更新日</th>
+                    <th>備註</th>
+                    <th>末階數量到自動關工單</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- edit form-->
+    <div id="divEdit" class="xg-hide">
+        <partial name="Edit" />
+    </div>
+
+
+    <!-- Excel匯入 -->
+    <div id='modalImport' class='modal fade'>
+        <div class='modal-dialog' role='document'>
+            <div class='modal-content'>
+                <div class='modal-header'>
+                    <h6 class='modal-title'>匯入Excel:</h6>
+                    <button type='button' class='close' data-dismiss='modal' aria-label='Close'>
+                        <span aria-hidden='true'>&times;</span>
+                    </button>
+                </div>
+                <div class='modal-body' style="padding: 20px 0 30px 50px;">
+                    <input type="file">
+                    <div id="divMsg" style="color:blue; display:none"></div>
+                </div>
+                <div class='modal-footer'>
+                    <button type='button' class='btn btn-secondary xg-btn-size xd-cancel' data-dismiss='modal'>取消</button>
+                    <button type='button' class='btn btn-primary xg-btn-size xd-yes' onclick='_me.onImportExcelII()'>匯入</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

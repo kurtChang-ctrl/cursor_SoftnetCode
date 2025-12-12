@@ -1,0 +1,38 @@
+﻿
+@{
+    string disUserName = "畫面逾時";
+    if (_Fun.GetBaseUser() != null) { disUserName = _Fun.GetBaseUser().UserName; }
+}
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        SYS_ClickBlock = false;
+        $("title").text("@Html.Raw(disUserName)");
+    });
+
+        var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus:false,
+        STView2Work_PageReload:false,
+        hasStaionChangQTY: false,
+        }; //class
+
+</script>
+
+
+<p><a href="@Url.Action("StroeFUN", "LabelStroe", new { id = @ViewBag.StoreNO })" class="ui-btn ui-icon-back ui-btn-icon-left">回到功能選單畫面</a></p>
+
+
+<dir>
+    @if (ViewBag.ERRMsg != null && ViewBag.ERRMsg != "")
+    {
+        <p><font color="red" size="6">錯誤訊息:<p><strong>@ViewBag.ERRMsg</strong></p></font></p>
+    }
+    @if (ViewBag.Report != null && ViewBag.Report!="")
+    {
+        <hr />
+        @Html.Raw(ViewBag.Report);
+        <hr />
+    }
+</dir>
+

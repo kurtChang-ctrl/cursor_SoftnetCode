@@ -1,0 +1,17 @@
+D:\書_sampleCode\Base\BaseWeb\bin\Debug\net5.0\BaseWeb.deps.json
+D:\書_sampleCode\Base\BaseWeb\bin\Debug\net5.0\BaseWeb.dll
+D:\書_sampleCode\Base\BaseWeb\bin\Debug\net5.0\ref\BaseWeb.dll
+D:\書_sampleCode\Base\BaseWeb\bin\Debug\net5.0\BaseWeb.pdb
+D:\書_sampleCode\Base\BaseWeb\bin\Debug\net5.0\Base.dll
+D:\書_sampleCode\Base\BaseWeb\bin\Debug\net5.0\BaseApi.dll
+D:\書_sampleCode\Base\BaseWeb\bin\Debug\net5.0\BaseApi.pdb
+D:\書_sampleCode\Base\BaseWeb\bin\Debug\net5.0\Base.pdb
+D:\書_sampleCode\Base\BaseWeb\obj\Debug\net5.0\BaseWeb.csproj.AssemblyReference.cache
+D:\書_sampleCode\Base\BaseWeb\obj\Debug\net5.0\BaseWeb.GeneratedMSBuildEditorConfig.editorconfig
+D:\書_sampleCode\Base\BaseWeb\obj\Debug\net5.0\BaseWeb.AssemblyInfoInputs.cache
+D:\書_sampleCode\Base\BaseWeb\obj\Debug\net5.0\BaseWeb.AssemblyInfo.cs
+D:\書_sampleCode\Base\BaseWeb\obj\Debug\net5.0\BaseWeb.csproj.CoreCompileInputs.cache
+D:\書_sampleCode\Base\BaseWeb\obj\Debug\net5.0\BaseWeb.csproj.CopyComplete
+D:\書_sampleCode\Base\BaseWeb\obj\Debug\net5.0\BaseWeb.dll
+D:\書_sampleCode\Base\BaseWeb\obj\Debug\net5.0\ref\BaseWeb.dll
+D:\書_sampleCode\Base\BaseWeb\obj\Debug\net5.0\BaseWeb.pdb

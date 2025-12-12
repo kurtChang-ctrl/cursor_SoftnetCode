@@ -1,0 +1,8 @@
+20:42:58(0); 大正倉燈 控制失敗 Exception: One or more errors occurred. (連線嘗試失敗，因為連線對象有一段時間並未正確回應，或是連線建立失敗，因為連線的主機無法回應。 (192.168.1.251:80))    at System.Threading.Tasks.Task.ThrowIfExceptional(Boolean includeTaskCanceledExceptions)
+   at System.Threading.Tasks.Task.Wait(Int32 millisecondsTimeout, CancellationToken cancellationToken)
+   at System.Threading.Tasks.Task.Wait()
+   at SoftNetWebII.Controllers.LabelStroeController.OpenWindow_EStore(String url, String token, List`1 req) in C:\04_SoftNet\SoftNet\SoftNetWebII\Controllers\LabelStroeController.cs:line 356
+20:43:42(0); 大正倉燈 控制失敗 Exception: One or more errors occurred. (連線嘗試失敗，因為連線對象有一段時間並未正確回應，或是連線建立失敗，因為連線的主機無法回應。 (192.168.1.251:80))    at System.Threading.Tasks.Task.ThrowIfExceptional(Boolean includeTaskCanceledExceptions)
+   at System.Threading.Tasks.Task.Wait(Int32 millisecondsTimeout, CancellationToken cancellationToken)
+   at System.Threading.Tasks.Task.Wait()
+   at SoftNetWebII.Controllers.LabelStroeController.OpenWindow_EStore(String url, String token, List`1 req) in C:\04_SoftNet\SoftNet\SoftNetWebII\Controllers\LabelStroeController.cs:line 356

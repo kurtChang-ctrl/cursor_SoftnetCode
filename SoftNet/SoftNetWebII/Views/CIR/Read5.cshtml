@@ -1,0 +1,193 @@
+﻿@using Base.Models
+@using BaseWeb.Models
+
+<script src="~/js/lib/chart-3.6.2.js"></script>
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+        _me.init();
+    });
+
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+
+        aass: location.href,
+        init: function () {
+            //datatable config  DOCRole
+            var config = {
+                columns: [
+                    { data: '_Fun' },
+                    { data: 'StationNO', orderable: true },
+                    { data: 'StationNOName', },
+                    { data: 'B1Time', },
+                    { data: 'B2Time', },
+                    { data: 'B3Time', },
+                    { data: 'B4Time', },
+                    { data: 'B5Time', },
+                ],
+                columnDefs: [
+                    {
+                        targets: [0], render: function (data, type, full, meta) {
+                            return _me.dtCrudFun(full.StationNO, full.Name, false, false, true);
+                        }
+                    },
+                ],
+            };
+
+            //init crud
+            _crud.DbKeyName = 'StationNO';
+            _crud.init(config);
+        },
+        dtCrudFun: function (key, rowName, hasUpdate, hasDelete, hasView,
+            fnOnUpdate, fnOnDelete, fnOnView) {
+            var funs = '';
+            if (hasUpdate)
+                funs += _str.format('<button type="button" class="btn btn-link" onclick="{0}(\'{1}\')"><i class="ico-pen" title="{2}"></i></button>', ((fnOnUpdate == null) ? '_crud.onUpdate' : fnOnUpdate), key, _BR.TipUpdate);
+            if (hasDelete)
+                funs += _str.format('<button type="button" class="btn btn-link" onclick="_crud.onDelete(\'{1}\',\'{2}\')"><i class="ico-delete" title="{3}"></i></button>', ((fnOnDelete == null) ? '_crud.onDelete' : fnOnDelete), key, rowName, _BR.TipDelete);
+            if (hasView)
+                funs += _str.format('<button type="button" class="btn btn-link" onclick="_me.onView(\'{0}\')"><i class="ico-eye" title="{2}"></i></button>', key, _BR.TipView);
+            return funs;
+        },
+        onView: function (key) {
+            var fun = 'GetViewJson';
+            _ajax.getStr('ShowStation1WeekDetail', { key: key }, function (data) {
+                _me.toEditMode(fun, data);
+                var re = JSON.parse(data);
+
+
+                //var dis_labels = ['1月', '2月', '3月', '4月', '5月', '6月'];
+                var stNO = re.stationNO;
+                var dis_labels = re.x_labels;
+                var data_ST = re.d_ST;
+                var data_OT = re.d_OT;
+                var data_LT = re.d_LT;
+                var dis_datas = {
+                    labels: dis_labels,// 设置 X 轴上对应的标签
+                    datasets: [
+                        {
+                            label: "行事曆工時",
+                            data: data_ST,
+                            fill: false,
+                            backgroundColor: 'rgba(255,165,0,0,2)',
+                            borderColor: 'rgb(255,165,0)',// 设置线的颜色
+                            pointStyle: 'rectRounded',
+                            pointBackgroundColor: 'rgb(0,255,0)',
+                            pointRadius: 5,
+                            pointHoverRadius: 10,
+                            borderWidth: 3
+                        },
+                        {
+                            label: "實際工作工時",
+                            data: data_OT,
+                            fill: false,
+                            backgroundColor: 'rgba(255,135,0,0,2)',
+                            borderColor: 'rgb(255,115,130)',// 设置线的颜色
+                            pointStyle: 'rectRounded',
+                            pointBackgroundColor: 'rgb(0,155,130)',
+                            pointRadius: 5,
+                            pointHoverRadius: 10,
+                            borderWidth: 3
+                        },
+                        {
+                            label: "計畫負荷工時",
+                            data: data_LT,
+                            fill: false,
+                            backgroundColor: 'rgba(155,160,0,0,2)',
+                            borderColor: 'rgb(155,165,130)',// 设置线的颜色
+                            pointStyle: 'rectRounded',
+                            pointBackgroundColor: 'rgb(0,155,130)',
+                            pointRadius: 5,
+                            pointHoverRadius: 10,
+                            borderWidth: 3
+                        },
+                    ]
+                };
+                var config = {
+                    type: 'bar', // 设置图表类型
+                    data: dis_datas,
+                    options: {
+                        title: {
+                            text: 'wwerwer',
+                            fontColor: 'green',
+                            fontSize: '24',
+                            position: 'left',
+                        },
+                        responsive: true,
+                    },
+                };
+
+
+
+                var ctx = document.getElementById("myChart1");
+                var myChart = new Chart(ctx, config);
+            });
+        },
+        toEditMode: function (fun, data) {
+            _crud.swap(false);  //call first
+            _prog.setPath(fun, _me.updName);
+            //_crud.loadJson(data);   //load first
+            _crud.setEditStatus(fun);
+            //_crud._afterOpenEdit(fun, data);
+
+            //document.getElementById("editDisplay").innerHTML = data;
+        },
+    }; //class
+</script>
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "工站稼動率與OEE查詢" } })
+<div class="xp-prog">
+    <div id="divRead">
+        <form id='formRead' class='xg-form'>
+            <div class="row">
+                @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "工站編號", Fid = "StationNO", Rows = (List<IdStrDto>)ViewBag.StationNOData, InRow = true })
+                @await Component.InvokeAsync("XgFindTbar", new XgFindTbarDto { HasReset = true, HasFind2 = false })
+            </div>
+        </form>
+
+        <div class='xg-btns-box' style="background-color:#ABBAEA;">
+            常規稼動率公式=前30天實際總工時/前30天行事曆總工時 &nbsp;&nbsp;&nbsp;&nbsp; 效能稼動率公式=前30天實際總工時/前30天排程最大負荷總工時<br />
+            生產能量公式=前30天有效總平均CT(排除乖離值)/前30天實際總平均CycleTime &nbsp;&nbsp;&nbsp;&nbsp; OEE值公式=效能稼動率*生產能量*良率
+        </div>
+        <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>明細</th>
+                    <th>工站</th>
+                    <th>工站名稱</th>
+                    <th>常規稼動率</th>
+                    <th>效能稼動率</th>
+                    <th>生產能量</th>
+                    <th>良率</th>
+                    <th>OEE值</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div id="divEdit" class="xg-hide">
+        @await Component.InvokeAsync("XgBack")
+        <form id='eform' class='xg-form' style='margin-bottom:0;'>
+
+            <canvas id="myChart1">
+            </canvas>
+            
+        </form>
+
+        
+    </div>
+</div>
+<style>
+    #myChart1 {
+        background-color: blanchedalmond;
+        border: 2px solid black;
+    }
+</style>
+

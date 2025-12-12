@@ -1,0 +1,29 @@
+16:25:18(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+16:37:26(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+16:50:26(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+16:50:40(0); Select ServerId,LOGDateTime,LOGDateTimeID,StationNO,PartNO,EditFinishedQty,EditFailedQty,OP_NO,CycleTime From SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] Where ServerId=@ServerId and LOGDateTime=@LOGDateTime and LOGDateTimeID=@LOGDateTimeID and StationNO=@StationNO and PartNO=@PartNO(01,2025-05-07T16:19:30.759,2025-05-07T16:19:30.811,A01,A37-R01-05)
+16:51:08(0); Select ServerId,LOGDateTime,LOGDateTimeID,StationNO,PartNO,EditFinishedQty,EditFailedQty,OP_NO,CycleTime From SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] Where ServerId=@ServerId and LOGDateTime=@LOGDateTime and LOGDateTimeID=@LOGDateTimeID and StationNO=@StationNO and PartNO=@PartNO(01,2025-05-07T16:19:30.759,2025-05-07T16:19:30.811,A01,A37-R01-05)

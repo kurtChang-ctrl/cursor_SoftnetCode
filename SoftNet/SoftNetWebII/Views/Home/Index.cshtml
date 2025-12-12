@@ -1,0 +1,34 @@
+﻿<script type="text/javascript">
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+    }; //class
+
+</script>
+
+@{
+    bool err = false;
+    if (_Fun.Config.DefaultStoreNO == "") { err = true; }
+    if (_Fun.Config.Db == "") { err = true; }
+    if (_Fun.Config.OutPackStationName == "") { err = true; }
+    if (_Fun.Config.AdministratorEmail == "") { err = true; }
+    if (_Fun.Config.SystemEmail == "") { err = true; }
+    if (_Fun.Config.MailSmtpServer == "") { err = true; }
+    if (_Fun.Config.LocalWebURL == "") { err = true; }
+    if (_Fun.Config.WesocketURL == "") { err = true; }
+    if (_Fun.Config.DefaultCalendarName == "") { err = true; }
+    if (err)
+    {
+        <div class="text-center">
+            <h1 style="color:red;">系統設定檔,有參數不正確, 系統執行會有嚴重性錯誤, 請通知系統管理者.</h1>
+        </div>
+    }
+    else
+    {
+        <div class="text-center">
+            <h1 class="display-3">Welcome</h1>
+        </div>
+    }
+}

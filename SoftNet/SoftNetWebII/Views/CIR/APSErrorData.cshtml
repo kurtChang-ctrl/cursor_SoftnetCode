@@ -1,0 +1,98 @@
+﻿@using Base.Models
+@using BaseWeb.Models
+
+<script type="text/javascript">
+    $(function () {
+        var Stime = 300;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+        if (!IS_SYS_Clock) {
+            IS_SYS_Clock=true;
+            SYS_Clock = setInterval(printword, 1000);
+        }
+        function printword() {
+            if (IS_SYS_Clock) {
+                if (Stime < 1) {
+                    Stime = 300;
+                    _crud.pageReload();
+                }
+                else {
+                    Stime -= 1;
+                    $("#intS").html(Stime);
+                }
+            }
+            else {
+                clearInterval(SYS_Clock);
+            }
+        }
+        _me.init();
+    });
+
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+
+        aass: location.href,
+        init: function () {
+            //datatable config  DOCRole
+            var config = {
+                columns: [
+
+                    { data: 'Time', },
+                    { data: 'SimulationId', },
+                    { data: 'DOCNumberNO', },
+                    { data: 'Name', },
+                    { data: 'Log', },
+
+
+                ],
+                // columnDefs: [
+                //     {
+                //         targets: [0], render: function (data, type, full, meta) {
+                //             //return _crud.dtCrudFun(full.Id, full.Name, true, true, false);
+                //             return _crud.dtCrudFun(full.StationNO, full.Name, false, false, true);
+                //         }
+                //     },
+                // ],
+            };
+
+            //init crud
+            _crud.DbKeyName = 'StationNO';
+            _crud.init(config);
+        },
+
+
+    }; //class
+</script>
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "系統異常查詢" } })
+<div class="xp-prog">
+    <div id="divRead">
+        <form id='formRead' class='xg-form'>
+            <div class="row">
+                @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "工站編號", Fid = "StationNO", Rows = (List<IdStrDto>)ViewBag.StationNOData, InRow = true })
+                @await Component.InvokeAsync("XgFindTbar", new XgFindTbarDto { HasReset = true, HasFind2 = false })
+            </div>
+        </form>
+
+        <div class='xg-btns-box'>
+            <label>更新倒數:</label><label id="intS"></label><label>秒</label>
+        </div>
+        <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>異常時間</th>
+                    <th>需求主件料</th>
+                    <th>異常單據</th>
+                    <th>單據名稱</th>
+                    <th>異常內容</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+
+</div>

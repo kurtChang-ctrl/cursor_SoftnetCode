@@ -1,0 +1,53 @@
+﻿@using BaseWeb.Models
+
+@* 1.Table *@
+<form id='eform' class='xg-form'>
+    @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "ServerId" })
+    @await Component.InvokeAsync("XiSelect", new XiSelectDto {  Title = "適用工廠",Fid = "FactoryName", Rows = (List<IdStrDto>)ViewBag.FactoryName, Value = "{{FactoryName}}", AddEmptyRow = false, Required = true})
+    @await Component.InvokeAsync("XiText", new XiTextDto { Title = "倉庫編號", Fid = "StoreNO", MaxLen = 30, Required = true })
+    @await Component.InvokeAsync("XiText", new XiTextDto { Title = "倉庫名稱", Fid = "StoreName", MaxLen = 30 })
+    @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "倉庫類型",Fid = "Class", Rows = (List<IdStrDto>)ViewBag.Class, Value = "{{Class}}", AddEmptyRow = false,Required = true})
+    @await Component.InvokeAsync("XiInt", new XiIntDto { Title = "排程優先權重值", Fid = "Simulation_FirstNO", Required = true })
+    @await Component.InvokeAsync("XiText", new XiTextDto { Title = "倉庫電子標籤ID", Fid = "Config_macID", MaxLen = 30 })
+    @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "排程適用進出倉定義", Fid = "Default_IN_OUT", Rows = (List<IdStrDto>)ViewBag.Default_IN_OUT, Value = "{{Default_IN_OUT}}", AddEmptyRow = false, Required = true })
+    @await Component.InvokeAsync("XiText", new XiTextDto { Title = "倉庫電話", Fid = "PostNO", MaxLen = 30 })
+    @await Component.InvokeAsync("XiText", new XiTextDto { Title = "倉庫地址", Fid = "Address", MaxLen = 30 })
+
+</form>
+
+@* 2.Column *@
+<div class='xg-btns-box'>
+    @await Component.InvokeAsync("XgAddRow", "_me.mCol.onAddRow()")
+</div>
+<form id='eformCol' class='xg-form' style="border:none">
+    <table class="table table-bordered xg-table xg-no-hline" cellspacing="0">
+        <thead>
+            <tr>
+                @* 3.XgTh component *@
+                <th>維護</th>
+                @await Component.InvokeAsync("XgTh", new XgThDto { Title = "儲位", Required = true })
+                @await Component.InvokeAsync("XgTh", new XgThDto { Title = "儲位名稱" })
+                @await Component.InvokeAsync("XgTh", new XgThDto { Title = "電子燈號ID" })
+                @await Component.InvokeAsync("XgTh", new XgThDto { Title = "Remark" })
+            </tr>
+        </thead>
+
+        <tbody id="divCols"></tbody>
+    </table>
+</form>
+@await Component.InvokeAsync("XgSaveBack")
+
+@* 4.row template, set td width, Nullable set false first then set by js *@
+<script id="tplCol" type="text/template">
+    <tr>
+    @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "Id" })
+    @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "StoreNO" })
+    @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "ServerId" })
+        <td class="text-center">@await Component.InvokeAsync("XgDeleteRow", "_me.mCol.onDeleteRow(this)")</td>
+<td>@await Component.InvokeAsync("XiText", new XiTextDto { Fid = "StoreSpacesNO", Value = "{{StoreSpacesNO}}", MaxLen = 50 })</td>
+<td>@await Component.InvokeAsync("XiText", new XiTextDto { Fid = "StoreSpacesName", Value = "{{StoreSpacesName}}", MaxLen = 255 })</td>
+            <td>@await Component.InvokeAsync("XiText", new XiTextDto { Fid = "Config_macID", Value = "{{Config_macID}}", MaxLen = 50 })</td>
+<td>@await Component.InvokeAsync("XiText", new XiTextDto { Fid = "Remark", Value = "{{Remark}}", MaxLen = 255 })</td>
+
+    </tr>
+</script>

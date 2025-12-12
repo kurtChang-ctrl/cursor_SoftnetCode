@@ -1,0 +1,147 @@
+﻿@using Base.Models
+@using BaseWeb.Models
+
+@using System.Data
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        SYS_ClickBlock = false;
+
+        _me.init();
+    });
+
+    var _me = {
+        hasStaionStatus: true,
+        hasStaionChangQTY: true,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+
+        flag_StationNO: '',
+        flag_OrderNO: '',
+        flag_IndexSN: '',
+        flag_OP_NO: '',
+        init: function () {
+            //datatable config  DOCRole
+            var config = {
+                columns: [
+                    { data: '_Fun' },
+                    { data: 'StationNO', orderable: true },
+                    { data: 'OrderNO' , orderable: true},
+                    { data: 'OP_NO' , orderable: true},
+                    { data: 'PP_Name' , orderable: true},
+                    { data: 'IndexSN' },
+                    { data: 'IsLastStation', orderable: true  },
+                    { data: 'StartTime', orderable: true },
+                    { data: 'CumulativeTime' },
+                    { data: 'StatndCycleTime' },
+                    { data: 'AvarageWaitTime' },
+                    { data: 'TotalInput' },
+                    { data: 'TotalOutput' },
+                    { data: 'TotalFail' },
+                    { data: 'YieldRate' },
+                    
+                ],
+                columnDefs: [
+                    { targets: [0], render: function (data, type, full, meta) {
+                        if (full.StationUI_type == '1') { return '自動'; }
+                        else {
+                                return _str.format('<button type="button" class="btn btn-outline-secondary btn-sm" onclick="_me.edit_Advanced(\'{0}\',\'{1}\',\'{2}\',\'{3}\')">報工', full.StationNO, full.OrderNO, full.IndexSN, full.OP_NO);
+                        }
+                    }},
+                ],
+            };
+
+            //init crud
+            //_crud.DbKeyName = 'StationNO';
+            _crud.init(config);
+        },
+        edit_Advanced: function (stationNO, OrderNO, indexSN, OP_NO) {
+            flag_StationNO = stationNO;
+            flag_OrderNO = OrderNO;
+            flag_IndexSN = indexSN;
+            flag_OP_NO = OP_NO;
+            if (OP_NO == '排程指派') { OP_NO ='';}
+            document.getElementById("input_OPNO").value = OP_NO;
+            _crud.onUpdate(stationNO);
+        },
+        onSave_PP_WorkOrder_Settlement: function () {
+            var str = flag_StationNO + ',' + flag_OrderNO + ',' + flag_IndexSN + ',' + document.getElementById("input_Out").value + ',' + document.getElementById("input_Fail").value + ',' + document.getElementById("input_OPNO").value + ',' + _crud.LocalIPPort + ',' + document.getElementById("input_CT").value
+             _ajax.getStr('Update_PP_WorkOrder_Settlement', { id: str }, function (error) {
+                if (!_str.isEmpty(error)) {_tool.msg(error);}
+            });
+            flag_StationNO = '';
+            flag_OrderNO = '';
+            flag_IndexSN = '';
+            flag_OP_NO ='';
+            _crud.onToRead();
+        },
+        onToRead: function () {
+            flag_StationNO = '';
+            flag_OrderNO = '';
+            flag_IndexSN = '';
+            flag_OP_NO ='';
+            _crud.onToRead();
+        },
+    }; //class
+</script>
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "報工維護  (不含可多工單生產之工站)" } })
+<div class="xp-prog">
+    <div id="divRead">
+        <form id='formRead' class='xg-form'>
+            <div class="row">
+                @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "廠別", Fid = "FactoryName", Rows = (List<IdStrDto>)ViewBag.FactoryName, InRow = true })
+                @await Component.InvokeAsync("XgFindTbar", new XgFindTbarDto { HasReset = true, HasFind2 = false })
+            </div>
+        </form>
+        <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>報工</th>
+                    <th>工站</th>
+                    <th>在線工單</th>
+                    <th>作業員</th>
+                    <th>製程</th>
+                    <th>順序</th>
+                    <th>終站</th>
+                    <th>開站時間</th>
+                    <th>累計時間</th>
+                    <th>標工</th>
+                    <th>均工</th>
+                    <th>進站數</th>
+                    <th>已產出</th>
+                    <th>不良數</th>
+                    <th>不良率</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+        <div id="divEdit" class="xg-hide">
+        <form id='eform' class='xg-form' style='margin-bottom:0;'>
+            <div id="show_Advanced_form">
+
+                <label>本次生產量</label>
+                <input id="input_Out" type="number" value="0"/><br />
+                <label>本次不良量</label>
+                <input id="input_Fail" type="number" value="0" /><br />
+                <label>本次作業員</label>
+                <input id="input_OPNO" type="text" value="0" /><br />
+                <br />
+                <hr />
+                <label>指定CycleTime值</label><input id="input_CT" type="number" value="0" /><label>秒</label>
+                <br />
+                <label>PS:(若指定CycleTime值為0時,則由系統自行計算之, 盡量由系統計算.)</label>
+                <hr />
+                <div class='xg-center xg-mt10'>
+                    <button type='button' class='btn xg-btn-size btn-primary' onclick='_me.onSave_PP_WorkOrder_Settlement()'>儲存<i class='ico-save'></i></button>
+                    <button type='button' class='btn xg-btn-size btn-secondary' onclick='_me.onToRead()'>回上一頁<i class='ico-back'></i></button>
+                </div>
+            </div>
+        </form>
+
+       
+    </div>
+</div>

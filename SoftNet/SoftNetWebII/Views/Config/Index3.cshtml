@@ -1,0 +1,103 @@
+﻿@*
+    For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+*@
+@{
+}
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+        _me.init();
+        _modal.hideO(_me.modalImport);
+
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+        init: function () {
+            _me.modalImport = $('#modalImport');
+        },
+        onCommand: function (key) {
+            var data = {
+                ipport: _crud.LocalIPPort,
+                type: key,
+                arg: '',
+            };
+            _ajax.getStr('SetCommand', data, function (error) {
+                if (!_str.isEmpty(error)) { _tool.msg(error); }
+            });
+        },
+        onImportExcel: function (type) {
+            $('#importType').val(type);
+            _modal.showO(_me.modalImport);
+        },
+        onImportExcelII: function () {
+            var modal = _me.modalImport;
+            var fileObj = modal.find(':file');
+            var file = _ifile.getUploadFile(fileObj);
+            if (file == null) {
+                _tool.msg('無匯入Excel檔案');
+                return;
+            }
+            var setfileType = "";
+            switch ($('#importType').val()) {
+                case 'a':
+                    setfileType = "ImportExcel_A"; break;
+                    setfileType = "ImportExcel_B"; break;
+                    setfileType = "ImportExcel_C"; break;
+                    setfileType = "ImportExcel_D"; break;
+                    setfileType = "ImportExcel_E"; break;
+                    setfileType = "ImportExcel_F"; break;
+            }
+            if (setfileType != "") {
+                var formData = new FormData();
+                formData.append('file', file);
+                _ajax.getJsonByFormData(setfileType, formData, function (data) {
+                    _modal.hideO(modal);
+                    if (data.ErrorMsg != "") {
+                        _tool.msg(_str.format(ata.ErrorMsg, data.OkCount, data.FailCount));
+                    }
+                    _me.dt.reload();
+                });
+            }
+        },
+    }; //class
+
+</script>
+
+<input type='hidden' id='importType' value="" />
+<button id='button_set0' type='button' class='btn xg-btn' onclick='_me.onImportExcel("a")'>客製 料件資料表</button>
+<button id='button_set1' type='button' class='btn xg-btn' onclick='_me.onImportExcel("b")'>客製 廠商資料表</button>
+<button id='button_set2' type='button' class='btn xg-btn' onclick='_me.onImportExcel("c")'>客製 員工資料表</button>
+<button id='button_set3' type='button' class='btn xg-btn' onclick='_me.onImportExcel("d")'>客製 工站基本資料</button>
+<button id='button_set4' type='button' class='btn xg-btn' onclick='_me.onImportExcel("e")'>客製 產品結構</button>
+<button id='button_set5' type='button' class='btn xg-btn' onclick='_me.onImportExcel("f")'>客製 生產工序表</button>
+
+
+
+
+<!-- Excel匯入 -->
+<div id='modalImport' class='modal fade'>
+    <div class='modal-dialog' role='document'>
+        <div class='modal-content'>
+            <div class='modal-header'>
+                <h6 class='modal-title'>匯入Excel:</h6>
+                <button type='button' class='close' data-dismiss='modal' aria-label='Close'>
+                    <span aria-hidden='true'>&times;</span>
+                </button>
+            </div>
+            <div class='modal-body' style="padding: 20px 0 30px 50px;">
+                <input type="file">
+                <div id="divMsg" style="color:blue; display:none"></div>
+            </div>
+            <div class='modal-footer'>
+                <button type='button' class='btn btn-secondary xg-btn-size xd-cancel' data-dismiss='modal'>取消</button>
+                <button type='button' class='btn btn-primary xg-btn-size xd-yes' onclick='_me.onImportExcelII()'>匯入</button>
+            </div>
+        </div>
+    </div>
+</div>
+</div>

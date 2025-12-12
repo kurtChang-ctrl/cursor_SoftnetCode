@@ -1,0 +1,127 @@
+﻿@using Base.Models
+@using BaseWeb.Models
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        SYS_ClickBlock = false;
+        _me.init();
+        _crud.onFind2();//進階查詢dislpay=none
+    });
+
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+
+        init: function () {
+            //datatable config
+            var config = {
+                columns: [
+                    { data: '_Crud' },
+                    { data: 'MFNO' , orderable: true},
+                    { data: 'MFName' , orderable: true},
+                    { data: 'SName', orderable: true },
+                    { data: 'UniFormNO', },
+                    { data: 'TEL' , orderable: true},
+                    { data: 'FAX' },
+                    { data: 'ContactMan', orderable: true },
+                    { data: 'ContactTEL', orderable: true },
+                    { data: 'EMail', orderable: true },
+                    { data: 'Address' , orderable: true},
+                    { data: 'PaymentMethod', orderable: true },
+                    { data: 'PaymentDate', orderable: true },
+                    { data: 'PaymentTerms', orderable: true },
+                    { data: 'StoreNO'},
+                    { data: 'CTDataWeights' , orderable: true},
+                ],
+                columnDefs: [
+                    { targets: [0], render: function (data, type, full, meta) {
+                            var tmp = full.ServerId + ';' + full.MFNO;
+                        return _crud.dtCrudFun(tmp, full.Name, true, true, false);
+                    }},
+                ],
+            };
+
+            //init crud
+            _crud.DbKeyNameS = ['ServerId', 'MFNO'];
+            _crud.DbKeyName = 'MFNO';
+            _crud.init(config);
+        },
+    }; //class
+</script>
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "廠家維護" } })
+<div class="xp-prog">
+    <div id="divRead">
+        <form id='formRead' class='xg-form'>
+            <div class="row">
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "廠商編號", Fid = "MFNO", MaxLen = 50, InRow = true })
+                @await Component.InvokeAsync("XgFindTbar", new XgFindTbarDto { HasReset = true, HasFind2 = true })
+            </div>
+
+        </form>
+        <form id='formRead2' class='xg-form xg-mb0'>
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "廠商名稱", Fid = "MFName", MaxLen = 50 })
+            @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "入庫倉別", Fid = "StoreNO", Rows = (List<IdStrDto>)ViewBag.StoreNO })
+        </form>
+
+        <div class='xg-btns-box'>
+            @await Component.InvokeAsync("XgCreate")
+        </div>
+        <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>維護</th>
+                    <th>廠商編號</th>
+                    <th>廠商名稱</th>
+                    <th>簡稱</th>
+                    <th>統一編號</th>
+                    <th>TEL</th>
+                    <th>FAX</th>
+                    <th>聯絡人</th>
+                    <th>聯絡TEL</th>
+                    <th>EMail</th>
+                    <th>地址</th>
+                    <th>付款方式</th>
+                    <th>付款條件</th>
+                    <th>付款日期</th>
+                    <th>入庫倉別</th>
+                    <th>排程權重</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div id="divEdit" class="xg-hide">
+        <form id='eform' class='xg-form' style='margin-bottom:0;'>
+            <div id="show_Advanced_form1">
+                @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "ServerId" })
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "[主欄位]廠商編號", Fid = "MFNO", Required = true, MaxLen = 50 })
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "廠商名稱", Fid = "MFName", Required = true, MaxLen = 255 })
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "簡號", Fid = "SName", Required = true, MaxLen = 50 })
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "統一編號", Fid = "UniFormNO", MaxLen = 255 })
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "TEL", Fid = "TEL", MaxLen = 255 })
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "FAX", Fid = "FAX", MaxLen = 255 })
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "聯絡人", Fid = "ContactMan", Required = true, MaxLen = 255 })
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "聯絡TEL", Fid = "ContactTEL", MaxLen = 255 })
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "EMail", Fid = "EMail", Required = true, MaxLen = 255 })
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "地址", Fid = "Address", Required = true, MaxLen = 255 })
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "付款方式", Fid = "PaymentMethod", MaxLen = 255 })
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "付款條件", Fid = "PaymentTerms", MaxLen = 255 })
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "付款日期", Fid = "PaymentDate", MaxLen = 255 })
+                @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "入庫倉別", Fid = "StoreNO", Rows = (List<IdStrDto>)ViewBag.StoreNO })
+                @await Component.InvokeAsync("XiDec", new XiDecDto{ Title = "排程權重", Fid = "CTDataWeights", Required = true, Cols = "2,1" })
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "備註", Fid = "Remark", MaxLen = 255 })
+
+                 @await Component.InvokeAsync("XgSaveBack")
+            </div>
+        </form>
+
+       
+    </div>
+</div>
+
+

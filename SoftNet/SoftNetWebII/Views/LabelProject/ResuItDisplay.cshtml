@@ -1,0 +1,94 @@
+﻿@using Base
+@model LabelProject
+@{
+    LabelProject d = Model;
+    string err = Model.ERRMsg;
+    string disUserName = "畫面逾時";
+    if (_Fun.GetBaseUser() != null) { disUserName = _Fun.GetBaseUser().UserName; }
+}
+<style>
+    th {
+        border-bottom: 1px solid #d6d6d6;
+    }
+
+    tr:nth-child(even) {
+        background: #e9e9e9;
+    }
+
+    .stateRed {
+        color: red;
+        font-weight: bold;
+    }
+
+    .stateGreen {
+        color: forestgreen;
+        font-weight: bold;
+    }
+
+    .stateNOT {
+        background: #b8b8b8;
+    }
+
+    .div-1 {
+        background-color: #EBEBEB;
+    }
+
+    .div-2 {
+        background-color: #ABBAEA;
+    }
+
+    .div-3 {
+        background-color: #FBD603;
+    }
+</style>
+
+<script type="text/javascript">
+    $(function () {
+        $("title").text("@Html.Raw(disUserName)");
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+
+    };
+
+</script>
+
+<div>
+<p><a href="@Url.Action("Index", "LabelProject",new { id = Model.StationNO })" class="ui-btn ui-icon-back ui-btn-icon-left">回到工站選單畫面</a></p>
+</div>
+<div class="div-2">
+        @if (err != "")
+        {
+            <dir>
+            <p><font color="red" size="5">錯誤訊息:<strong>@err</strong></font></p>
+            </dir>
+        <hr />
+    }
+    else if (ViewBag.Report != null && ViewBag.Report!="")
+    {
+        @Html.Raw(ViewBag.Report);
+    }
+    else
+    {
+        <p><label>操作員工:</label><label> @Model.OPNO</label>&nbsp;&nbsp;<label> @Model.OPNO_Name</label></p>
+        <p><label>工站編號:</label><label> @Model.StationNO</label>&nbsp;&nbsp;<label> @Model.StationName</label></p>
+        <p><label>製程名稱:</label><label>@Model.PP_Name</label>&nbsp;&nbsp;<label>製造順序:</label><label>@Model.IndexSN</label></p>
+        <p><label>工單編號:</label><label>@Model.OrderNO</label>&nbsp;&nbsp;<label>累計工時:</label><label>@Model.TOTALWorkTime</label></p>
+        <p><label>料件編號:</label><label>@Model.PartNO</label>&nbsp;&nbsp;<label>品名:</label><label>@Model.PartName</label>&nbsp;&nbsp;<label>規格:</label><label>@Model.Specification</label></p>
+        <p><label>累計良品生產數:</label><label>@Model.TOTALOKQTY</label>&nbsp;&nbsp;<label>累計不良品數:</label><label>@Model.TOTALFailQTY</label></p>
+    }
+    <hr />
+    <hr />
+</div>
+<hr />
+<dir class="stateGreen">
+    @Html.Raw(Model.MES_String)
+</dir>
+
+
+
+
+

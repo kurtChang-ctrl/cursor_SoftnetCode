@@ -1,0 +1,43 @@
+﻿@{
+    string disUserName = "畫面逾時";
+    if (_Fun.GetBaseUser() != null) { disUserName = _Fun.GetBaseUser().UserName; }
+}
+<script type="text/javascript">
+    $(function () {
+        $("title").text("@Html.Raw(disUserName)");
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+    }; //class
+</script>
+
+
+<p><a href="@Url.Action("Index", "Home")" class="ui-btn ui-icon-back ui-btn-icon-left">回到網站主功能選單畫面</a></p>
+<p><a href="@Url.Action("Read", "STView2Work")" class="ui-btn ui-icon-back ui-btn-icon-left">回到工站選單畫面</a></p>
+
+
+<dir>
+    @if (ViewBag.ERRMsg != null && ViewBag.ERRMsg != "")
+    {
+        <p><font color="red" size="6">錯誤訊息:<p><strong>@ViewBag.ERRMsg</strong></p></font></p>
+    }
+    @if (ViewBag.Station_DIS_Remark != null && ViewBag.Station_DIS_Remark != "")
+    {
+        <hr />
+        @Html.Raw(ViewBag.Station_DIS_Remark)
+        <hr />
+    }
+</dir>
+
+<dir>
+    @{
+        if (ViewBag.EStore != null && ViewBag.EStore != "")
+        {
+            @Html.Raw(ViewBag.EStore)
+        }
+    }
+</dir>
+

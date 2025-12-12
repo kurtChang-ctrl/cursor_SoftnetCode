@@ -1,0 +1,243 @@
+09:34:08(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+09:36:42(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+10:02:53(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+10:47:53(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+11:16:39(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+11:16:40(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+11:36:58(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+11:49:22(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+14:43:15(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+14:59:00(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+15:01:04(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+15:06:43(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+15:07:37(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+15:09:59(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+15:10:58(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+15:17:04(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+15:18:46(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+15:21:40(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+15:24:56(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+15:29:00(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+17:37:18(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+17:43:41(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+17:51:44(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+17:56:40(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+18:12:45(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+18:28:20(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)
+18:30:16(0); 
+select distinct 
+    p.Code as Id, (cast(max(p.AuthRow) as char(1)) + cast((case max(p.FunCreate) when 1 then max(rp.FunCreate) else 0 end) as char(1)) + cast((case when max(p.FunRead)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunRead) else 1 end) as char(1)) + cast((case when max(p.FunUpdate)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunUpdate) else 1 end) as char(1)) + cast((case when max(p.FunDelete)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunDelete) else 1 end) as char(1)) + cast((case when max(p.FunPrint)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunPrint) else 1 end) as char(1)) + cast((case when max(p.FunExport)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunExport) else 1 end) as char(1)) + cast((case max(p.FunView) when 1 then max(rp.FunView) else 0 end) as char(1)) + cast((case when max(p.FunOther)=0 then 0 when max(p.AuthRow)=1 then max(rp.FunOther) else 1 end) as char(1))) as Str
+from XpRoleProg rp
+join XpUserRole ur on rp.RoleId=ur.RoleId
+join XpProg p on rp.ProgId=p.Id
+where ur.UserId=@UserId
+group by p.Code
+(Alex)

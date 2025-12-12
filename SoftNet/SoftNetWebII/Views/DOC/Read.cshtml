@@ -1,0 +1,98 @@
+﻿@using Base.Models
+@using BaseWeb.Models
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        SYS_ClickBlock = false;
+        _me.init();
+    });
+    /*
+    _me.divEdit 存 <div id="divEdit">
+    _me.divRead 存 <div id="divRead">
+    */
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+        init: function () {
+            //datatable config  DOCRole
+            var config = {
+                columns: [
+                    { data: '_Fun' },
+                    { data: 'DOCType', orderable: true },
+                    { data: 'DOCNO' , orderable: true},
+                    { data: 'DOCName' , orderable: true},
+                    { data: 'Remark' },
+                ],
+                columnDefs: [
+                    { targets: [0], render: function (data, type, full, meta) {
+                        return _crud.dtCrudFun(full.Id, full.Name, true, true, false);
+                    }},
+                    { targets: [1], render: function (data, type, full, meta) {
+                        switch (full.DOCType) {
+                            case "1":                                return '進貨';
+                            case "2":                                return '銷貨';
+                            case "3":                                return '存貨';
+                            case "4":                                return '生產';
+                            case "5":                                return '委外';
+                            case "9":                                return '財務';
+                        }
+                        return '進貨';
+                    }},
+                ],
+            };
+
+            //init crud
+            _crud.DbKeyName = 'Id';
+            _crud.init(config);
+        },
+
+
+    }; //class
+</script>
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "單據別設定" } })
+<div class="xp-prog">
+    <div id="divRead">
+        <form id='formRead' class='xg-form'>
+            <div class="row">
+                @await Component.InvokeAsync("XiText", new XiTextDto { Title = "單據別", Fid = "DOCNO", MaxLen = 20, InRow = true })
+                @await Component.InvokeAsync("XgFindTbar", new XgFindTbarDto { HasReset = true, HasFind2 = true })
+            </div>
+            @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "單據類型", Fid = "DOCType", Rows = (List<IdStrDto>)ViewBag.DOCType })
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "單據名稱", Fid = "DOCName", MaxLen = 20 })
+            
+        </form>
+
+        <div class='xg-btns-box'>
+            @await Component.InvokeAsync("XgCreate")
+        </div>
+        <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>維護</th>
+                    <th>單據類型</th>
+                    <th>單據別</th>
+                    <th>單據名稱</th>
+                    <th>備註</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div id="divEdit" class="xg-hide">
+        <form id='eform' class='xg-form' style='margin-bottom:0;'>
+            @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "Id" })
+            @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "單據類型", Fid = "DOCType", Rows = (List<IdStrDto>)ViewBag.DOCType })
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "單據別", Fid = "DOCNO", Required = true, MaxLen = 20 })
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "單據名稱", Fid = "DOCName", Required = true, MaxLen = 20 })
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "備註", Fid = "Remark", MaxLen = 255 })
+        </form>
+
+        @await Component.InvokeAsync("XgSaveBack")
+    </div>
+</div>
+

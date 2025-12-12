@@ -1,0 +1,64 @@
+﻿<script src="~/js/lib/gaugeSVG.js"></script>
+<style>
+    body {
+        text-align: center;
+    }
+
+
+
+    .gaugeSVGVeiw {
+        width: 250px;
+        height: 200px;
+        display: inline-block;
+        margin: 1em;
+    }
+
+    p {
+        display: block;
+        width: 450px;
+        margin: 2em auto;
+        text-align: left;
+    }
+</style>
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        ffff();
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasStaionChangQTY: false,
+    };
+
+    function ffff() {
+        var stNO_list = "@Html.Raw(ViewBag.StationNO)".split(';');
+        if (stNO_list.length > 0) {
+            var nameDisplay_list = "@Html.Raw(ViewBag.StationName)".split(';');
+            for (var i = 0; i < stNO_list.length; i++) {
+                var stNO = stNO_list[i].split(',');
+                var _containerstyle = {
+                    id: stNO[0],
+                    value: parseFloat(stNO[1]),
+                    title: stNO[0],
+                    label: nameDisplay_list[i],
+                    min: 0,
+                    max: 100,
+                    lowerWarningLimit: 20,
+                    upperWarningLimit: 40,
+                    lowerActionLimit: 40,
+                    upperActionLimit: 100,//操作上限
+                    optimumRangeColor: "#ecec2b",//最佳範圍
+                    warningRangeColor: "#58df29",//警告範圍
+                    actionRangeColor: "#ff8888",//操作範圍
+                };
+                var gauge1 = new GaugeSVG(_containerstyle);
+            }
+        }
+    };
+</script>
+
+
+<div class="xp-prog">
+    @Html.Raw(ViewBag.DisplayHTML)
+</div>

@@ -1,0 +1,475 @@
+﻿@inject IHtmlLocalizer<SoftNetWebII.R0> R0
+@{
+    string webADDR = _Fun.Config.LocalWebURL;
+}
+
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        SYS_ClickBlock = false;
+        _crud.onFind2();//進階查詢dislpay=none
+        $('#stationSETForm').hide();
+        $('#divRead2').hide();
+        _me.init();
+        _modal.hideO(_me.modalImport);
+        $("#PartClass").change(function () {
+            var value = this.value;
+            _ajax.getStr('HTML_ChangeClass', { keys: value }, function (data) {
+                if (!_str.isEmpty(data)) { 
+                    document.getElementById("options1").innerHTML = '';
+                    var darry = data.split(',');
+                    var html_options = '';
+                    for (var i = 0; i < darry.length; i++) {
+                        var darryII = darry[i].split(';');
+                        html_options += '<option value="' + darryII[1] + '">' + darryII[0] + ';' + darryII[1] + ';' + darryII[2] + '</option>';
+                    }
+                    document.getElementById("options1").innerHTML = html_options;
+                    $("#PartName").val('');
+                    var row = { PartNO: '' };
+                    var edit = _me.edit0;
+                    _form.loadJson(edit.eform, row);
+                }
+            });
+
+        });
+        $("#PartName").change(function () {
+
+            var idValue1 = $("#PartName").val();
+            if (idValue1 != '') {
+                var elementOption1 = $("#options1 option[value='" + idValue1 + "']")
+                var data1 = elementOption1.text().split(';');
+                if (data1.length > 1) {
+
+                    var row = { PartNO: data1[0] };
+                    var edit = _me.edit0;
+                    _form.loadJson(edit.eform, row);
+                    //let labelPartName = document.getElementById("PartName");
+                    //labelPartName.innerHTML = data1[1] + '  ' + data1[2];
+                }
+            }
+        });
+    });
+    var _me = {
+        hasStaionStatus: true,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+        init: function () {
+            //datatable config
+            var config = {
+                columns: [
+                    { data: '_F1' },
+                    { data: '_F0' },
+                    { data: 'NeedType', },
+                    { data: 'CTName', },
+                    { data: 'PartNO' , orderable: true},
+                    { data: 'PartName', orderable: true },
+                    { data: 'Specification', orderable: true },
+                    { data: 'Class', orderable: true },
+                    { data: 'NeedQTY', },
+                    { data: 'State', orderable: true },
+                    { data: 'StateINFO' },
+                    { data: 'NeedDate', orderable: true },
+                    { data: 'NeedSimulationDate' },
+
+                ],
+                columnDefs: [
+                    {
+                        targets: [1],
+                        render: function (data, type, full, meta) {
+                            var tmp = full.Id + ';' + full.ServerId;
+                            return _crud.dtCrudFun(tmp, full.Name, true, true, false);
+                        }
+                    },
+				    { targets: [0], render: function (data, type, full, meta) {
+                        return _crud.dtCheck0(full.Id);
+				    }},
+                    {
+                        targets: [2], render: function (data, type, full, meta) {
+                            if (full.NeedType == '1') { return '訂單'; }
+                            else if (full.NeedType == '2') { return '客戶'; }
+                            else if (full.NeedType == '5') { return '底稿'; }
+                            else { return '廠內'; }
+                        }
+                    },
+                    {
+                        targets: [3], render: function (data, type, full, meta) {
+                            if (full.NeedType == '1') { return full.NeedSource; }
+                            else if (full.NeedType == '2' && full.CTNO != '') { return full.CTNO; }
+                            else if (full.NeedType == '5') { return '自動發出'; }
+                            else { return full.CTName; }
+                        }
+                    },
+                    {
+                        targets: [7], render: function (data, type, full, meta) {
+                            if (full.Class == '1') { return '原物料'; }
+                            else if (full.StaClasstion_Type == '2') { return '採購件'; }
+                            else if (full.Class == '3') { return '委外件'; }
+                            else if (full.Class == '4') { return '半成品'; }
+                            else if (full.Class == '5') { return '成品'; }
+
+                        }
+                    },
+                    {
+                        targets: [11],
+                        render: function (data, type, full, meta) {
+                            var tmp = moment(full.NeedDate).format("YY-MM-DD HH:MM")
+                            return tmp;
+                        }
+                    },
+                    {
+                        targets: [12],
+                        render: function (data, type, full, meta) {
+                            var tmp = moment(full.NeedSimulationDate).format("YY-MM-DD HH:MM")
+                            return tmp;
+                        }
+                    },
+                    { targets: [9], render: function (data, type, full, meta) {
+                        return _me.ChangStateShow(full.State);
+				    }},
+                ],
+            };
+            _crud.DbKeyNameS = ['Id', 'ServerId'];
+            _crud.DbKeyName = 'Id';
+            _crud.init(config);
+            _me.modalImport = $('#modalImport');
+        },
+        ChangStateShow: function(state) {
+            switch (state) {
+                case "0": return '<div>初建</div>'
+                case "1": return '<div>模擬中</div>'
+                case "2": return '<div>完成模擬</div>'
+                case "3": return '<div>模擬逾時取消</div>'
+                case "4": return '<div>足量轉倉儲計畫</div>'
+                case "5": return '<div>失敗</div>'
+                case "6": return '<div>已轉生產</div>'
+                case "8": return '<div>未來計畫量足,免生產</div>'
+                default: return '<div>未定義</div>'
+            }
+        },
+        onImportExcel: function() {
+            _modal.showO(_me.modalImport);
+        },
+        onImportExcelII: function() {
+            var modal = _me.modalImport;
+            var fileObj = modal.find(':file');
+            var file = _ifile.getUploadFile(fileObj);
+            if (file == null) {
+                _tool.msg('無匯入Excel檔案');
+                return;
+            }
+
+            var formData = new FormData();
+            formData.append('file', file);
+            _ajax.getJsonByFormData('ImportExcel', formData, function (data) {
+                _modal.hideO(modal);
+                if (data.ErrorMsg != "") {
+                    _tool.msg(_str.format('@R0["ImportDone"]', data.OkCount, data.FailCount));
+                }
+                else {
+                    if (data.FailCount > 0) {
+                        _tool.msg('共 ' + data.TotalCount + ' 筆, 有 ' + data.OkCount + ' 筆轉入成功, 但有 ' + data.FailCount + ' 筆失敗');
+                    }
+                }
+                _me.dt.reload();
+            });
+        },
+
+        onSetARG: function () {
+            $('#divRead').hide();
+            $('#divRead2').show();
+        },
+        onToRead: function () {
+            $('#divRead').show();
+            $('#divRead2').hide();
+        },
+        //模擬試算
+        onSimulation: function (type) {
+            var skeys = _icheck.getCheckeds(_me.divRead);
+            if (type != "3" && skeys.length == 0) {
+                _tool.msg('請選取資料。');
+                return;
+            }
+            var str = _crud.LocalIPPort + ',' + skeys.join(',');
+            switch (type) {
+                case '1':
+                case '9':
+                    var checkedValue = "";
+                    var inputElements = document.getElementsByClassName('input_arg');
+                    for (var i = 0; inputElements[i]; ++i) {
+                        if (inputElements[i].checked) {
+                            checkedValue += '1';
+                        }
+                        else {
+                            checkedValue += '0';
+                        }
+                    };
+                    var data = {
+                        ipport: _crud.LocalIPPort,
+                        arg: checkedValue,
+                        ids: skeys.join(','),
+                        set1: type,
+                        set2: 'ookk',
+                        set3: 'ookk',
+                    };
+                    _ajax.getStr('SetSimulation', data, function (error) {
+                        if (!_str.isEmpty(error)) { _tool.msg(error); }
+                        _crud.pageReload();
+                    });
+                    break;
+                case '2':
+                    if (confirm('是否確定將已勾選的需求轉生產 ?')) {
+
+                        _ajax.getStr('GOTORUNPP', { keys: str }, function (error) {
+                            if (!_str.isEmpty(error)) { _tool.msg(error); }
+                            _crud.pageReload();
+                        });
+                    }
+                    break;
+                case '3'://查詢轉生產歷史
+                    var url = "http://" + _var_WebMURL + "/Display/SelectOLDSID/0";
+                    window.open(url, 'Yahoo', config = 'height=500,width=600');
+                    break;
+                case '8':
+                    if (skeys.length == 1) {
+                        var url = "http://" + _var_WebMURL + "/APSView/DisplayLaout/" + skeys;
+                        //var url = "http://" + _var_WebMURL + "/APSView/CreateBOMTable/" + skeys;
+                        window.open(url, 'Yahoo', config = 'height=500,width=600');
+                    }
+                    else { _tool.msg('一次只能選一個計劃查詢結構。'); }
+                    break;
+
+
+
+                case '9'://修改欄位範例用
+
+                    var row = { NeedQTY: 999 };
+                    var edit = _me.edit0;
+                    _form.loadJson(edit.eform, row);
+
+                    break;
+                case 'A':
+                    if (skeys.length != 1) {
+                        _tool.msg('一次只能選一個計劃查詢結構。');
+                    }
+                    else {
+
+                        //_crud.swap(false);  //call first
+                        //_prog.setPath('U'', _me.updName);
+                        //_crud.loadJson(data);   //load first
+                        //_crud.setEditStatus('U');
+                        //_crud._afterOpenEdit(fun, data);
+                        //document.getElementById('divRead').style.display = "none";
+                        //conObj.style.display = "none";
+                        //conObj.style.display = 'none';
+                    }
+                    break;
+            }
+        },
+
+    }; //class
+
+</script>
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "供需模擬試算總表" } })
+
+
+<div class="xp-prog">
+    <!-- Read -->
+    <div id="divRead">
+        <div class="xg-btns-box">
+            <span class="xg-block-label">功能:</span>
+            @await Component.InvokeAsync("XgCreate")
+            <button id='button_setST' type='button' class='btn xg-btn' onclick='_me.onImportExcel()'>Excel匯入</button>
+            <button id='button_setSTStatus7' type='button' class='btn xg-btn' onclick='_me.onSetARG()'>需求排程參數設定</button>
+            <button id='button_setSTStatus8' type='button' class='btn xg-btn' onclick='_me.onSimulation("8")'>排產結構圖</button>
+            <button id='button_setSTStatus3' type='button' class='btn xg-btn' onclick='_me.onSimulation("3")'>查詢轉生產歷史</button>
+            <button id='button_setSTStatus5' type='button' class='btn xg-btn' onclick='_me.onSimulation("1")'>模擬試算</button>
+            <button id='button_setSTStatus6' type='button' class='btn xg-btn' onclick='_me.onSimulation("2")'>正式轉計畫</button>
+            <button id='button_setSTStatus9' type='button' class='btn xg-btn' onclick='_me.onSimulation("9")'>模擬後自動轉正式計畫</button>
+            <!--<button id='button_setSTStatus8' type='button' class='btn xg-btn' onclick='_me.onSimulation("A")'>TEST圖</button>-->
+        </div>
+
+        <!-- Datatable list -->
+        <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>選</th>
+                    <th>維護</th>
+                    <th>需求</th>
+                    <th>客戶簡稱</th>
+                    <th>料號</th>
+                    <th>品名</th>
+                    <th>規格</th>
+                    <th>型態</th>
+                    <th>需求量</th>
+                    <th>狀態</th>
+                    <th>錯誤原因</th>
+                    <th>需求日</th>
+                    <th>模擬入庫日</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- Edit -->
+    <div id="divEdit" class="xg-hide">
+        <form id='eform' class='xg-form'>
+
+            @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "ServerId" })
+            @await Component.InvokeAsync("XiHide", new XiHideDto { Fid = "Id" })
+            @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "生產指定廠別", Fid = "FactoryName", Required = true, Rows = (List<IdStrDto>)ViewBag.FactoryName })
+            @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "生產指定製程", Fid = "Apply_PP_Name", Required = true, Rows = (List<IdStrDto>)ViewBag.ProductProcess })
+            <!--@await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "生產指定BOM表編號", Fid = "BOMId", Rows = (List<IdStrDto>)ViewBag.FactoryName })-->
+            @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "適用行事曆", Fid = "CalendarName", Required = true, Rows = (List<IdStrDto>)ViewBag.CalendarName })
+
+            <label>選擇類型:</label>
+            <input type="text" id='PartClass' list="option_Class" value="">
+            <datalist id="option_Class">
+                <option value='4'>半成品</option>
+                <option value='5'>成品</option>
+            </datalist>
+                @{
+                    List<string[]> pNOpName = (List<string[]>)ViewBag.PartNO_PartName;
+                    if (pNOpName != null && pNOpName.Count > 0)
+                    {
+                                    <label>輸入品名轉料號:</label>
+                                        <input type="text" id='PartName' list="options1" value="">
+                                        <datalist id="options1">
+                                            @foreach (string[] s in pNOpName)
+                            {
+                                if (s[0].Trim() != "")
+                                {
+                                    var s_tmp = $"{s[1]}";
+                                var s_tmp2 = $"{s[0]};{s[1]};{s[2]}";
+                                                    <option value='@s_tmp'>@s_tmp2</option>
+                                }
+                            }
+                                        </datalist>
+                    }
+               }
+            @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "生產料件編號", Fid = "PartNO", Required = true, Rows = (List<IdStrDto>)ViewBag.PartNO })
+            @await Component.InvokeAsync("XiInt", new XiIntDto { Title = "需求數量", Fid = "NeedQTY", Value = "0", Required = true })
+            @await Component.InvokeAsync("XiCheck", new XiCheckDto { Title = "是否補足安全亮", Fid = "IsAdd_SafeQTY", Label = R0["Yes"].Value })
+            @await Component.InvokeAsync("XiDt", new XiDtDto { Title = "入庫需求日", Fid = "NeedDate", Required = true, Cols = "2,4" })
+            @await Component.InvokeAsync("XiInt", new XiIntDto { Title = "Buffer小時數", Fid = "BufferTime", Value = "8", Required = true })
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "訂單編號", Fid = "NeedSource", MaxLen = 50 })
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "客戶編號", Fid = "CTNO", MaxLen = 50 })
+            @await Component.InvokeAsync("XiText", new XiTextDto { Title = "需求簡稱", Fid = "CTName", MaxLen = 50 })
+
+
+            @await Component.InvokeAsync("XgSaveBack")
+
+        </form>
+    </div>
+
+    <!-- 需求排程參數設定 -->
+    <form id='divRead2' class='xg-form'>
+        <div class="box">                <h1>選擇本次模擬設定項目</h1>            </div>
+        <div class="row">
+            <input class="input_arg" type="checkbox"><label for="cbox1">齊料生產</label>
+        </div>
+        <div class="row">
+            <input class="input_arg" type="checkbox" checked><label for="cbox1">自動補足需求料安全量</label>
+        </div>
+        <div class="row">
+            <input class="input_arg" type="checkbox"><label for="cbox1">啟用替代料,當需求料不足時</label>
+        </div>
+        <div class="row">
+            <input class="input_arg" type="checkbox"><label for="cbox1">可跨生產線</label>
+        </div>
+        <div class="row">
+            <input class="input_arg" type="checkbox"><label for="cbox1">定義為急件特權插單</label>
+        </div>
+        <div class="row">
+            <input class="input_arg" type="checkbox"><label for="cbox1">考慮入庫倉儲位最大安置量</label>
+        </div>
+        <div class="row">
+            <input class="input_arg" type="checkbox" checked><label for="cbox1">使用目標值規劃排程</label>
+        </div>
+        <div class="row">
+            <input class="input_arg" type="checkbox" checked><label for="cbox1">參考再製回沖需求量</label>
+        </div>
+        <div class="row">
+            <input class="input_arg" type="checkbox"><label for="cbox1">參考歷史不良率</label>
+        </div>
+        <div class="row">
+            <input class="input_arg" type="checkbox" checked><label for="cbox1">主動產出各類單據</label>
+        </div>
+        <div class="row">
+            @{
+                if (_Fun.Config.Default_Simulation_AGE03)
+                {
+                    <input class="input_arg" type="checkbox" checked>
+                    <label for="cbox1">立即以現在班別時間排定模擬, 並不考慮第一階備料時間</label>
+                }
+                else
+                {
+                    <input class="input_arg" type="checkbox">
+                    <label for="cbox1">立即以現在班別時間排定模擬, 並不考慮第一階備料時間</label>
+                }
+            }
+        </div>
+        <div class="row">
+            @{
+                if (_Fun.Config.Default_Simulation_AGE02)
+                {
+                    <input class="input_arg" type="checkbox" checked>
+                    <label for="cbox1">若廠內既有可用存貨大於量需求量時, 自動扣除需求量, 並將可用量轉領料單</label>
+                }
+                else
+                {
+                    <input class="input_arg" type="checkbox">
+                    <label for="cbox1">若廠內既有可用存貨大於量需求量時, 自動扣除需求量, 並將可用量轉領料單</label>
+                }
+            }
+        </div>
+        <div class="row">
+            @{
+                if (_Fun.Config.Default_Simulation_AGE01)
+                {
+                    <input class="input_arg" type="checkbox" checked>
+                    <label for="cbox1">若廠內未來計畫量能大於目前需求量時, 依然產生工單執行生產</label>
+                }
+                else
+                {
+                    <input class="input_arg" type="checkbox">
+                    <label for="cbox1">若廠內未來計畫量能大於目前需求量時, 依然產生工單執行生產</label>
+                }
+            }
+        </div>
+        <div class='xg-center xg-mt10'>
+            <button type='button' class='btn xg-btn-size btn-secondary' onclick='_me.onToRead()'>回上一頁<i class='ico-back'></i></button>
+        </div>
+    </form>
+
+</div>
+
+<!-- Excel匯入 -->
+<div id='modalImport' class='modal fade'>
+    <div class='modal-dialog' role='document'>
+        <div class='modal-content'>
+            <div class='modal-header'>
+                <h6 class='modal-title'>匯入Excel:</h6>
+                <button type='button' class='close' data-dismiss='modal' aria-label='Close'>
+                    <span aria-hidden='true'>&times;</span>
+                </button>
+            </div>
+            <div class='modal-body' style="padding: 20px 0 30px 50px;">
+                <input type="file">
+                <div id="divMsg" style="color:blue; display:none"></div>
+            </div>
+            <div class='modal-footer'>
+                <button type='button' class='btn btn-secondary xg-btn-size xd-cancel' data-dismiss='modal'>取消</button>
+                <button type='button' class='btn btn-primary xg-btn-size xd-yes' onclick='_me.onImportExcelII()'>匯入</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+

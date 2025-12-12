@@ -1,0 +1,344 @@
+﻿@model APSViewData
+@{
+    string _isCkeck_SelectFun2_A1 = "";
+    string _isCkeck_SelectFun2_A2 = "";
+    string _isCkeck_SelectFun2_A3 = "";
+    string _isCkeck_SelectFun3_B1 = "";
+    string _isCkeck_SelectFun3_B2 = "";
+    string _isCkeck_SelectFun3_B3 = "";
+    string _isCkeck_SelectFun3_B4 = "";
+    string _isCkeck_SelectFun3_B5 = "";
+    string _isCkeck_SelectFun3_B6 = "";
+}
+
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+        $('#divChangQTY').hide();
+        $('#divDisplayChangQTYResult').hide();
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus:true,
+        STView2Work_PageReload:false,
+        hasStaionChangQTY: false,
+        onChangStateShow: function (errType, simulationId, actionType) {
+            //switch (errType) {
+            //    case "01": return '<div>初建</div>'//改紅燈
+            //    case "02": return '<div>模擬中</div>'
+            //    case "03": return '<div>完成模擬</div>'
+            //}
+            if (actionType == "")
+            {
+                var tag = document.getElementById(simulationId);
+                if (tag != null && tag != undefined) {
+                    document.getElementById(simulationId).className = "labelRed"; }
+            }
+            else {
+                var tag = document.getElementById(simulationId);
+                if (tag != null && tag != undefined) {
+                    document.getElementById(simulationId).className = "label";
+                }
+            }
+        },
+        deleteSimulation: function (id) {
+            if (id == '') { return; }
+            else {
+                var str = _crud.LocalIPPort + ',' + id;
+                _ajax.getStr('OnDeleteSimulation', { keys: str }, function (error) {
+                    if (!_str.isEmpty(error)) { _tool.msg(error,); }
+                    //_crud.pageReload();
+                });
+            }
+        },
+        ondeleteConfirm: function () {
+            var tmp1 = '';
+            var radios = document.getElementsByName('delSIDradio');
+            if (radios != null) {
+                for (var i = 0, length = radios.length; i < length; i++) {
+                    if (radios[i].checked) {
+                        tmp1 = radios[i].value;
+                        break;
+                    }
+                }
+            }
+            var Main = {
+                Fun_S_List: tmp1,
+                NewPartNO: '',
+                MBOMId: $("#delNeedId").val(),
+                BOMId: '',
+                SelectNeedId: '',
+                SelectPP_DATA: '',
+                SimulationId: $("#sub_SelectPP_DATA").val(),
+                ERRMsg: ''
+            }
+            _ajax.getStr('OnDeleteSimulationII', Main, function (error) {
+                if (!_str.isEmpty(error)) { _tool.msg(error,); }
+            });
+            _tool.onMsgClose();
+        },
+        changNeedQTY: function (id) {
+            if (id == '') { return; }
+            var tmp = id.split(',');
+            $("input[id=chang_NeedID]").val(tmp[0]);
+            $("input[name=chang_NeedQTY]").val(tmp[1]);
+            $("input[name=chang_SafeQTY]").val(tmp[2]);
+            $('#selectStationPage').hide();
+            $('#divDisplayTree').hide();
+            $('#divChangQTY').show();
+        },
+        SetchangNeedQTY: function () {
+            var chk_data = '0';
+            var chk = document.getElementById('chang_Is_Simulation');
+            if (chk.checked) { chk_data = '1'; }
+            var str = document.getElementById('chang_NeedID').value + ',' + document.getElementById('chang_NeedQTY').value + ',' + document.getElementById('chang_SafeQTY').value + ',' + chk_data;
+            _ajax.getStr('SetchangNeedQTY', { keys: str }, function (data) {
+
+                $('#divChangQTY').hide();
+                $('#divDisplayChangQTYResult').show();
+                $("#mytext").val(data);
+            });
+        },
+        onShow: function (id) {
+            if (id == '') { return; }
+            else {
+                var str = _crud.LocalIPPort + ',' + id;
+                _ajax.getStr('OnAction', { keys: str }, function (error) {
+                    if (!_str.isEmpty(error)) { _tool.msg(error,); }
+                    //_crud.pageReload();
+                });
+            }
+        },
+        SetAction: function (id) {
+            var str = _crud.LocalIPPort + ',' + id + ',' + document.getElementById('StationNO01').value + ',' + document.getElementById('StationNO02').value + ',' + document.getElementById('StationNO03').value + ',' + document.getElementById('ageID').value;
+            _ajax.getStr('OnActionII', { keys: str }, function (error) {
+
+                if (!_str.isEmpty(error)) { _tool.msg(error); }
+                else { _tool.onMsgClose(); }
+                //_crud.pageReload();
+            });
+        },
+    }; //class
+</script>
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "生產排程計畫生產歷程查詢" } })
+<div id="selectStationPage" class="xp-prog">
+    @{
+        if (Model.NeedIdList != null && Model.NeedIdList.Count > 0)
+        {
+            <form action=@Url.Action("ProductCourse") method="post">
+                <input type='hidden' name='SelectFun1' value="A" />
+                <table>
+                    <tr>
+                        <td>
+                            選擇計畫編號:<input type="text" style="width: 500px;" name='SelectNeedId' list="options1" value="@Model.SelectNeedId">
+                            <datalist id="options1" style="width: 100%;">
+                                @foreach (string[] s in Model.NeedIdList)
+                                {
+                                    var s_tmp2 = $"料號:{s[3]} 品名:{s[4]} 規格:{s[5]} 計畫碼:{s[2]}";
+                                    var s_tmp = $"{s[2]}";
+                                    <option style="width: 100%;" value='@s_tmp'>@s_tmp2</option>
+                                }
+                            </datalist>
+                        </td>
+                        <td rowspan='3'><button type='submit' onclick="this.style.display='none'">確認</button></td>
+                    </tr>
+                    <tr>
+                        @if (Model.SelectFun2 != null && Model.SelectFun2 != "")
+                        {
+                            if (Model.SelectFun2 == "A1") { _isCkeck_SelectFun2_A1 = "checked"; }
+                            else if (Model.SelectFun2 == "A2") { _isCkeck_SelectFun2_A2 = "checked"; }
+                            else { _isCkeck_SelectFun2_A3 = "checked"; }
+                        }
+                        else { _isCkeck_SelectFun2_A3 = "checked"; }
+                        <td>料件類型:<input type="radio" name="SelectFun2" value="A1" @_isCkeck_SelectFun2_A1>半成品<input type="radio" name="SelectFun2" value="A2" @_isCkeck_SelectFun2_A2>成品<input type="radio" name="SelectFun2" value="A3" @_isCkeck_SelectFun2_A3>全部</td>
+                    </tr>
+                    <tr>
+                        @if (Model.SelectFun3 != null && Model.SelectFun3 != "")
+                        {
+                            if (Model.SelectFun3 == "1") { _isCkeck_SelectFun3_B1 = "checked"; }
+                            else if (Model.SelectFun3 == "2") { _isCkeck_SelectFun3_B2 = "checked"; }
+                            else if (Model.SelectFun3 == "3") { _isCkeck_SelectFun3_B3 = "checked"; }
+                            else if (Model.SelectFun3 == "7") { _isCkeck_SelectFun3_B4 = "checked"; }
+                            else if (Model.SelectFun3 == "14") { _isCkeck_SelectFun3_B5 = "checked"; }
+                            else { _isCkeck_SelectFun3_B6 = "checked"; }
+                        }
+                        else { _isCkeck_SelectFun3_B1 = "checked"; }
+                        <td>操作歷程時間:<input type="radio" name="SelectFun3" value="1" @_isCkeck_SelectFun3_B1>1日內<input type="radio" name="SelectFun3" value="2" @_isCkeck_SelectFun3_B2>2日內<input type="radio" name="SelectFun3" value="3" @_isCkeck_SelectFun3_B3>3日內<input type="radio" name="SelectFun3" value="7" @_isCkeck_SelectFun3_B4>7日內<input type="radio" name="SelectFun3" value="14" @_isCkeck_SelectFun3_B5>14日內<input type="radio" name="SelectFun3" value="30" @_isCkeck_SelectFun3_B6>30日內<input type="radio" name="SelectFun3" value="180" @_isCkeck_SelectFun3_B6>180日內</td>
+                    </tr>
+                    <tr>
+                        <td>顯示類型:<input type="radio" name="SelectFun4" value="D1">只針對排程異常警示<input type="radio" name="SelectFun4" value="D2" checked>只針對數據疑似異常<input type="radio" name="SelectFun4" value="D3">全部(正常與異常)</td>
+                    </tr>
+                    <tr>
+                        <td>顯示內容:<input type="radio" name="SelectFun5" value="E1">增加異常明細<input type="radio" name="SelectFun5" value="E2" checked>增加操作明細<input type="radio" name="SelectFun5" value="E3" checked>增加報工明細<input type="radio" name="SelectFun5" value="E4">全部(異常與操作)</td>
+                    </tr>
+                    <tr>
+                        <td>排序方式:<input type="radio" name="SelectFun6" value="F1">依時間發生順序<input type="radio" name="SelectFun6" value="F2" checked>依執行碼</td>
+                    </tr>
+                </table>
+            </form>
+        }
+        else
+        {
+            <label>無任何計畫編號可選擇</label>
+        }
+    }
+
+    @{
+        if (Model.ERRMsg != "")
+        {
+            <dir>
+                <p><font color="red" size="5">錯誤訊息:<strong>@Model.ERRMsg</strong></font></p>
+            </dir>
+        }
+    }
+</div>
+<hr />
+@if (ViewBag.HtmlOutput != null && ViewBag.HtmlOutput != "")
+{
+
+    <div id="divDisplayTree" class="xp-prog">
+        <div id="divSignRows">@Html.Raw(ViewBag.HtmlOutput)</div>
+    </div>
+
+}
+
+
+
+<style>
+
+    *, *:before, *:after {
+        -webkit-box-sizing: border-box;
+        -moz-box-sizing: border-box;
+        box-sizing: border-box;
+    }
+
+    input:read-only {
+        background-color: #FFB5B5;
+    }
+
+    #container1 {
+        width: 100%;
+        height:100%;
+        display: inline-block;
+        margin: 1em;
+    }
+
+    #wrapper {
+        position: relative;
+    }
+
+    .shadowbox {
+        border: 1px solid #333;
+        box-shadow: 8px 8px 5px #444;
+        padding: 8px 12px;
+        background-image: linear-gradient(180deg, #fff, #ddd 40%, #ccc);
+    }
+
+    .branch {
+        position: relative;
+        margin-left: 250px;
+    }
+
+        .branch:before {
+            content: "";
+            width: 50px;
+            border-top: 2px solid #eee9dc;
+            position: absolute;
+            left: -100px;
+            top: 50%;
+            margin-top: 1px;
+        }
+
+    .entry {
+        position: relative;
+        min-height: 60px;
+    }
+
+        .entry:before {
+            content: "";
+            height: 100%;
+            border-left: 2px solid #eee9dc;
+            position: absolute;
+            left: -50px;
+        }
+
+        .entry:after {
+            content: "";
+            width: 50px;
+            border-top: 2px solid #eee9dc;
+            position: absolute;
+            left: -50px;
+            top: 50%;
+            margin-top: 1px;
+        }
+
+        .entry:first-child:before {
+            width: 10px;
+            height: 50%;
+            top: 50%;
+            margin-top: 2px;
+            border-radius: 10px 0 0 0;
+        }
+
+        .entry:first-child:after {
+            height: 10px;
+            border-radius: 10px 0 0 0;
+        }
+
+        .entry:last-child:before {
+            width: 10px;
+            height: 50%;
+            border-radius: 0 0 0 10px;
+        }
+
+        .entry:last-child:after {
+            height: 10px;
+            border-top: none;
+            border-bottom: 2px solid #eee9dc;
+            border-radius: 0 0 0 10px;
+            margin-top: -9px;
+        }
+
+        .entry.sole:before {
+            display: none;
+        }
+
+        .entry.sole:after {
+            width: 50px;
+            height: 0;
+            margin-top: 1px;
+            border-radius: 0;
+        }
+
+    .label {
+        display: block;
+        min-width: 150px;
+        padding: 5px 10px;
+        line-height: 20px;
+        text-align: center;
+        border: 2px solid #eee9dc;
+        border-radius: 5px;
+        position: absolute;
+        left: 0;
+        top: 50%;
+        margin-top: -15px;
+    }
+
+    .labelRed {
+        display: block;
+        min-width: 150px;
+        padding: 5px 10px;
+        line-height: 20px;
+        text-align: center;
+        border: 2px solid red;
+        border-radius: 5px;
+        position: absolute;
+        left: 0;
+        top: 50%;
+        margin-top: -15px;
+    }
+</style>
+

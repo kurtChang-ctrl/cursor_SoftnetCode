@@ -1,0 +1,168 @@
+﻿@inject IHtmlLocalizer<SoftNetWebII.R0> R
+
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        SYS_ClickBlock = false;
+        $('#stationSETForm').hide();
+        $('#button_setST_Cancel').hide();
+        _me.init();
+        _crud.onFind2();//進階查詢dislpay=none
+        //_leftmenu.onToggleMenu();
+    });
+
+    var _me = {
+        hasStaionStatus: true,
+        hasStaionChangQTY: true,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+
+        init: function () {
+            //datatable config
+            var config = {
+                columns: [
+                    { data: 'StoreNO', orderable: true },
+                    { data: 'StoreName' },
+                    { data: 'StoreSpacesNO' },
+                    { data: 'PartNO', orderable: true },
+                    { data: 'PartName' },
+                    { data: 'Specification' },
+                    { data: 'Unit', orderable: true },
+                    { data: 'QTY' },
+                    { data: 'KeepQTY' },
+                    { data: 'TotalQTY' },
+                ],
+                columnDefs: [
+                    {
+                        targets: [8], render: function (data, type, full, meta) {
+                            if (full.KeepQTY == null || full.KeepQTY=='') { return '無'; }
+                                else { return full.KeepQTY; }
+                        }
+                    },
+
+                ],
+            };
+
+            _crud.DbKeyName = 'Id';
+            _crud.init(config);
+        },
+        //設定工站 作業員,工單,製程
+        onSetST: function (status) {
+            switch (status) {
+                case '1':
+                    if ($('#stationSETForm').is(':visible')) {
+                        var keys = _me.getCheckedTables();
+
+                        if (keys.length == 0) {
+                            alert('選擇一個或多個工站, 在進行發送.');
+                            return;
+                        }
+                        else {
+                            var str = _crud.LocalIPPort + ',' + keys.join(',') + ',' + document.getElementById("input_OrderNO").value + ';' + document.getElementById("input_Index").value + ';' + document.getElementById("input_OPNO").value
+                            _ajax.getStr('SetStationConfig', { keys: str }, function (error) {
+                                if (!_str.isEmpty(error)) { _tool.msg(error); }
+                                _crud.pageReload();
+                            });
+                        }
+                        $('#stationSETForm').hide();
+                        $('#button_setST').text('設定工站');
+                        $('#button_setST_Cancel').hide();
+                        $('#button_setSTStatus1').show();
+                        $('#button_setSTStatus2').show();
+                        $('#button_setSTStatus3').show();
+                        $('#button_setSTStatus4').show();
+                    }
+                    else {
+                        $('#stationSETForm').show();
+                        $('#button_setST').text('發送設定');
+                        $('#button_setST_Cancel').show();
+                        $('#button_setSTStatus1').hide();
+                        $('#button_setSTStatus2').hide();
+                        $('#button_setSTStatus3').hide();
+                        $('#button_setSTStatus4').hide();
+                    }
+                    break;
+                case '2':
+                    $('#stationSETForm').hide();
+                    $('#button_setST').text('設定工站');
+                    $('#button_setST_Cancel').hide();
+                    $('#button_setSTStatus1').show();
+                    $('#button_setSTStatus2').show();
+                    $('#button_setSTStatus3').show();
+                    $('#button_setSTStatus4').show();
+                    break;
+            }
+        },
+
+        //設定工站狀態改變
+        onChangeSTStaus: function (status) {
+            var keys = _me.getCheckedTables();
+            if (keys.length === 0)
+                return;
+
+            var str = keys.join(',') + ',' + status;
+            var data = {
+                ipport: _crud.LocalIPPort,
+                keys: str,
+            };
+            _ajax.getStr('ChangeStatus', data, function (error) {
+                if (!_str.isEmpty(error)) { _tool.msg(error); }
+                _crud.pageReload();
+            });
+        },
+
+        getCheckedTables: function () {
+            var values = _icheck.getCheckeds(_me.divRead);
+            if (values.length === 0)
+                _tool.msg('請選取資料。');
+            return values;
+        },
+
+
+    }; //class
+
+</script>
+
+
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "庫存各倉明細查詢總表" } })
+
+
+<div class="xp-prog">
+    <!-- read form-->
+    <div id="divRead">
+        <!-- condition -->
+        <form id='formRead' class='xg-form' style="margin-bottom:0;">
+            <div class="row">
+                @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "倉庫別", Fid = "StoreNO", Rows = (List<IdStrDto>)ViewBag.StoreNO, InRow = true })
+                @await Component.InvokeAsync("XgFindTbar", new XgFindTbarDto { HasReset = true, HasFind2 = true })
+            </div>
+        </form>
+        <form id='formRead2' class='xg-form xg-mb0'>
+            @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "料件編號", Fid = "PartNO",  Rows = (List<IdStrDto>)ViewBag.PartNO})
+        </form>
+
+        <div class="xg-h10"></div>
+
+        <!-- result list -->
+        <table id="tableRead" class="table table-bordered xg-table" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>倉庫編號</th>
+                    <th>倉庫名稱</th>
+                    <th>儲位編號</th>
+                    <th>料號</th>
+                    <th>品名</th>
+                    <th>規格</th>
+                    <th>單位</th>
+                    <th>庫存量</th>
+                    <th>保留量</th>
+                    <th>可用量</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+

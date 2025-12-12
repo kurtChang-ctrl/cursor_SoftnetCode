@@ -1,0 +1,49 @@
+11:36:50(0); 電子標籤主機網路中斷. IP=192.168.66.5
+13:57:32(0); 電子標籤主機網路中斷. IP=192.168.66.5
+14:07:43(0); 電子標籤主機網路中斷. IP=192.168.66.5
+14:34:57(0); SNWebSocketService.cs Mail_Send Exception: The operation has timed out.    at System.Net.Mail.SmtpClient.Send(MailMessage message)
+   at Base.Services._Fun.Mail_Send(String[] MailTos, String[] Ccs, String MailSub, String MailBody, String[] filePaths, Boolean deleteFileAttachment) in C:\04_SoftNet\SoftNet\Base\Base\Services\_Fun.cs:line 246
+14:45:00(0); 電子標籤主機網路中斷. IP=192.168.66.5
+14:45:42(0); 電子標籤主機網路中斷. IP=192.168.66.5
+14:55:51(0); 電子標籤主機網路中斷. IP=192.168.66.5
+15:06:06(0); 電子標籤主機網路中斷. IP=192.168.66.5
+15:11:05(0); 電子標籤主機網路中斷. IP=192.168.66.5
+15:38:18(0); 電子標籤主機網路中斷. IP=192.168.66.5
+15:48:25(0); 電子標籤主機網路中斷. IP=192.168.66.5
+15:58:31(0); 電子標籤主機網路中斷. IP=192.168.66.5
+16:08:37(0); 電子標籤主機網路中斷. IP=192.168.66.5
+16:18:43(0); 電子標籤主機網路中斷. IP=192.168.66.5
+16:28:49(0); 電子標籤主機網路中斷. IP=192.168.66.5
+16:33:33(0); 電子標籤主機網路中斷. IP=192.168.66.5
+16:38:50(0); 電子標籤主機網路中斷. IP=192.168.66.5
+16:44:40(0); 電子標籤主機網路中斷. IP=192.168.66.5
+16:54:47(0); 電子標籤主機網路中斷. IP=192.168.66.5
+17:04:53(0); 電子標籤主機網路中斷. IP=192.168.66.5
+17:15:00(0); 電子標籤主機網路中斷. IP=192.168.66.5
+17:22:43(0); 電子標籤主機網路中斷. IP=192.168.66.5
+17:23:06(0); LabelWorkController.cs SetAction 報工 Exception: Input string was not in a correct format.    at System.Number.ThrowOverflowOrFormatException(ParsingStatus status, TypeCode type)
+   at System.Int32.Parse(String s)
+   at SoftNetWebII.Services.SNWebSocketService.Reporting_LabelWork(DBADO db, DataRow dr_StationNO, String UserNO, LabelWork keys, Boolean is_Back, String& Message, String& StackTrace, String& ViewBagERRMsg) in C:\04_SoftNet\SoftNet\SoftNetWebII\Services\SNWebSocketService.cs:line 2180
+17:30:57(0); LabelWorkController.cs SetAction 報工 Exception: Input string was not in a correct format.    at System.Number.ThrowOverflowOrFormatException(ParsingStatus status, TypeCode type)
+   at System.Int32.Parse(String s)
+   at SoftNetWebII.Services.SNWebSocketService.Reporting_LabelWork(DBADO db, DataRow dr_StationNO, String UserNO, LabelWork keys, Boolean is_Back, String& Message, String& StackTrace, String& ViewBagERRMsg)
+17:37:03(0); 電子標籤主機網路中斷. IP=192.168.66.5
+17:37:35(0); SNWebSocketService.cs Create_DOC3stock Exception: NId= SID= PartNO= Column 'PartNO' does not belong to table 1.    at System.Data.DataRow.GetDataColumn(String columnName)
+   at System.Data.DataRow.get_Item(String columnName)
+   at SoftNetWebII.Services.SNWebSocketService.Create_DOC3stock_II(DBADO db, DataRow d, String out_StoreNO, String out_StoreSpacesNO, String in_StoreNO, String in_StoreSpacesNO, String docNO, Int32 qty, String beforeDOCNumberNO, String& beforeId, String remark, String arrivalDate, String funName, String& docNumberNO, Boolean write_StartTime, String userID, Boolean isOK) in C:\04_SoftNet\SoftNet\SoftNetWebII\Services\SNWebSocketService.cs:line 4606
+17:39:35(0); SNWebSocketService.cs Create_DOC3stock Exception: NId= SID= PartNO= Column 'PartNO' does not belong to table 1.    at System.Data.DataRow.GetDataColumn(String columnName)
+   at System.Data.DataRow.get_Item(String columnName)
+   at SoftNetWebII.Services.SNWebSocketService.Create_DOC3stock_II(DBADO db, DataRow d, String out_StoreNO, String out_StoreSpacesNO, String in_StoreNO, String in_StoreSpacesNO, String docNO, Int32 qty, String beforeDOCNumberNO, String& beforeId, String remark, String arrivalDate, String funName, String& docNumberNO, Boolean write_StartTime, String userID, Boolean isOK) in C:\04_SoftNet\SoftNet\SoftNetWebII\Services\SNWebSocketService.cs:line 4606
+17:41:25(0); 電子標籤主機網路中斷. IP=192.168.66.5
+17:47:22(0); 電子標籤主機網路中斷. IP=192.168.66.5
+17:58:56(0); 電子標籤主機網路中斷. IP=192.168.66.5
+20:03:00(0); 電子標籤主機網路中斷. IP=192.168.66.5
+20:13:06(0); 電子標籤主機網路中斷. IP=192.168.66.5
+20:39:13(0); 電子標籤主機網路中斷. IP=192.168.66.5
+20:44:16(0); 電子標籤主機網路中斷. IP=192.168.66.5
+20:54:23(0); 電子標籤主機網路中斷. IP=192.168.66.5
+21:04:49(0); 電子標籤主機網路中斷. IP=192.168.66.5
+21:14:55(0); 電子標籤主機網路中斷. IP=192.168.66.5
+21:22:55(0); 電子標籤主機網路中斷. IP=192.168.66.5
+21:33:01(0); 電子標籤主機網路中斷. IP=192.168.66.5
+21:43:10(0); 電子標籤主機網路中斷. IP=192.168.66.5

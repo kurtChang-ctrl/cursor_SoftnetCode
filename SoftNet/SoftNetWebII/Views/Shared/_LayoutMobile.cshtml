@@ -1,0 +1,166 @@
+﻿@using Base.Models
+@using SoftNetWebII.Services
+@inject IHtmlLocalizer<SoftNetWebII.R0> R0
+@{
+    _Fun.Config.SystemName = R0["SystemName"].Value;
+    var locale = _Locale.GetLocaleByUser();
+    var min = _Fun.IsDev ? "" : ".min";   //min js
+}
+
+<!DOCTYPE html>
+
+<html>
+<head>
+
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+    <title id="TOPPageTitle">@_Fun.Config.SystemName</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link rel="stylesheet" href="~/css/lib/jquery.mobile-1.4.5.min.css" />
+    <script src="~/js/lib@(min).js?v=@(_Xp.LibVer)"></script>
+
+    <!-- 3.load my site js(debug/production mode) !! -->
+
+    <environment include="Production">
+        <script src="~/js/my@(min).js?v=@(_Xp.MyVer)"></script>
+    </environment>
+    <environment include="Development">
+        <!-- tail ver will load failed !! -->
+        <script asp-src-include="~/js/base/*.js"></script>
+        <script asp-src-include="~/js/view/_*.js"></script>
+    </environment>
+
+    <!-- 4.load local js -->
+    <script src="~/js/@(locale+min).js?v=@(_Xp.MyVer)"></script>
+    @RenderSection("scripts", required: false)
+    <!-- 5.initial -->
+    <script type="text/javascript">
+
+        //###???將來改讀Device的值
+        var SYS_Clock = Object;
+        var IS_SYS_Clock = false;
+        var SYS_ClickBlock = false;
+        var wa;
+        var fgh = {
+            Url: '@_Fun.Config.WesocketURL',
+            init: function (url) {
+                Url = url;
+                this.connectWesocket();
+            },
+            isWork: function () {
+                if (wa.readyState == 1) { return true; }
+                else { return false; }
+            },
+            connectWesocket: function () {
+                if ("WebSocket" in window) {
+                    //alert("您的浏览器支持 WebSocket!");
+                    wa = new WebSocket(Url);
+
+                    wa.onopen = function () {
+                        // Web Socket 已连接上，使用 send() 方法发送数据
+                        //ws.send("发送数据");
+                        //ws.send(JSON.stringify({x:254,y:100}));
+
+                        //###???將來改送RMSProtocol object
+                        //var RMSProtocol = new Object();
+                        //RMSProtocol.DataType = 0;
+                        //RMSProtocol.Data = 'Mustang';
+                        //RMSProtocol.PoolID = 0;
+                        //RMSProtocol.IsReturnID = false;
+                        //RMSProtocol.TransferID = 0;
+
+                        //ws.send(JSON.stringify({RMSProtocol}));
+                        wa.send(JSON.stringify({ DataType: 1, Data: "WebSocket_Login,SoftNet_I,aa", PoolID: 0, IsReturnID: "false", TransferID: 0 }));
+
+                    };
+
+                    wa.onmessage = function (evt) {
+                        var received_msg = evt.data;
+                        var cmd = received_msg.split(',')
+                        //debugger;
+                        switch (cmd[0]) {
+                            case "StationStatusChange":
+                                if (_me != undefined && _me != null && _me.hasStaionStatus) {
+                                    _crud.pageReload();
+                                }
+                                break;
+                            case "ReturnIPPort":
+                                _crud.LocalIPPort = cmd[1];
+                                break;
+                            case "SimulatioStatusChange"://cmd1=ErrorType 2=SimulationId 3=ActionType
+                                if (_me != undefined && _me != null && _me.hasSimulatioStatus) {
+                                    _me.onChangStateShow(cmd[1], cmd[2], cmd[3]);
+                                }
+                                break;
+                            case "HasWeb_Id_Change"://多工單畫面更新通知
+                                if (_me != undefined && _me != null && _me.STView2Work_PageReload) {
+                                    _me.onSTView2Work_PageReload(cmd[2]);
+                                }
+                                break;
+                        }
+
+                    };
+
+                    wa.onclose = function () {
+                        // 关闭 websocket
+                        alert("網頁後端通訊已關閉, 建議您關閉目前頁面.");
+                    };
+                }
+
+                else {
+                    // 浏览器不支持 WebSocket
+                    alert("您的浏览器不支持 WebSocket!");
+                }
+            },
+            Send: function (data) {
+                if (this.isWork) {
+                    wa.send(JSON.stringify(data));
+                }
+                if (wa.readyState == 1) { return true; }
+                else { return false; }
+            },
+        };//class
+        fgh.init('@_Fun.Config.WesocketURL');
+
+
+        $(function () {
+            _fun.locale = '@(locale)';
+            //initial
+            _leftmenu.init();
+            _pjax.init('.xg-body');
+            _tool.init();
+            moment.locale(_fun.locale);//Moment.js 是一个JavaScript编写的支持多种语言的日期处理类库
+        });
+        var hnd = setInterval(function () {
+            //$.post("@Url.Content("~/Home/CheckData")?key=" + token).done(function (res) {
+            $.post("@Url.Content("~/Home/CheckData")").done(function (res) {
+                if (res !== "OK") {
+                    clearInterval(hnd);
+                    alert("帳號登入逾時，請重新登入網站");
+                }
+            });
+        }, 19 * 60000);
+    </script>
+</head>
+
+<body>
+
+    <div data-role="page" id="pageone" data-theme="b">
+        <!--
+        <div data-role="header">
+            <h1>页面标题</h1>
+        </div>
+        -->
+
+        <div data-role="main" class="ui-content" data-theme="b">
+            @RenderBody()
+        </div>
+        <!--
+        <div data-role="footer">
+            <h1>页面底部内容</h1>
+        </div>
+        -->
+    </div>
+
+</body>
+</html>

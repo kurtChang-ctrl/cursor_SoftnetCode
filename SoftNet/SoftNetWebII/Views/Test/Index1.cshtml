@@ -1,0 +1,76 @@
+﻿<script src="~/js/lib/chart-3.6.2.js"></script>
+<script>
+    $(function () {
+        IS_SYS_Clock = false;
+        var ctx = document.getElementById("myChart1");
+        var dis_labels = ['1月', '2月', '3月', '4月', '5月', '6月'];
+        var dis_datas = {
+            labels: dis_labels,// 设置 X 轴上对应的标签
+            datasets: [
+                {
+                    label: "溫度1",
+                    data: [16, 15, 18, 21, 25, 27],
+                    fill: false,
+                    backgroundColor: 'rgba(255,165,0,0,3)',
+                    borderColor: 'rgb(255,165,0)',// 设置线的颜色
+                    pointStyle: 'rectRounded',
+                    pointBackgroundColor: 'rgb(0,255,0)',
+                    pointRadius: 5,
+                    pointHoverRadius: 10,
+                    borderWidth: 3
+                },
+                {
+                    label: "溫度2",
+                    data: [1, 7, 2, 21, 10, 30],
+                    fill: false,
+                    backgroundColor: 'rgba(255,165,0,0,3)',
+                    borderColor: 'rgb(255,165,130)',// 设置线的颜色
+                    pointStyle: 'rectRounded',
+                    pointBackgroundColor: 'rgb(0,255,130)',
+                    pointRadius: 5,
+                    pointHoverRadius: 10,
+                    borderWidth: 3
+                },
+            ]
+        };
+        var config = {
+            type: 'bar', // 设置图表类型
+            data: dis_datas,
+            options: {
+                title: {
+                    text: 'wwerwer',
+                    fontColor: 'green',
+                    fontSize: '24',
+                    position: 'left',
+                },
+                responsive: true,
+                scales: {
+                    y: {
+                        stacked: true,
+                        ticks: {
+                            suggestedMin: 2,
+                            suggestedMax: 40,
+                            cancelIdleCallback: function (value, inedx, values) {
+                                return value + '時間';
+                            },
+                        }
+                    },
+                    x: {
+                        stacked: true,
+                    },
+                },
+            },
+        };
+        var myChart = new Chart(ctx, config);
+    });
+</script>
+
+<canvas id="myChart1">
+</canvas>
+<style>
+#myChart1{
+    background-color:blanchedalmond;
+    border:2px solid black;
+}
+</style>
+<p>dddrrrrerddddrrrrrdddddddd</p>

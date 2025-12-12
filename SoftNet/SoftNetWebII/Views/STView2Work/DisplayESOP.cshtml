@@ -1,0 +1,118 @@
+﻿@{
+    string disUserName = "畫面逾時";
+    if (_Fun.GetBaseUser() != null) { disUserName = _Fun.GetBaseUser().UserName; }
+}
+<script type="text/javascript">
+    $(function () {
+        $("title").text("@Html.Raw(disUserName)");
+
+        // 用來顯示大圖片用
+        var $showImage = $('#show-image');
+
+        // 當滑鼠移到 .abgne-block-20120106 中的某一個超連結時
+        $('.abgne-block-20120106 a').mouseover(function () {
+            var $this = $(this),
+                _src = $this.attr('href');
+            // 如果現在大圖跟目前要顯示的圖不是同一張時
+            if ($showImage.attr('src') != _src) {
+                $showImage.hide().attr('src', _src).stop(false, true).fadeTo(400, 1);
+            }
+        }).click(function () {
+            // 如果超連結被點擊時, 取消連結動作
+            return false;
+        });
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+    };
+</script>
+
+
+<p><a href="@Url.Action("Index", "Home")" class="ui-btn ui-icon-back ui-btn-icon-left">回到網站主功能選單畫面</a></p>
+<p><a href="@Url.Action("Read", "STView2Work")" class="ui-btn ui-icon-back ui-btn-icon-left">回到工站選單畫面</a></p>
+
+
+<dir>
+    @if (ViewBag.ERRMsg != null && ViewBag.ERRMsg != "")
+    {
+        <p><font color="red" size="6">錯誤訊息:<p><strong>@ViewBag.ERRMsg</strong></p></font></p>
+    }
+    @if (ViewBag.Station_DIS_Remark != null && ViewBag.Station_DIS_Remark != "")
+    {
+        <hr />
+        @Html.Raw(ViewBag.Station_DIS_Remark);
+        <hr />
+    }
+</dir>
+
+@{
+    if (ViewBag.ESOP_PDF_Files != null && ViewBag.ESOP_PDF_Files != "")
+    {
+        string files = ViewBag.ESOP_PDF_Files;
+        string[] fileList = files.Split(";");
+        string url = $"http://{_Fun.Config.LocalWebURL}/ESOP/{_Fun.Config.ServerId}/{fileList[0]}";
+
+        <div class="abgne-block-20120106">
+            @{
+                for (int i = 0; i < fileList.Length; i++)
+                {
+                    url = $"http://{_Fun.Config.LocalWebURL}/ESOP/{_Fun.Config.ServerId}/{fileList[i]}";
+                    <embed class="showbox" src="@url" type="application/pdf" />
+                }
+            }
+
+        </div>
+    }
+}
+@{
+    if (ViewBag.ESOP_Files != null && ViewBag.ESOP_Files != "")
+    {
+        string files = ViewBag.ESOP_Files;
+        string[] fileList = files.Split(";");
+        string url = $"http://{_Fun.Config.LocalWebURL}/ESOP/{_Fun.Config.ServerId}/{fileList[0]}";
+
+        <div class="abgne-block-20120106">
+            @{
+                for (int i = 0; i < fileList.Length; i++)
+                {
+                    url = $"http://{_Fun.Config.LocalWebURL}/ESOP/{_Fun.Config.ServerId}/{fileList[i]}";
+                    <a href="@url"><img src="@url" title="" /></a>
+                }
+            }
+
+        </div>
+        <div class="showbox"><img id="show-image" src="@url" /></div>
+
+    }
+}
+
+<style>
+    .showbox {
+        width: 700px;
+        height: 460px;
+        border: 2px solid #1dd;
+        vertical-align: middle;
+    }
+
+    .abgne-block-20120106 {
+        margin-top: 10px;
+        width: 680px;
+        overflow: hidden;
+    }
+
+        .abgne-block-20120106 a {
+            margin-right: 10px;
+        }
+
+            .abgne-block-20120106 a img {
+                width: 140px;
+                height: 92px;
+                border: 2px solid #1dd;
+                vertical-align: middle;
+            }
+
+</style>
+
