@@ -1,0 +1,29 @@
+# IDE settings
+.vs/
+.vscode/
+.idea/
+
+# Build outputs
+bin/
+obj/
+TestResults/
+
+# User-specific files
+*.user
+*.suo
+
+# Local logs
+SoftNetWebII/_log/
+
+# NuGet packages folder committed to repo (use restore instead)
+packages/
+
+# LibMan restore file
+libman.json.restore.json
+
+# FileListAbsolute artifacts and similar absolute-path lists
+**/*.csproj.FileListAbsolute.txt
+
+# OS junk
+*.DS_Store
+Thumbs.db

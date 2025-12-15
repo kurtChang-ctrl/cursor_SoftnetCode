@@ -6969,6 +6969,7 @@ namespace SoftNetWebII.Services
                     {
                         //###???
                         #region 監看料件安全量,在制量,再途量,工站移轉量所有數據是否正常與合理 17
+                        //未完成 在6972行準備要寫 監看料件安全量,在制量,再途量,工站移轉量所有數據是否正常與合理,你有何建議
 
                         #endregion
                         _Fun._a14 = threadLoopTime.ElapsedMilliseconds;
