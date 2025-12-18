@@ -38,7 +38,7 @@ namespace SoftNetWebII.Services
         //private List<rmsMasterUserData> _MasterRMSUserList = new List<rmsMasterUserData>();
         private Dictionary<string, rmsMasterUserData> _MasterRMSUserList = new Dictionary<string, rmsMasterUserData>(); //key=ip:port  value=rmsConectUserData(deviceName,ipcRobotName,socket)
         private object lock__MasterRMSUserList = new object();
-
+        private CancellationToken _stoppingToken = CancellationToken.None;
 
         private TcpListener _MastertcpListener = null;
         private bool _Mastertcplistenerstate = false;
@@ -51,7 +51,7 @@ namespace SoftNetWebII.Services
         int RMSDBErrorCount = 0;
 
         #endregion
-        private void MasterTcpListenerThread()
+        private void MasterTcpListenerThread(CancellationToken cancellationToken = default)
         {
             Socket _client = null;
             try
@@ -60,11 +60,15 @@ namespace SoftNetWebII.Services
                 _MastertcpListener.Start();
                 ck5431OK = true;
                 //SoftNetService.Program._NLogMain.Write_Record(0, "", LogTitle.Null, LogSourceName.Null, "MasterTcpListenerThread", "" + Program.RMSIP + "Service TcpListener Start");
-                while (_Mastertcplistenerstate)
+                while (_Mastertcplistenerstate && !cancellationToken.IsCancellationRequested)
                 {
                     if (_MastertcpListener != null && !_MastertcpListener.Pending())
                     {
-                        SpinWait.SpinUntil(() => !_Mastertcplistenerstate, 100);
+                        try
+                        {
+                            Task.Delay(100, cancellationToken).Wait(cancellationToken);
+                        }
+                        catch (OperationCanceledException) { break; }
                     }
                     else
                     {
@@ -84,13 +88,13 @@ namespace SoftNetWebII.Services
                     _MastertcpListener.Stop();
                 }
             }
-            catch (SocketException sex)
+            catch (SocketException)
             {
                 ++RMSDBErrorCount;
                 //SoftNetService.Program._NLogMain.Write_ExceptionError(1, "MasterTcpListenerThread", RMSError.Service_Exception, LogSourceName.Null, "", 0,
-                //    ToolFun.StringAdd("Service已停止管理用TcpListener,請檢察網路,或重啟Service Engine. errorcode:", sex.ErrorCode.ToString(), " Exception:", sex.Message), sex);
+                //    ToolFun.StringAdd("Service已停止管理用TcpListener,請檢察網路,或重啟Service Engine. errorcode:", (ex as SocketException)?.ErrorCode.ToString(), " Exception:", (ex as SocketException)?.Message), ex);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 ++RMSDBErrorCount;
                 //SoftNetService.Program._NLogMain.Write_ExceptionError(1, "MasterTcpListenerThread", RMSError.Service_Exception,
@@ -106,102 +110,60 @@ namespace SoftNetWebII.Services
             }
             //SoftNetService.Program._NLogMain.Write_Record(0, "", LogTitle.Null, LogSourceName.Null, "MasterTcpListenerThread", "==== " + Program.RMSIP + " Exit : Service TcpListener status is " + _Mastertcplistenerstate);
         }
-        public class ToolFun
+        
+        // Async accept loop to reduce blocking threads and improve scalability
+        private async Task MasterTcpListenerLoopAsync(CancellationToken cancellationToken = default)
         {
-
-
-
-            public enum datatypeenum
+            Socket _client = null;
+            try
             {
-                string_Type,
-                int_Type,
-                float_Type,
-                double_Type,
-                bool_Type
-            }
-
-            public enum TagValueDIO
-            {
-                Null,
-                True,
-                False,
-                Both
-            }
-
-            public enum DisplayStationNameType
-            {
-                StationNO,
-                StationNOandName,
-                StationName
-            }
-
-            public enum SFCDBType
-            {
-                WO,
-                Process,
-                Station,
-                Coding
-            }
-
-            private static object _lockNOID = new object();
-
-            private static object lock_signingNO = new object();
-
-            private static string masterDB_ConnectType = "";
-
-            private static string masterDB_ConnectString = "";
-
-            private static string tool_userName = "";
-
-            public static string GetToolUser => tool_userName;
-
-            public static string StringAdd(params string[] datas)
-            {
-                StringBuilder stringBuilder = new StringBuilder();
-                foreach (string value in datas)
+                _MastertcpListener.Start();
+                ck5431OK = true;
+                while (_Mastertcplistenerstate && !cancellationToken.IsCancellationRequested)
                 {
-                    stringBuilder.Append(value);
-                }
-
-                return stringBuilder.ToString();
-            }
-
-            public static string RelativePath(string absolutePath, string relativeTo)
-            {
-                //IL_007a: Unknown result type (might be due to invalid IL or missing references)
-                string[] array = absolutePath.Split('\\');
-                string[] array2 = relativeTo.Split('\\');
-                int num = ((array.Length < array2.Length) ? array.Length : array2.Length);
-                int num2 = -1;
-                for (int i = 0; i < num && array[i] == array2[i]; i++)
-                {
-                    num2 = i;
-                }
-
-                if (num2 == -1)
-                {
-                    //MsgBoxLogger.Show("Paths do not have a common base", MsgBoxLogger.StatusType.Error);
-                    return "";
-                }
-
-                StringBuilder stringBuilder = new StringBuilder();
-                for (int i = num2 + 1; i < array.Length; i++)
-                {
-                    if (array[i].Length > 0)
+                    try
                     {
-                        stringBuilder.Append("..\\");
+                        if (_MastertcpListener != null && !_MastertcpListener.Pending())
+                        {
+                            await Task.Delay(100, cancellationToken);
+                            continue;
+                        }
+
+                        _client = await _MastertcpListener.AcceptSocketAsync();
+                        if (_Mastertcplistenerstate && _client != null)
+                        {
+                            _ = Task.Run(() => MasterProcessRequest(_client), cancellationToken);
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
                     }
                 }
-
-                for (int i = num2 + 1; i < array2.Length - 1; i++)
+                if (_MastertcpListener != null)
                 {
-                    stringBuilder.Append(array2[i] + "\\");
+                    _MastertcpListener.Stop();
                 }
-
-                stringBuilder.Append(array2[array2.Length - 1]);
-                return stringBuilder.ToString();
             }
-
+            catch (SocketException)
+            {
+                ++RMSDBErrorCount;
+            }
+            catch (Exception)
+            {
+                ++RMSDBErrorCount;
+            }
+            finally
+            {
+                _Mastertcplistenerstate = false;
+                if (_MastertcpListener != null)
+                {
+                    _MastertcpListener.Stop();
+                }
+            }
+        }
+        public class ToolFun
+        {
             public static byte[] KeepAlive(int onOff, int keepAliveTime, int keepAliveInterval)
             {
                 byte[] array = new byte[12];
@@ -210,492 +172,6 @@ namespace SoftNetWebII.Services
                 BitConverter.GetBytes(keepAliveInterval).CopyTo(array, 8);
                 return array;
             }
-
-            public static bool IsGetCMDParameterType(string value)
-            {
-                if (value.Trim() == "")
-                {
-                    return false;
-                }
-
-                string[] array = value.Replace("->", ".").Split('.');
-                if (array.Length < 2)
-                {
-                    return false;
-                }
-
-                if (array.Length > 2 && array[2].Trim().IndexOf("Split[") == 0)
-                {
-                    return true;
-                }
-
-                switch (array[1])
-                {
-                    case "GetOrderNO":
-                    case "GetExpectedFinishTime":
-                    case "GetStandardFinishTime":
-                    case "ClientSize":
-                    case "Size":
-                    case "GetProcessAllStationList":
-                    case "GetMerageStationList":
-                    case "FloatToUShortArray":
-                    case "Items":
-                    case "GetValue":
-                    case "ReadLinesTolist":
-                    case "ReadLinesBySplitTolist":
-                    case "GetAllNames":
-                    case "GetDirectoryNames":
-                    case "GetAllDirectoryNames":
-                    case "GetFileNames":
-                    case "GetProjectListFromRobot":
-                    case "GetProjectListFromServiceEngine":
-                    case "GetVisionJobList":
-                    case "GetJobNameList":
-                    case "ImportProjectFromExternalDevice":
-                    case "ReadInputs":
-                    case "ReadCoils":
-                    case "ReadInputRegisters":
-                    case "ReadHoldingRegisters":
-                    case "ReadHoldingRegistersToInt32":
-                    case "ReadHoldingRegistersToString":
-                    case "ReadHoldingRegistersToHex":
-                    case "ReadInputRegistersToInt16":
-                    case "ReadInputRegistersToString":
-                    case "ReadInputRegistersToHex":
-                    case "ReadHoldingRegistersToFloat":
-                    case "ReadInputRegistersToFloat":
-                    case "ReadHoldingRegistersToInt16":
-                    case "ReadInputRegistersToInt32":
-                    case "Attachment":
-                    case "GetStation_ALLIN_SN":
-                    case "GetStation_Online":
-                    case "GetStation_ALLIN_DATA":
-                    case "GetProjectList":
-                    case "GetTCPList":
-                    case "GetFlowList":
-                    case "GetOperationSpaceList":
-                    case "GetComponentList":
-                    case "GetCommandList":
-                    case "GetNetworkServiceList":
-                    case "GetTextFileList":
-                    case "GetIODDFileList":
-                    case "GetEthernetSlaveList":
-                    case "GetBackupFileList":
-                    case "GetProjectListFromExternalDevice":
-                    case "ExportTCP":
-                    case "CreateFlow":
-                    case "ExportLog":
-                    case "ExportCommand":
-                    case "ExportComponent":
-                    case "ExportOperationSpace":
-                    case "ExportGlobalVariable":
-                    case "ExportNetworkService":
-                    case "ExportTextFile":
-                    case "ExportIODDFile":
-                    case "ExportEthernetSlave":
-                    case "ExportBackupFile":
-                    case "ImportTCPFromExternalProject":
-                    case "ExportProject":
-                    case "GetPathListFromExternalProject":
-                    case "GetTCPTeachInertia":
-                    case "GetLocalVariableList":
-                    case "GetGlobalVariableList":
-                    case "GetPointList":
-                    case "GetPointTeachPose":
-                    case "GetTCPListFromExternalDevice":
-                    case "GetTCPListFromExternalProject":
-                    case "GetCommandListFromExternalDevice":
-                    case "GetComponentListFromExternalDevice":
-                    case "GetPointBaseListFromExternalProject":
-                    case "GetOperationSpaceListFromExternalDevice":
-                    case "GetOperationSpaceListFromExternalProject":
-                    case "GetGlobalVariableListFromExternalDevice":
-                    case "GetGlobalVariableListFromExternalProject":
-                    case "GetModbusListFromExternalProject":
-                    case "GetFTSensorListFromExternalProject":
-                    case "GetNetworkServiceListFromExternalDevice":
-                    case "GetNetworkServiceListFromExternalProject":
-                    case "GetTextFileListFromExternalDevice":
-                    case "GetTextFileListListFromExternalDevice":
-                    case "GetEthernetSlaveListFromExternalDevice":
-                    case "GetBackupFileListFromExternalDevice":
-                    case "GetBaseList":
-                    case "GetBaseTeachValue":
-                    case "GetVPointTeachValue":
-                    case "GetCoordinatesByRobotBase":
-                    case "GetCoordinatesByCurrentBase":
-                    case "GetCurrentJointAngles":
-                    case "GetCurrentPose":
-                    case "GetPathFileList":
-                    case "GetMotionRecordList":
-                    case "GetServiceEngineHasRunStationNO":
-                    case "GetMerageALLStationList":
-                    case "GetAllDeviceName":
-                    case "GetAllRobotIP":
-                    case "GetAllModbusIP":
-                    case "GetAllServiceEngineIP":
-                    case "GetAllSocketIP":
-                    case "GetAllTagName":
-                    case "GetAllMonitorName":
-                    case "GetAllActionName":
-                    case "GetAllGroupName":
-                    case "GetAllStationNO":
-                    case "IsProjectCloseNormal":
-                    case "GetDiskDrive":
-                    case "GetStationAllWOList":
-                    case "GetStationWOAllIDList":
-                        return true;
-                    default:
-                        return false;
-                }
-            }
-
-            public static bool IsParameterType(string value)
-            {
-                value = value.Replace("->", ".").Split('.')[0];
-                switch (value)
-                {
-                    case "CreateFlow":
-                    case "ImportCommandFromExternalDevice":
-                    case "ImportComponentFromExternalDevice":
-                    case "ImportPointBaseFromExternalProject":
-                    case "ImportOperationSpaceFromExternalDevice":
-                    case "ImportOperationSpaceFromExternalProject":
-                    case "ImportGlobaVaribleFromExternalProject":
-                    case "ImportGlobalVariableFromExternalDevice":
-                    case "ImportModbusFromExternalProject":
-                    case "ImportFTSensorFromExternalProject":
-                    case "ImportNetworkServiceFromExternalDevice":
-                    case "ImportNetworkServiceFromExternalProject":
-                    case "ImportIODDFilesFromExternalDevice":
-                    case "ImportEthernetSlaveFromExternalDevice":
-                    case "ImportBackupFileFromExternalDevice":
-                    case "DeleteVariable":
-                    case "DeleteBase":
-                    case "CreateSmartPickVisionJob":
-                    case "ShowVisionJob":
-                    case "GripperButtonGeneralGrip":
-                    case "GripperButtonGeneralRelease":
-                    case "SetCNCName":
-                    case "SetVisionParameters":
-                    case "ChangeDeviceName":
-                    case "SystemVoice":
-                    case "callApplication":
-                    case "CopyUIControl":
-                    case "Items":
-                    case "AppendItem":
-                    case "RemoveItem":
-                    case "CustomMessageBox":
-                    case "SeriesAddPointXY":
-                    case "SeriesAddPointY":
-                    case "SeriesDataBindXY":
-                    case "SeriesDataBindY":
-                    case "SeriesDelPoint":
-                    case "Attachment":
-                    case "WriteSingleCoil":
-                    case "WriteSingleRegister":
-                    case "WriteMultipleRegisters":
-                    case "WriteMultipleRegistersByString":
-                    case "WriteMultipleRegistersByHex":
-                    case "ChangeDefinition":
-                    case "DisplayPanelColor":
-                    case "Size":
-                    case "BackColor":
-                    case "ForeColor":
-                    case "AddValue":
-                    case "ChangeValue":
-                    case "Send":
-                    case "UploadRobotProject":
-                    case "ExecuteAction":
-                    case "EnableMonitor":
-                    case "DisableMonitor":
-                    case "UpdateTagValue":
-                    case "AddGroupDevice":
-                    case "DelGroupDevice":
-                    case "ChangeData":
-                    case "ReadExcelSheet":
-                    case "SqlParameters":
-                    case "DBConnectionID":
-                    case "GetWebApiValue":
-                    case "SetUrlParameters":
-                    case "SetRequestParameters":
-                    case "SetDummyValue":
-                    case "GetGridCellValue":
-                    case "ChangeTCPTeachMassCenter":
-                    case "ShowFlow":
-                    case "LogIn":
-                    case "ChangeTCPTeachValue":
-                    case "ImportPathFromExternalProject":
-                    case "CreateTCP":
-                    case "ChangeTCPTeachMass":
-                    case "CreateVariable":
-                    case "ChangeLocalVariableValue":
-                    case "ChangeGlobalVariableValue":
-                    case "CreatePointByJoints":
-                    case "ChangePointBase":
-                    case "ChangePointTeachPose":
-                    case "SaveOperationSpace":
-                    case "OpenOperationSpace":
-                    case "OpenTCPFile":
-                    case "OpenMotionRecord":
-                    case "OpenPathFile":
-                    case "CreateNewBase":
-                    case "ChangeBaseTeachValue":
-                    case "CreatePointByCoordinates":
-                    case "ChangePointTeachValue":
-                    case "ChangePointTool":
-                    case "SetCustomFreeBot":
-                    case "MoveLineByToolAxis":
-                    case "MoveLineByCoordinates":
-                    case "MovePTP":
-                    case "WriteDigitalOutput":
-                    case "CopyAndCreateNewVisionJob":
-                    case "CreateNewMotion":
-                    case "WriteAnalogOutput":
-                    case "ImportTCPFromExternalDevice":
-                    case "ImportTextFileFromExternalDevice":
-                    case "ChangeFreeBotSensor":
-                    case "ChangeTCPTeachInertia":
-                    case "OpenProject":
-                    case "ImportProjectFromExternalDevice":
-                    case "ConvertImageFormat":
-                    case "SetPPNameAndStationNO":
-                    case "PP_75_SetWO":
-                    case "PP_75_SetWO_ByIndexSN":
-                    case "PP_57_MainSN_CheckInSNandCheckProcesRecordofSN":
-                    case "PP_54_WorkPiece_CheckIn":
-                    case "PP_55_WorkPiece_CheckOut":
-                    case "PP_56_WorkPiece_DefinedasDefectiveProduct":
-                    case "PP_55_WorkPiece_CheckOut_ByIndexSN":
-                    case "PP_56_WorkPiece_DefinedasDefectiveProduct_ByIndexSN":
-                    case "PP_58_MainSN_CheckOutSN":
-                    case "PP_59_OTSSN_SetLinkofSN":
-                    case "PP_61_WorkPiece_MarkingCheckInTime":
-                    case "PP_62_WorkPieceData_SetRecords":
-                    case "PP_68_WorkPieceCounters_CumulativeCounter":
-                    case "PP_76_WorkPiece_QuitOperationandRecords":
-                    case "PP_77_WorkPiece_ProhibitNextCheckIn":
-                    case "PP_75_SetWO_ByCustom_IndexSN":
-                    case "PP_55_WorkPiece_CheckOut_ByCustom_IndexSN":
-                    case "PP_56_WorkPiece_DefinedasDefectiveProduct_ByCustom_IndexSN":
-                    case "SendToTMService":
-                        return true;
-                    default:
-                        return false;
-                }
-            }
-
-
-
-            public static string GetDataType(datatypeenum data)
-            {
-                return data switch
-                {
-                    datatypeenum.bool_Type => "bool",
-                    datatypeenum.double_Type => "double",
-                    datatypeenum.float_Type => "float",
-                    datatypeenum.int_Type => "int",
-                    _ => "string",
-                };
-            }
-
-            public static datatypeenum GetDataType(string data)
-            {
-                return data.Trim() switch
-                {
-                    "bool" => datatypeenum.bool_Type,
-                    "double" => datatypeenum.double_Type,
-                    "float" => datatypeenum.float_Type,
-                    "int" => datatypeenum.int_Type,
-                    "bool_Type" => datatypeenum.bool_Type,
-                    "double_Type" => datatypeenum.double_Type,
-                    "float_Type" => datatypeenum.float_Type,
-                    "int_Type" => datatypeenum.int_Type,
-                    _ => datatypeenum.string_Type,
-                };
-            }
-
-            public static TagValueDIO GetTagValueDIODataType(string data)
-            {
-                return data.Trim() switch
-                {
-                    "Null" => TagValueDIO.Null,
-                    "True" => TagValueDIO.True,
-                    "False" => TagValueDIO.False,
-                    "Both" => TagValueDIO.Both,
-                    _ => TagValueDIO.Null,
-                };
-            }
-
-            public static DisplayStationNameType GetDisplayNameType(string data)
-            {
-                string text = data.Trim();
-                string text2 = text;
-                if (!(text2 == "StationName"))
-                {
-                    if (text2 == "StationNOandName")
-                    {
-                        return DisplayStationNameType.StationNOandName;
-                    }
-
-                    return DisplayStationNameType.StationNO;
-                }
-
-                return DisplayStationNameType.StationName;
-            }
-
-            public static int ushortArray2int32(ushort[] datas)
-            {
-                return (datas[0] << 16) | datas[1];
-            }
-
-            public static ushort[] int322ushortArray(int data)
-            {
-                byte[] bytes = BitConverter.GetBytes(data);
-                if (BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(bytes);
-                }
-
-                return byteArray2ushortArray(bytes);
-            }
-
-            public static ushort[] float2ushortArray(float data)
-            {
-                byte[] bytes = BitConverter.GetBytes(data);
-                if (BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(bytes);
-                }
-
-                return byteArray2ushortArray(bytes);
-            }
-
-            public static ushort[] byteArray2ushortArray(byte[] byteArray)
-            {
-                if (BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(byteArray);
-                }
-
-                ushort[] array = new ushort[byteArray.Length / 2];
-                for (int i = 0; i < byteArray.Length / 2; i++)
-                {
-                    array[i] = BitConverter.ToUInt16(byteArray, i * 2);
-                }
-
-                if (BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(array);
-                }
-
-                return array;
-            }
-
-            public static short[] byteArray2int16Array(byte[] byteArray)
-            {
-                if (BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(byteArray);
-                }
-
-                short[] array = new short[byteArray.Length / 2];
-                for (int i = 0; i < byteArray.Length / 2; i++)
-                {
-                    array[i] = BitConverter.ToInt16(byteArray, i * 2);
-                }
-
-                if (BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(array);
-                }
-
-                return array;
-            }
-
-            public static float ushortArray2float(ushort[] datas)
-            {
-                if (BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(datas);
-                }
-
-                byte[] array = new byte[datas.Length * 2];
-                int num = 0;
-                int num2;
-                for (num2 = 0; num2 < datas.Length * 2; num2++)
-                {
-                    num = num2 / 2;
-                    array[num2] = (byte)(datas[num] & 0xFF);
-                    array[++num2] = (byte)(datas[num] >> 8);
-                }
-
-                return BitConverter.ToSingle(array, 0);
-            }
-
-            public static byte[] HexStringToByteArray(string hex)
-            {
-                if (hex.Length >= 2)
-                {
-                    try
-                    {
-                        return (from x in Enumerable.Range(0, hex.Length)
-                                where x % 2 == 0
-                                select Convert.ToByte(hex.Substring(x, 2), 16)).ToArray();
-                    }
-                    catch (Exception ex)
-                    {
-                        string message = ex.Message;
-                    }
-                }
-
-                return null;
-            }
-
-            public static string ByteArrayToHexString(byte[] data, bool _type)
-            {
-                StringBuilder stringBuilder = new StringBuilder(data.Length * 3);
-                foreach (byte b in data)
-                {
-                    if (_type)
-                    {
-                        stringBuilder.Append(Convert.ToString(b, 16).PadLeft(2, '0').PadRight(3, ' '));
-                    }
-                    else
-                    {
-                        stringBuilder.Append(Convert.ToString(b, 16).PadLeft(2, '0'));
-                    }
-                }
-
-                return stringBuilder.ToString().ToUpper();
-            }
-
-            public static string ByteArrayToHexString(byte[] data, int length, bool _type)
-            {
-                StringBuilder stringBuilder = new StringBuilder(data.Length * 3);
-                int num = 0;
-                foreach (byte b in data)
-                {
-                    if (_type)
-                    {
-                        stringBuilder.Append(Convert.ToString(b, 16).PadLeft(2, '0').PadRight(3, ' '));
-                    }
-                    else
-                    {
-                        stringBuilder.Append(Convert.ToString(b, 16).PadLeft(2, '0'));
-                    }
-
-                    num++;
-                    if (num >= length)
-                    {
-                        break;
-                    }
-                }
-
-                return stringBuilder.ToString().ToUpper();
-            }
-
-
         }
         public struct NameSpaceDATA
         {
@@ -1411,8 +887,6 @@ namespace SoftNetWebII.Services
         }
 
 
-
-
         private void MasterProcessRequest(object socket)
         {
             if (socket == null) { return; }
@@ -1430,7 +904,7 @@ namespace SoftNetWebII.Services
             {
                 oldEP = _sockinfo.RemoteEndPoint;
                 ipport = oldEP.ToString();
-                _sockinfo.IOControl(IOControlCode.KeepAliveValues, ToolFun.KeepAlive(1, 5000, 1000), null);
+                _ = _sockinfo.IOControl(IOControlCode.KeepAliveValues, ToolFun.KeepAlive(1, 5000, 1000), null);
                 while (_Mastertcplistenerstate)
                 {
                     blen = _sockinfo.ReceiveFrom(recvBytes, ref oldEP);
@@ -1469,7 +943,7 @@ namespace SoftNetWebII.Services
                                                 string[] cmd = Encoding.UTF8.GetString(a.ToArray(), 0, a.Count).Split(',');
                                                 if (SocketReceiveUserThreadPool)
                                                 {
-                                                    SNThreadScheduler.Instance.StartAction(() => { Master_ResolveData2String(_sockinfo, ipport, cmd); });
+                                                    _ = SNThreadScheduler.Instance.StartAction(() => { Master_ResolveData2String(_sockinfo, ipport, cmd); });
                                                 }
                                                 else
                                                 {
@@ -1497,7 +971,7 @@ namespace SoftNetWebII.Services
                                             case 254://RMSProtocol
                                                 RMSProtocol pp = JsonConvert.DeserializeObject<RMSProtocol>(Encoding.UTF8.GetString(a.ToArray(), 0, a.Count));
                                                 if (SocketReceiveUserThreadPool)
-                                                { SNThreadScheduler.Instance.StartAction(() => { Master_ResolveData2RMSProtocol(_sockinfo, ipport, pp); }); }
+                                                { _ = SNThreadScheduler.Instance.StartAction(() => { Master_ResolveData2RMSProtocol(_sockinfo, ipport, pp); }); }
                                                 else
                                                 {
                                                     Task ttr = new Task(() =>
@@ -1581,7 +1055,7 @@ namespace SoftNetWebII.Services
                             }
                             */
                             _MasterRMSUserList[ipport].Dispose();
-                            _MasterRMSUserList.Remove(ipport);
+                            _ = _MasterRMSUserList.Remove(ipport);
                         }
                     }
                     catch (Exception ex)
@@ -1606,7 +1080,6 @@ namespace SoftNetWebII.Services
                 cmd[i] = cmd[i].Replace("\x03", ",");
             }
             string ip = ipport.Split(':')[0].Trim();
-            string disIP = "";
             //string disIP = IpportConvertIPandName(ipport);
 
             try
@@ -1641,7 +1114,7 @@ namespace SoftNetWebII.Services
                     case "LIB_TO_WEB":
                         if (cmd.Length >= 3)
                         {
-                            SendWebSocketClent_INFO(cmd);
+                            _ = SendWebSocketClent_INFO(cmd);
                         }
                         break;
                     case "WebChangeStationStatus": //cmd[1]=stationNO cmd[2]=change值1=開始,2=停止,3=暫停,4=關站,5=關站+關閉工單
@@ -1664,8 +1137,6 @@ namespace SoftNetWebII.Services
                                      */
                                     {
                                         //先判斷有無開站
-                                        string tmp_log_OrdereNO = "";
-                                        int tmp_log_IndexSN = -1;
                                         /*
                                         try
                                         {
@@ -1703,8 +1174,6 @@ namespace SoftNetWebII.Services
                                         if (rud.Key.NameSpace == null)
                                         {
                                             bool isRun_PP_ProductProcess_Item = true;//是否run途程
-                                            bool isrun_indexSN_Class = false;//檢查製程或途程中是否有此工站
-                                            bool isIndexSN_Merge = false;//是否有定義合併站
                                             string wo_parent_ProcessName = "";//紀錄工單上的製程 PS:(可能是主製程, station可能是子製程的)
                                             Dictionary<string, List<string>> allClassLists = new Dictionary<string, List<string>>();
                                             string tmpIndexSN = "";
@@ -1735,9 +1204,7 @@ namespace SoftNetWebII.Services
                                             else { isRun_PP_ProductProcess_Item = false; }
                                             #endregion
 
-                                            string sfc_sql = "";
-                                            DataTable sfc_dt = null;
-                                            DataRow sfcdr = null;
+
 
                                             //###???將來要 檢查是否有APS_Simulation計畫排程, 可參考ManufactureController的code
                                             #region 檢查是否有APS_Simulation計畫排程
@@ -1745,7 +1212,7 @@ namespace SoftNetWebII.Services
 
                                             #region 若第一次開站,會回寫工單開始時間
                                             if (dr_WO.IsNull("StartTime") || dr_WO["StartTime"].ToString().Trim() == "")
-                                            { DBMaster.DB_SetData(string.Format("Update SoftNetSYSDB.[dbo].PP_WorkOrder SET StartTime='{0}' where OrderNO=N'{1}'", DateTime.Now.ToString("MM/dd/yyyy H:mm:ss"), cmd[6].Trim())); }
+                                            { _ = DBMaster.DB_SetData(string.Format("Update SoftNetSYSDB.[dbo].PP_WorkOrder SET StartTime='{0}' where OrderNO=N'{1}'", DateTime.Now.ToString("MM/dd/yyyy H:mm:ss"), cmd[6].Trim())); }
                                             #endregion
 
                                         }
@@ -1780,7 +1247,7 @@ namespace SoftNetWebII.Services
                                 case "5"://"Close+關閉工單"; 
                                     #region 關閉工單
                                     if (cmd[1] == "5")
-                                    { _CloseWO(cmd[6]); }
+                                    { CloseWO(cmd[6]); }
                                     #endregion
                                     break;
                             }
@@ -1823,33 +1290,15 @@ namespace SoftNetWebII.Services
         private void Master_ResolveData2253(string ip, byte[] data, uint logid = 1)
         {
 
-            //if (data != null && data.Length > 4)
-            //{
-            //    Master_Send_RMSProtocol_By_bytes(test_11n00_GET_FileList_sender, data, logid);
-            //}
-            //data = null;
         }
-        private void Master_ResolveData2253(Socket socket, byte[] data, uint logid = 1)
-        {
-
-            //if (data != null && data.Length > 4)
-            //{
-            //    Master_Send_RMSProtocol_By_bytes(socket, data, logid);
-            //}
-            //data = null;
-        }
-
-        private Socket test_11n00_GET_FileList_sender = null;//###???將來要拿到,目前暫時 目前501,505,507拿不掉
         private void Master_ResolveData2RMSProtocol(Socket sender, string ipport, RMSProtocol obj)
         {
             //###???要檢查來源的條件,如91501的if (_ToolUserList.ContainsKey(ipport)), 5430ㄝ要
 
             //Console.WriteLine("connect " + sender.RemoteEndPoint);
             uint logid = 1;
-            bool writeLog = false;
             if (obj.DataType != 11501 && obj.DataType != 11502 && obj.DataType != 11503 && obj.DataType < 91300)
             {
-                writeLog = true;
                 lock (lock_logID)
                 {
                     if (logid > 4290000000)
@@ -1863,10 +1312,8 @@ namespace SoftNetWebII.Services
             }
             //ThingsConfig tBuffer;
             string[] cmd = null;
-            string errMEG = "";
             try
             {
-                DataRow dr = null;
 
 
 
@@ -1895,7 +1342,7 @@ namespace SoftNetWebII.Services
                 tmp2.CopyTo(byteSend, 0);
                 byteSend[4] = 1;
                 data.CopyTo(byteSend, 5);
-                user.BeginSend(byteSend, 0, byteSend.Length, SocketFlags.None, new AsyncCallback(Rms_sendCallback), user);
+                _ = user.BeginSend(byteSend, 0, byteSend.Length, SocketFlags.None, new AsyncCallback(Rms_sendCallback), user);
             
             }
             catch (Exception ex)
@@ -1938,16 +1385,8 @@ namespace SoftNetWebII.Services
         }
 
 
-
-
-
-
-
-
-        private void _CloseWO(string wo)
+        private void CloseWO(string wo)
         {
-
-
             SFCSqlFunction sFCSqlFunction = new SFCSqlFunction(DBMaster);
             Tuple<List<string>, int> woCloseInfo = sFCSqlFunction.GetWOCloseInfo(wo, _Fun.Config.ServerId);
 
@@ -1974,23 +1413,23 @@ namespace SoftNetWebII.Services
                         sFCSqlFunction.SFC_StoredProcedure(item["IndexSN"].ToString(), item["StationNO"].ToString(), wo, item["IsTrack"].ToString() == "1", _Fun.Config.ServerId);
                     }
                 }
-                DBMaster.DB_SetData($"EXEC SoftNetSYSDB.[dbo].WorkOrderProductionUpdate '{wo}','{_Fun.Config.ServerId}'");
+                _ = DBMaster.DB_SetData($"EXEC SoftNetSYSDB.[dbo].WorkOrderProductionUpdate '{wo}','{_Fun.Config.ServerId}'");
                 DataRow dr = DBMaster.DB_GetFirstDataByDataRow($"SELECT * from SoftNetSYSDB.[dbo].[PP_WorkOrder] where OrderNO=N'{wo}'");
                 if (dr != null && dr["NeedId"].ToString() != "")
                 {
 
                     //###??? 要考慮 APS_NeedData與APS_Simulation , 同一個NeedId可能有多個 工單時, 以下Code會有問題
 
-                    DBMaster.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_NeedData] SET State='9',StateINFO=NULL where Id='{dr["NeedId"].ToString()}'");
-                    DBMaster.DB_SetData($"DELETE FROM SoftNetMainDB.[dbo].[TotalStockII] where NeedId='{dr["NeedId"].ToString()}'");
-                    DBMaster.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_WorkTimeNote] set Time1_C=0,Time2_C=0,Time3_C=0,Time4_C=0 where NeedId='{dr["NeedId"].ToString()}'");
+                    _ = DBMaster.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_NeedData] SET State='9',StateINFO=NULL where Id='{dr["NeedId"].ToString()}'");
+                    _ = DBMaster.DB_SetData($"DELETE FROM SoftNetMainDB.[dbo].[TotalStockII] where NeedId='{dr["NeedId"].ToString()}'");
+                    _ = DBMaster.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_WorkTimeNote] set Time1_C=0,Time2_C=0,Time3_C=0,Time4_C=0 where NeedId='{dr["NeedId"].ToString()}'");
 
                     #region 將計畫的 APS_PartNOTimeNote 報工合理性檢查
                     if (DBMaster.DB_GetQueryCount($"select Id from SoftNetSYSDB.[dbo].[APS_WarningData] where ServerId='{_Fun.Config.ServerId}' and NeedId='{dr["NeedId"].ToString()}' and DOCNumberNO='{wo}' and ErrorType='21'") <= 0)
                     {
                         DateTime day = DateTime.Now.AddDays(1);
                         DateTime time = new DateTime(DateTime.Now.Year, DateTime.Now.Month, day.Day, 0, 1, 1);
-                        DBMaster.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
+                        _ = DBMaster.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
                                                                 ('{_Str.NewId('W')}','{_Fun.Config.ServerId}','21','{dr["NeedId"].ToString()}','','','{wo}','','','{time.ToString("yyyy-MM-dd HH:mm:ss.fff")}')");
 
                     }
@@ -2003,16 +1442,6 @@ namespace SoftNetWebII.Services
         }
 
 
-
-
-
-
-
-
-
-
-
-
         private void DBBase_OnException(string sql, string MEG)
         {
             ++RMSDBErrorCount;
@@ -2021,15 +1450,50 @@ namespace SoftNetWebII.Services
             System.Threading.Tasks.Task task = _Log.ErrorAsync($"RUNTimeServer.cs停止運作, DB資料庫物件 ERROR : SQL={sql} INFO={MEG}", true);
         }
 
-        protected override Task ExecuteAsync(CancellationToken stoppingToken)
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            _stoppingToken = stoppingToken;
+            int count = 0;
+            string err_MEG = "";
+            DBADO db = new DBADO("1", _Fun.Config.Db, ref err_MEG);
+            if (err_MEG == "")
+            {
+                db.Error += new DBADO.ERROR(DBBase_OnException);
+            }
+            // 將 BackgroundService 的停止訊號傳遞給 SNWebSocketService
+            try
+            {
+                var service = _Fun.DiBox?.GetService(typeof(SNWebSocketService));
 
+
+                if (service == null)
+                {
+                    while (service == null && ++count <= 30)
+                    {
+                        await Task.Delay(1000, stoppingToken);
+                        service = _Fun.DiBox?.GetService(typeof(SNWebSocketService));
+                    }
+                }
+                if (service != null)
+                {
+                    var webSocketService = (SNWebSocketService)service;
+                    webSocketService.SetCancellationToken(stoppingToken);
+                }
+                else
+                {
+                    IsWork = false;
+                    System.Threading.Tasks.Task task = _Log.ErrorAsync($"RUNTimeServer.cs ExecuteAsync 找不到 SNWebSocketService 停止運作", true);
+                    _Mastertcplistenerstate = false;
+                    return;
+                }
+            }
+            catch { }
 
             #region 確認 Server 5431, IsWork, DBMaster OK
-            int count = 0;
+            count = 0;
             while (++count <= 10)
             {
-                SpinWait.SpinUntil(() => false, 1000);
+                await Task.Delay(1000, stoppingToken);
                 if (ck5431OK && IsWork && DBMaster != null)
                 {
                     break;
@@ -2043,15 +1507,7 @@ namespace SoftNetWebII.Services
 
             #region 初始化
             string logdate = "";
-            string first_MailAddressee = "";
-            string first_MailSubject = "";
-            string first_MailContent = "";
-            string second_MailAddressee = "";
-            string second_MailSubject = "";
-            string second_MailContent = "";
-            string al_orderNO = "";
-            string al_pp_Name = "";
-            int scheduleTime = 60;
+
             //###???將來要改 SNWebSocketService ㄝ要改
             _efficientConfig.Clear();
             _efficientConfig.Add('A', new List<KeyAndValue>());
@@ -2074,17 +1530,16 @@ namespace SoftNetWebII.Services
             }
             Stopwatch threadLoopTime = new Stopwatch();
             int next_time = 0;
-            uint logid = 1;
             List<string> stations = new List<string>();
 
             bool isFirstRun = true;
-            DataRow dataRow;
             //falg_EfficientDetail_S = DateTime.Now;
             //falg_EfficientDetail_E = DateTime.Now;
             #endregion
 
             try
             {
+
                 //SoftNetService.Program._NLogMain.Write_Record(0, "", LogTitle.Null, LogSourceName.Null, "", "=== SfcTimerloopthread_Tick start ===");
                 while (IsWork && stoppingToken.CanBeCanceled)
                 {
@@ -2092,8 +1547,7 @@ namespace SoftNetWebII.Services
                     string err = "", sql = "";
 
                     logdate = DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff");
-                    using (DBADO db = new DBADO("1", _Fun.Config.Db))
-                    {
+
                         if (!IsWork) { break; }
 
                         #region 執行預存程序 WorkOrderProductionUpdate) 與 處理工單 TmpClose 未結
@@ -2108,7 +1562,7 @@ namespace SoftNetWebII.Services
                                 {
                                     #region 執行 WorkOrderProductionUpdate 預存程序
                                     err = "";
-                                    DBMaster.DB_SetData($"EXEC SoftNetSYSDB.[dbo].WorkOrderProductionUpdate '{dr_PP_WorkOrder_StartWO["OrderNO"].ToString()}','{_Fun.Config.ServerId}'", ref err);
+                                    _ = DBMaster.DB_SetData($"EXEC SoftNetSYSDB.[dbo].WorkOrderProductionUpdate '{dr_PP_WorkOrder_StartWO["OrderNO"].ToString()}','{_Fun.Config.ServerId}'", ref err);
                                     if (err != "")
                                     {
                                         ++RMSDBErrorCount;
@@ -2126,12 +1580,12 @@ namespace SoftNetWebII.Services
                                             #region 清除TotalStockII Keep的量
                                             if (!dr_PP_WorkOrder_StartWO.IsNull("NeedId") && dr_PP_WorkOrder_StartWO["NeedId"].ToString().Trim() != "")
                                             {
-                                                DBMaster.DB_SetData($"delete from SoftNetMainDB.[dbo].[TotalStockII] WHERE NeedId='{dr_PP_WorkOrder_StartWO["NeedId"].ToString()}'");
+                                                _ = DBMaster.DB_SetData($"delete from SoftNetMainDB.[dbo].[TotalStockII] WHERE NeedId='{dr_PP_WorkOrder_StartWO["NeedId"].ToString()}'");
                                             }
                                             #endregion
 
-                                            DBMaster.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].PP_WorkOrder_Settlement SET EndTime='{logdate}' where ServerId='{_Fun.Config.ServerId}' and OrderNO='{dr_PP_WorkOrder_StartWO["OrderNO"].ToString()}' and EndTime is null");
-                                            DBMaster.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].PP_WorkOrder SET TmpClose=null,EndTime='{logdate}' where ServerId='{_Fun.Config.ServerId}' and OrderNO='{dr_PP_WorkOrder_StartWO["OrderNO"].ToString()}'");
+                                            _ = DBMaster.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].PP_WorkOrder_Settlement SET EndTime='{logdate}' where ServerId='{_Fun.Config.ServerId}' and OrderNO='{dr_PP_WorkOrder_StartWO["OrderNO"].ToString()}' and EndTime is null");
+                                            _ = DBMaster.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].PP_WorkOrder SET TmpClose=null,EndTime='{logdate}' where ServerId='{_Fun.Config.ServerId}' and OrderNO='{dr_PP_WorkOrder_StartWO["OrderNO"].ToString()}'");
                                         }
                                     }
                                     #endregion
@@ -2190,7 +1644,7 @@ namespace SoftNetWebII.Services
                                               @"UPDATE SoftNetSYSDB.[dbo].[PP_WorkOrder] 
                                                 SET [PauseTime]='{0}' WHERE ServerId='{2}' and OrderNO='{1}'",
                                                 logdate, WO, _Fun.Config.ServerId);
-                                        DBMaster.DB_GetData(sql);
+                                        _ = DBMaster.DB_GetData(sql);
                                     }
                                     if (!isAllStationPause && PauseTime != "")
                                     {
@@ -2207,7 +1661,7 @@ namespace SoftNetWebII.Services
                                                   @"UPDATE SoftNetSYSDB.[dbo].[PP_WorkOrder] 
                                                     SET [PauseTime]=NULL,[AccumulatePauseHours]='{0}' where ServerId='{2}' and OrderNO='{1}'",
                                                     new_accumulatePauseHours, WO, _Fun.Config.ServerId);
-                                            DBMaster.DB_SetData(sql);
+                                            _ = DBMaster.DB_SetData(sql);
                                         }
                                     }
                                 }
@@ -2215,19 +1669,24 @@ namespace SoftNetWebII.Services
                         }
                         #endregion
 
-                    }
+                   
                     threadLoopTime.Stop();
 
                     next_time = SFCStatisticalAnalysisLoopTime - (int)threadLoopTime.ElapsedMilliseconds;
 
                     if (next_time < 20000)
-                    { SpinWait.SpinUntil(() => (!IsWork || !stoppingToken.CanBeCanceled), 20000); }
+                    { await Task.Delay(20000, stoppingToken); }
                     else
-                    { SpinWait.SpinUntil(() => (!IsWork || !stoppingToken.CanBeCanceled), next_time); }
+                    { await Task.Delay(next_time, stoppingToken); }
                     if (isFirstRun) { isFirstRun = false; }
                     next_time = SFCStatisticalAnalysisLoopTime + (int)threadLoopTime.ElapsedMilliseconds;
 
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                //正常關閉
+                ++RMSDBErrorCount;
             }
             catch (Exception ex)
             {
@@ -2236,18 +1695,17 @@ namespace SoftNetWebII.Services
                 //    "", 61, ToolFun.StringAdd("SFC定時程序失敗,導致無法使用定時程序功能,請檢查Service是否正常. Exception:", ex.Message), ex);
                 //ExceptionError A6
             }
-
+            db.Dispose();
             _Mastertcplistenerstate = false;
-            return Task.CompletedTask;
+            return;
         }
-
 
         private bool SendWebSocketClent_INFO(string[] cmd)
         {
             KeyValuePair<string, rmsMasterUserData> mrul = _MasterRMSUserList.FirstOrDefault(x => x.Value.Role == 25);
             if (mrul.Key != null && mrul.Key != "" && mrul.Value.socket != null)
             {
-                Master_Send_String(mrul.Value.socket, string.Join(',', cmd));
+                _ = Master_Send_String(mrul.Value.socket, string.Join(',', cmd));
             }
             return true;
         }
@@ -2256,10 +1714,12 @@ namespace SoftNetWebII.Services
             KeyValuePair<string, rmsMasterUserData> mrul = _MasterRMSUserList.FirstOrDefault(x => x.Value.Role == 25);
             if (mrul.Key != null && mrul.Key != "" && mrul.Value.socket != null)
             {
-                Master_Send_String(mrul.Value.socket, meg);
+                _ = Master_Send_String(mrul.Value.socket, meg);
             }
             return true;
         }
+        
+        
         public RUNTimeServer()
         {
             IsWork = true;
@@ -2275,11 +1735,8 @@ namespace SoftNetWebII.Services
             #region 建立與本機Service 連線管理用 Server 5431
             _Mastertcplistenerstate = true;
             _MastertcpListener = new TcpListener(IPAddress.Parse(_Fun.Config.MasterServiceIP), 5431);//###????暫時寫死
-            Thread _MasterttcpThread = new Thread(MasterTcpListenerThread)
-            {
-                IsBackground = true
-            };
-            _MasterttcpThread.Start();
+            // use async accept loop instead of dedicated blocking thread
+            _ = Task.Run(() => MasterTcpListenerLoopAsync(_stoppingToken));
             #endregion
 
             httpClient = new HttpClient();
@@ -2296,30 +1753,33 @@ namespace SoftNetWebII.Services
             _Fun.Is_RUNTimeServer_Thread_State[4] = true;
             Thread deviceConnectCheck = new Thread(() =>
             {
-                Check_ElectronicTagsServer_Tick();
+                Check_ElectronicTagsServer_Tick(_stoppingToken);
             });
             deviceConnectCheck.IsBackground = true;
             deviceConnectCheck.Start();
             #endregion
 
-            SpinWait.SpinUntil(() => !IsWork, 5000);
+            Thread.Sleep(5000);
 
             #region 監控MES系統主程序
             _Fun.Is_RUNTimeServer_Thread_State[3] = true;
             Thread controlDATA_Othread2 = new Thread(() =>
             {
-                SfcTimerloopthread_Tick();
+                SfcTimerloopthread_Tick(_stoppingToken);
             });
             controlDATA_Othread2.IsBackground = true;
             controlDATA_Othread2.Start();
             #endregion
         }
-        private async void SfcTimerloopthread_Tick()
+        private async void SfcTimerloopthread_Tick(CancellationToken cancellationToken = default)
         {
             string sql = "";
             DataTable dt_tmp = null;
             DataRow dr_tmp = null;
             string err_MEG = "";
+
+            // 檢查是否要停止運行
+            if (cancellationToken.IsCancellationRequested) { return; }
 
             DBADO db = new DBADO("1", _Fun.Config.Db, ref err_MEG);
             if (err_MEG == "")
@@ -2332,12 +1792,12 @@ namespace SoftNetWebII.Services
                 dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[PP_Station] where ServerId='{_Fun.Config.ServerId}' and StationNO='{_Fun.Config.OutPackStationName}'");
                 if (dr_tmp == null)
                 {
-                    db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[PP_Station] (ServerId,FactoryName,LineName,StationNO,StationName,RMSName,CalendarName) VALUES 
+                    _ = db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[PP_Station] (ServerId,FactoryName,LineName,StationNO,StationName,RMSName,CalendarName) VALUES 
                                 ('{_Fun.Config.ServerId}','','','{_Fun.Config.OutPackStationName}','{_Fun.Config.OutPackStationName}','','{_Fun.Config.DefaultCalendarName}')");
                     dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetMainDB.[dbo].[Manufacture] where ServerId='{_Fun.Config.ServerId}' and StationNO='{_Fun.Config.OutPackStationName}'");
                     if (dr_tmp == null)
                     {
-                        db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[Manufacture] (ServerId,StationNO) VALUES 
+                        _ = db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[Manufacture] (ServerId,StationNO) VALUES 
                                 ('{_Fun.Config.ServerId}','{_Fun.Config.OutPackStationName}')");
                     }
                 }
@@ -2358,8 +1818,8 @@ namespace SoftNetWebII.Services
                     else { config_MutiWO = "0"; }
                     dr2 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetMainDB.[dbo].[Manufacture] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}'");
                     if (dr2 == null)
-                    { db.DB_SetData($"INSERT INTO SoftNetMainDB.[dbo].[Manufacture] ([StationNO],[ServerId],[Config_MutiWO],[Label_ProjectType]) VALUES ('{dr["StationNO"].ToString()}','{_Fun.Config.ServerId}','{config_MutiWO}','{label_ProjectType}')"); }
-                    else { db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[Manufacture] SET Config_MutiWO='{config_MutiWO}',Label_ProjectType='{label_ProjectType}' where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}'"); }
+                    { _ = db.DB_SetData($"INSERT INTO SoftNetMainDB.[dbo].[Manufacture] ([StationNO],[ServerId],[Config_MutiWO],[Label_ProjectType]) VALUES ('{dr["StationNO"].ToString()}','{_Fun.Config.ServerId}','{config_MutiWO}','{label_ProjectType}')"); }
+                    else { _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[Manufacture] SET Config_MutiWO='{config_MutiWO}',Label_ProjectType='{label_ProjectType}' where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}'"); }
                 }
             }
             #endregion
@@ -2368,7 +1828,7 @@ namespace SoftNetWebII.Services
             _Fun.Is_RUNTimeServer_Thread_State[0] = true;
             Thread SfcTimerloopUpdateTagValue = new Thread(() =>
             {
-                SfcTimerloopUpdateTagValue_Tick();
+                SfcTimerloopUpdateTagValue_Tick(cancellationToken);
             });
             SfcTimerloopUpdateTagValue.IsBackground = true;
             SfcTimerloopUpdateTagValue.Start();
@@ -2381,7 +1841,7 @@ namespace SoftNetWebII.Services
             while (_Fun.Has_Tag_httpClient && (!_Fun.Is_SNWebSocketService_OK || !IsUpdateTagValue_OK) && timeout >= 0)
             {
                 timeout -= 1;
-                SpinWait.SpinUntil(() => !IsWork, 1000);
+                await Task.Delay(1000, cancellationToken);
             }
             if (timeout < 0)
             {
@@ -2395,14 +1855,14 @@ namespace SoftNetWebII.Services
             */
             #endregion
 
-            SpinWait.SpinUntil(() => !IsWork, 2000);
+            await Task.Delay(2000, cancellationToken);
             //WebSocketServiceOJB = (SNWebSocketService)_Fun.DiBox.GetService(typeof(SNWebSocketService));
 
             #region 自動派工 與 工站累計量 Thread 目前每20秒處理一次
             _Fun.Is_RUNTimeServer_Thread_State[2] = true;
             Thread autoRUN_Json_thread = new Thread(() =>
             {
-                SfcTimerloopautoRUN_Json_Tick();
+                SfcTimerloopautoRUN_Json_Tick(cancellationToken);
             });
             autoRUN_Json_thread.IsBackground = true;
             autoRUN_Json_thread.Start();
@@ -2421,11 +1881,11 @@ namespace SoftNetWebII.Services
             #endregion
 
             Stopwatch threadLoopTime = new Stopwatch();
-            SpinWait.SpinUntil(() => !IsWork, _Fun.Config.RunTimeServerLoopTime);
+            await Task.Delay(_Fun.Config.RunTimeServerLoopTime, cancellationToken);
 
             try
             {
-                while (IsWork)
+                while (IsWork || !cancellationToken.IsCancellationRequested)
                 {
                     logdate = DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff");
                     threadLoopTime.Restart();
@@ -2515,15 +1975,15 @@ namespace SoftNetWebII.Services
                                     }
                                     if (isRUN)
                                     {
-                                        db.DB_SetData($"DELETE FROM SoftNetSYSDB.[dbo].[APS_Simulation] where NeedId='{d["Id"].ToString()}'");
-                                        db.DB_SetData($"DELETE FROM SoftNetMainDB.[dbo].[TotalStockII] where NeedId='{d["Id"].ToString()}'");
-                                        db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_WorkTimeNote] set Time1_C=0,Time2_C=0,Time3_C=0,Time4_C=0 where NeedId='{d["Id"].ToString()}'");
-                                        db.DB_SetData($"DELETE FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where NeedId='{d["Id"].ToString()}'");
-                                        db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_NeedData] SET State='3',StateINFO=NULL,UpdateTime=null where Id='{d["Id"].ToString()}'");
-                                        db.DB_SetData($"DELETE FROM SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] where NeedId='{d["Id"].ToString()}'");
-                                        db.DB_SetData($"DELETE FROM SoftNetSYSDB.[dbo].[APS_WarningData] where NeedId='{d["Id"].ToString()}'");
-                                        db.DB_SetData($"DELETE FROM SoftNetLogDB.[dbo].[APS_Change_S_Date_Log] where Trigger_NeedId='{d["Id"].ToString()}'");
-                                        db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime,NeedId) VALUES ('排程需求模擬完成卻未移轉,已刪除模擬資料,需重新模擬或刪除它. 料號:{d["PartNO"].ToString()} 需求量:{d["NeedQTY"].ToString()} {d["NeedSource"].ToString()}','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{d["Id"].ToString()}')");
+                                        _ = db.DB_SetData($"DELETE FROM SoftNetSYSDB.[dbo].[APS_Simulation] where NeedId='{d["Id"].ToString()}'");
+                                        _ = db.DB_SetData($"DELETE FROM SoftNetMainDB.[dbo].[TotalStockII] where NeedId='{d["Id"].ToString()}'");
+                                        _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_WorkTimeNote] set Time1_C=0,Time2_C=0,Time3_C=0,Time4_C=0 where NeedId='{d["Id"].ToString()}'");
+                                        _ = db.DB_SetData($"DELETE FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where NeedId='{d["Id"].ToString()}'");
+                                        _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_NeedData] SET State='3',StateINFO=NULL,UpdateTime=null where Id='{d["Id"].ToString()}'");
+                                        _ = db.DB_SetData($"DELETE FROM SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] where NeedId='{d["Id"].ToString()}'");
+                                        _ = db.DB_SetData($"DELETE FROM SoftNetSYSDB.[dbo].[APS_WarningData] where NeedId='{d["Id"].ToString()}'");
+                                        _ = db.DB_SetData($"DELETE FROM SoftNetLogDB.[dbo].[APS_Change_S_Date_Log] where Trigger_NeedId='{d["Id"].ToString()}'");
+                                        _ = db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime,NeedId) VALUES ('排程需求模擬完成卻未移轉,已刪除模擬資料,需重新模擬或刪除它. 料號:{d["PartNO"].ToString()} 需求量:{d["NeedQTY"].ToString()} {d["NeedSource"].ToString()}','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{d["Id"].ToString()}')");
                                     }
                                 }
                             }
@@ -2547,15 +2007,15 @@ namespace SoftNetWebII.Services
                                             if (tmp != null && !tmp.IsNull("qty") && tmp["qty"].ToString().Trim() != "")
                                             {
                                                 if (int.Parse(tmp["qty"].ToString()) >= int.Parse(d2["NeedQTY"].ToString()))
-                                                { db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_Simulation] set IsOK='1' where SimulationId='{d2["SimulationId"].ToString()}'"); }
+                                                { _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_Simulation] set IsOK='1' where SimulationId='{d2["SimulationId"].ToString()}'"); }
                                             }
                                         }
                                     }
                                     if (db.DB_GetQueryCount($"SELECT * FROM SoftNetSYSDB.[dbo].[APS_Simulation] where NeedId='{d["Id"].ToString()}' and IsOK='0'") <= 0)
                                     {
-                                        db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_NeedData] set State='9',StateINFO=NULL where Id='{d["Id"].ToString()}'");
-                                        db.DB_SetData($"delete from SoftNetMainDB.[dbo].[TotalStockII] where NeedId='{d["Id"].ToString()}'");
-                                        db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime,NeedId) VALUES ('排程需求領料完成,已自動結案. 料號:{d["PartNO"].ToString()} 需求量:{d["NeedQTY"].ToString()} {d["NeedSource"].ToString()}','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{d["Id"].ToString()}')");
+                                        _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_NeedData] set State='9',StateINFO=NULL where Id='{d["Id"].ToString()}'");
+                                        _ = db.DB_SetData($"delete from SoftNetMainDB.[dbo].[TotalStockII] where NeedId='{d["Id"].ToString()}'");
+                                        _ = db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime,NeedId) VALUES ('排程需求領料完成,已自動結案. 料號:{d["PartNO"].ToString()} 需求量:{d["NeedQTY"].ToString()} {d["NeedSource"].ToString()}','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{d["Id"].ToString()}')");
 
                                     }
                                 }
@@ -2607,7 +2067,7 @@ namespace SoftNetWebII.Services
                                                         sql = $@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WorkingPaper] (ServerId,[Id],[WorkType],[PartNO],[Class],[IsOK],[NeedId],[SimulationId],[UP_SimulationId],[Down_SimulationId],[NeedQTY],[Price],[Unit],[MFNO],[IN_StoreNO],[IN_StoreSpacesNO],[OUT_StoreNO],[OUT_StoreSpacesNO],[APS_StationNO],[APS_StationNO_SID],[StartTime],[ArrivalDate],[EndTime],[UpdateTime],DOCNumberNO)
                                                     VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('P')}','1','{dr["PartNO"].ToString()}','{dr["Class"].ToString()}','0','{dr["NeedId"].ToString()}','{dr["SimulationId"].ToString()}','','{tmp["SimulationId"].ToString()}',{tmp_i},{price},'PCS','{mFNO}','{in_StoreNO}','{in_StoreSpacesNO}','','',
                                                     '{tmp["Source_StationNO"].ToString()}','{tmp["SimulationId"].ToString()}','{logdate}','{Convert.ToDateTime(dr["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss.fff")}',NULL,'{logdate}','{docNumberNO}')";
-                                                        db.DB_SetData(sql);
+                                                        _ = db.DB_SetData(sql);
                                                         if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_Simulation] SET IsWPaper='1' where SimulationId='{dr["SimulationId"].ToString()}'"))
                                                         {
                                                         }
@@ -2672,9 +2132,9 @@ namespace SoftNetWebII.Services
                                                 sql = $@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WorkingPaper] (ServerId,[Id],[WorkType],[PartNO],[Class],[IsOK],[NeedId],[SimulationId],[UP_SimulationId],[Down_SimulationId],[NeedQTY],[Price],[Unit],[MFNO],[IN_StoreNO],[IN_StoreSpacesNO],[OUT_StoreNO],[OUT_StoreSpacesNO],[APS_StationNO],[APS_StationNO_SID],[StartTime],[ArrivalDate],[EndTime],[UpdateTime],DOCNumberNO)
                                             VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('P')}','2','{dr["PartNO"].ToString()}','{dr["Class"].ToString()}','0','{dr["NeedId"].ToString()}','{dr["SimulationId"].ToString()}','{tmp_up_SID}',{tmp_down_SID},{tmp_i},{price},'PCS','{mFNO}','{in_StoreNO}','{in_StoreSpacesNO}','','',
                                             {tmp_down_Source_StationNO},{tmp_down_SID},'{tmp_down_StartTime}','{tmp_down_ArrivalDate}',NULL,'{logdate}','{docNumberNO}')";
-                                                db.DB_SetData(sql);
-                                                db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_Simulation] SET IsWPaper='1',DOCNumberNO='{docNumberNO}' where SimulationId='{dr["SimulationId"].ToString()}'");
-                                                db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] SET DOCNumberNO='{docNumberNO}' where SimulationId='{dr["SimulationId"].ToString()}'");
+                                                _ = db.DB_SetData(sql);
+                                                _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_Simulation] SET IsWPaper='1',DOCNumberNO='{docNumberNO}' where SimulationId='{dr["SimulationId"].ToString()}'");
+                                                _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] SET DOCNumberNO='{docNumberNO}' where SimulationId='{dr["SimulationId"].ToString()}'");
                                             }
                                         }
                                     }
@@ -2751,15 +2211,15 @@ namespace SoftNetWebII.Services
                                         tmp_i = Math.Abs(tmp_i);
                                         tmp = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[APS_WorkingPaper] where PartNO='{dr["PartNO"].ToString()}' and WorkType='3' and MFNO='{mFNO}' and IN_StoreNO='{in_StoreNO}' and IN_StoreSpacesNO='{in_StoreSpacesNO}' order by ArrivalDate desc");
                                         if (tmp != null)
-                                        { db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_WorkingPaper] set NeedQTY+={tmp_i} where Id='{tmp["Id"].ToString()}'"); }
+                                        { _ = db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_WorkingPaper] set NeedQTY+={tmp_i} where Id='{tmp["Id"].ToString()}'"); }
                                         else
                                         {
                                             sql = $@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WorkingPaper] (ServerId,[Id],[WorkType],[PartNO],[Class],[IsOK],[NeedId],[SimulationId],[UP_SimulationId],[Down_SimulationId],[NeedQTY],[Price],[Unit],[MFNO],[IN_StoreNO],[IN_StoreSpacesNO],[OUT_StoreNO],[OUT_StoreSpacesNO],[APS_StationNO],[APS_StationNO_SID],[StartTime],[ArrivalDate],[EndTime],[UpdateTime])
                                             VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('P')}','3','{dr["PartNO"].ToString()}','{dr["Class"].ToString()}','0','','','','',{tmp_i},0,'PCS','{mFNO}','{in_StoreNO}','{in_StoreSpacesNO}','',
                                             '','','','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{ArrivalDate}',NULL,'{logdate}')";
-                                            db.DB_SetData(sql);
+                                            _ = db.DB_SetData(sql);
                                         }
-                                        db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime) VALUES ('安全存量非生產件發現不足,已列入工作底稿等待處理. 料號:{dr["PartNO"].ToString()}','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}')");
+                                        _ = db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime) VALUES ('安全存量非生產件發現不足,已列入工作底稿等待處理. 料號:{dr["PartNO"].ToString()}','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}')");
 
                                     }
                                 }
@@ -2848,15 +2308,15 @@ namespace SoftNetWebII.Services
                                         tmp_i = int.Parse(dr["SafeQTY"].ToString()) - tmp_i;
                                         tmp = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[APS_WorkingPaper] where PartNO='{dr["PartNO"].ToString()}' and WorkType='4' and MBOMId='{mBOMId}' and Apply_PP_Name='{apply_PP_Name}' and IN_StoreNO='{in_StoreNO}' and IN_StoreSpacesNO='{in_StoreSpacesNO}' order by ArrivalDate desc");
                                         if (tmp != null)
-                                        { db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_WorkingPaper] set NeedQTY+={tmp_i} where Id='{tmp["Id"].ToString()}'"); }
+                                        { _ = db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_WorkingPaper] set NeedQTY+={tmp_i} where Id='{tmp["Id"].ToString()}'"); }
                                         else
                                         {
                                             sql = $@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WorkingPaper] (ServerId,[Id],[WorkType],[PartNO],[Class],[IsOK],[NeedId],[SimulationId],[UP_SimulationId],[Down_SimulationId],[NeedQTY],[Price],[Unit],[MFNO],[IN_StoreNO],[IN_StoreSpacesNO],[OUT_StoreNO],[OUT_StoreSpacesNO],[APS_StationNO],[APS_StationNO_SID],[StartTime],[ArrivalDate],[EndTime],[UpdateTime],MBOMId,Apply_PP_Name)
                                             VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('P')}','4','{dr["PartNO"].ToString()}','{dr["Class"].ToString()}','0','','','','',{tmp_i},0,'PCS','','{in_StoreNO}','{in_StoreSpacesNO}','',
                                             '','','','{logdate}','{DateTime.Now.AddDays(3).ToString("yyyy-MM-dd HH:mm:ss.fff")}',NULL,'{logdate}','{mBOMId}','{apply_PP_Name}')";
-                                            db.DB_SetData(sql);
+                                            _ = db.DB_SetData(sql);
                                         }
-                                        db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime) VALUES ('安全存量生產件發現不足,已列入工作底稿等待處理. 料號:{dr["PartNO"].ToString()}','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}')");
+                                        _ = db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime) VALUES ('安全存量生產件發現不足,已列入工作底稿等待處理. 料號:{dr["PartNO"].ToString()}','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}')");
 
                                     }
                                 }
@@ -2914,16 +2374,16 @@ namespace SoftNetWebII.Services
                                                 {
                                                     if (int.Parse(d2["KeepQTY"].ToString()) >= tmp_int)
                                                     {
-                                                        db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStockII] set KeepQTY-={tmp_int} where Id='{d2["Id"].ToString()}' and SimulationId='{d["SimulationId"].ToString()}'");
-                                                        _SFC_Common.Create_DOC3stock(db, d, d2["StoreNO"].ToString(), d2["StoreSpacesNO"].ToString(), "", "", "AC01", tmp_int, "", "", "生產用領料", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
+                                                        _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStockII] set KeepQTY-={tmp_int} where Id='{d2["Id"].ToString()}' and SimulationId='{d["SimulationId"].ToString()}'");
+                                                        _ = _SFC_Common.Create_DOC3stock(db, d, d2["StoreNO"].ToString(), d2["StoreSpacesNO"].ToString(), "", "", "AC01", tmp_int, "", "", "生產用領料", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
                                                         tmp_int = 0;
                                                         break;
                                                     }
                                                     else
                                                     {
                                                         int tmp_01 = int.Parse(d2["KeepQTY"].ToString());
-                                                        db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStockII] set KeepQTY=0 where Id='{d2["Id"].ToString()}' and SimulationId='{d["SimulationId"].ToString()}'");
-                                                        _SFC_Common.Create_DOC3stock(db, d, d2["StoreNO"].ToString(), d2["StoreSpacesNO"].ToString(), "", "", "AC01", tmp_01, "", "", $"生產用領料", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
+                                                        _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStockII] set KeepQTY=0 where Id='{d2["Id"].ToString()}' and SimulationId='{d["SimulationId"].ToString()}'");
+                                                        _ = _SFC_Common.Create_DOC3stock(db, d, d2["StoreNO"].ToString(), d2["StoreSpacesNO"].ToString(), "", "", "AC01", tmp_01, "", "", $"生產用領料", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
                                                         tmp_int -= tmp_01;
                                                     }
                                                 }
@@ -2941,7 +2401,7 @@ namespace SoftNetWebII.Services
                                                         if (int.Parse(d2["QTY"].ToString()) >= tmp_int)
                                                         {
                                                             string stationno = !d.IsNull("APS_StationNO") ? $"工站:{d["APS_StationNO"].ToString()} " : "";
-                                                            _SFC_Common.Create_DOC3stock(db, d, d2["StoreNO"].ToString(), d2["StoreSpacesNO"].ToString(), "", "", "AC01", tmp_int, "", "", $"{stationno}", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
+                                                            _ = _SFC_Common.Create_DOC3stock(db, d, d2["StoreNO"].ToString(), d2["StoreSpacesNO"].ToString(), "", "", "AC01", tmp_int, "", "", $"{stationno}", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
                                                             tmp_int = 0;
                                                             break;
                                                         }
@@ -2951,7 +2411,7 @@ namespace SoftNetWebII.Services
                                                             if (tmp_01 != 0)
                                                             {
                                                                 string stationno = !d.IsNull("APS_StationNO") ? $"工站:{d["APS_StationNO"].ToString()} " : "";
-                                                                _SFC_Common.Create_DOC3stock(db, d, d2["StoreNO"].ToString(), d2["StoreSpacesNO"].ToString(), "", "", "AC01", tmp_01, "", "", $"{stationno}", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
+                                                                _ = _SFC_Common.Create_DOC3stock(db, d, d2["StoreNO"].ToString(), d2["StoreSpacesNO"].ToString(), "", "", "AC01", tmp_01, "", "", $"{stationno}", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
                                                                 tmp_int -= tmp_01;
                                                             }
                                                         }
@@ -2968,7 +2428,7 @@ namespace SoftNetWebII.Services
                                                     _SFC_Common.SelectOUTStore(db, d["PartNO"].ToString(), ref out_StoreNO, ref out_StoreSpacesNO, "AC01");
                                                     #endregion
                                                     string stationno = !d.IsNull("APS_StationNO") ? $"工站:{d["APS_StationNO"].ToString()} " : "";
-                                                    _SFC_Common.Create_DOC3stock(db, d, out_StoreNO, out_StoreSpacesNO, "", "", "AC01", tmp_int, "", "", $"{stationno}", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
+                                                    _ = _SFC_Common.Create_DOC3stock(db, d, out_StoreNO, out_StoreSpacesNO, "", "", "AC01", tmp_int, "", "", $"{stationno}", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
                                                 }
                                                 #endregion
                                             }
@@ -2984,7 +2444,7 @@ namespace SoftNetWebII.Services
                                                     if (int.Parse(d2["QTY"].ToString()) >= tmp_int)
                                                     {
                                                         string stationno = !d.IsNull("APS_StationNO") ? $"工站:{d["APS_StationNO"].ToString()} " : "";
-                                                        _SFC_Common.Create_DOC3stock(db, d, d2["StoreNO"].ToString(), d2["StoreSpacesNO"].ToString(), "", "", "AC01", tmp_int, "", "", $"{stationno}", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
+                                                        _ = _SFC_Common.Create_DOC3stock(db, d, d2["StoreNO"].ToString(), d2["StoreSpacesNO"].ToString(), "", "", "AC01", tmp_int, "", "", $"{stationno}", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
                                                         tmp_int = 0;
                                                         break;
                                                     }
@@ -2994,7 +2454,7 @@ namespace SoftNetWebII.Services
                                                         if (tmp_01 != 0)
                                                         {
                                                             string stationno = !d.IsNull("APS_StationNO") ? $"工站:{d["APS_StationNO"].ToString()} " : "";
-                                                            _SFC_Common.Create_DOC3stock(db, d, d2["StoreNO"].ToString(), d2["StoreSpacesNO"].ToString(), "", "", "AC01", tmp_01, "", "", $"{stationno}", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
+                                                            _ = _SFC_Common.Create_DOC3stock(db, d, d2["StoreNO"].ToString(), d2["StoreSpacesNO"].ToString(), "", "", "AC01", tmp_01, "", "", $"{stationno}", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
                                                             tmp_int -= tmp_01;
                                                         }
                                                     }
@@ -3011,17 +2471,17 @@ namespace SoftNetWebII.Services
                                                 _SFC_Common.SelectOUTStore(db, d["PartNO"].ToString(), ref out_StoreNO, ref out_StoreSpacesNO, "AC01");
                                                 #endregion
                                                 string stationno = !d.IsNull("APS_StationNO") ? $"工站:{d["APS_StationNO"].ToString()} " : "";
-                                                _SFC_Common.Create_DOC3stock(db, d, out_StoreNO, out_StoreSpacesNO, "", "", "AC01", tmp_int, "", "", $"{stationno}", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
+                                                _ = _SFC_Common.Create_DOC3stock(db, d, out_StoreNO, out_StoreSpacesNO, "", "", "AC01", tmp_int, "", "", $"{stationno}", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
                                             }
                                             #endregion
                                         }
                                     }
                                     if (docNumberNO != "")
                                     {
-                                        db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] set DOCNumberNO='{docNumberNO}' where SimulationId='{d["SimulationId"].ToString()}'");
+                                        _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] set DOCNumberNO='{docNumberNO}' where SimulationId='{d["SimulationId"].ToString()}'");
                                         if (db.DB_GetQueryCount($"select * from SoftNetSYSDB.[dbo].[APS_Simulation] where DOCNumberNO='' and SimulationId='{d["SimulationId"].ToString()}'") > 0)
                                         {
-                                            db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_Simulation] set DOCNumberNO='{docNumberNO}' where SimulationId='{d["SimulationId"].ToString()}'");
+                                            _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_Simulation] set DOCNumberNO='{docNumberNO}' where SimulationId='{d["SimulationId"].ToString()}'");
                                         }
                                     }
                                 }
@@ -3083,16 +2543,16 @@ namespace SoftNetWebII.Services
                                                 {
                                                     if (int.Parse(d2["KeepQTY"].ToString()) >= tmp_int)
                                                     {
-                                                        db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStockII] set KeepQTY-={tmp_int} where Id='{d2["Id"].ToString()}' and SimulationId='{d["SimulationId"].ToString()}'");
-                                                        _SFC_Common.Create_DOC3stock(db, d, d2["StoreNO"].ToString(), d2["StoreSpacesNO"].ToString(), "", "", "AC01", tmp_int, "", "", "計畫性需求領出", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
+                                                        _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStockII] set KeepQTY-={tmp_int} where Id='{d2["Id"].ToString()}' and SimulationId='{d["SimulationId"].ToString()}'");
+                                                        _ = _SFC_Common.Create_DOC3stock(db, d, d2["StoreNO"].ToString(), d2["StoreSpacesNO"].ToString(), "", "", "AC01", tmp_int, "", "", "計畫性需求領出", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
                                                         tmp_int = 0;
                                                         break;
                                                     }
                                                     else
                                                     {
                                                         int tmp_01 = int.Parse(d2["KeepQTY"].ToString());
-                                                        db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStockII] set KeepQTY=0 where Id='{d2["Id"].ToString()}' and SimulationId='{d["SimulationId"].ToString()}'");
-                                                        _SFC_Common.Create_DOC3stock(db, d, d2["StoreNO"].ToString(), d2["StoreSpacesNO"].ToString(), "", "", "AC01", tmp_01, "", "", "計畫性需求領出", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
+                                                        _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStockII] set KeepQTY=0 where Id='{d2["Id"].ToString()}' and SimulationId='{d["SimulationId"].ToString()}'");
+                                                        _ = _SFC_Common.Create_DOC3stock(db, d, d2["StoreNO"].ToString(), d2["StoreSpacesNO"].ToString(), "", "", "AC01", tmp_01, "", "", "計畫性需求領出", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
                                                         tmp_int -= tmp_01;
                                                     }
                                                 }
@@ -3109,7 +2569,7 @@ namespace SoftNetWebII.Services
                                                     {
                                                         if (int.Parse(d2["QTY"].ToString()) >= tmp_int)
                                                         {
-                                                            _SFC_Common.Create_DOC3stock(db, d, d2["StoreNO"].ToString(), d2["StoreSpacesNO"].ToString(), "", "", "AC01", tmp_int, "", "", $"計畫性需求領出", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
+                                                            _ = _SFC_Common.Create_DOC3stock(db, d, d2["StoreNO"].ToString(), d2["StoreSpacesNO"].ToString(), "", "", "AC01", tmp_int, "", "", $"計畫性需求領出", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
                                                             tmp_int = 0;
                                                             break;
                                                         }
@@ -3118,7 +2578,7 @@ namespace SoftNetWebII.Services
                                                             int tmp_01 = int.Parse(d2["QTY"].ToString());
                                                             if (tmp_01 != 0)
                                                             {
-                                                                _SFC_Common.Create_DOC3stock(db, d, d2["StoreNO"].ToString(), d2["StoreSpacesNO"].ToString(), "", "", "AC01", tmp_01, "", "", $"I計畫性需求領出", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
+                                                                _ = _SFC_Common.Create_DOC3stock(db, d, d2["StoreNO"].ToString(), d2["StoreSpacesNO"].ToString(), "", "", "AC01", tmp_01, "", "", $"I計畫性需求領出", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
                                                                 tmp_int -= tmp_01;
                                                             }
                                                         }
@@ -3134,7 +2594,7 @@ namespace SoftNetWebII.Services
                                                     string out_StoreSpacesNO = "";
                                                     _SFC_Common.SelectOUTStore(db, d["PartNO"].ToString(), ref out_StoreNO, ref out_StoreSpacesNO, "AC01");
                                                     #endregion
-                                                    _SFC_Common.Create_DOC3stock(db, d, out_StoreNO, out_StoreSpacesNO, "", "", "AC01", tmp_int, "", "", $"I計畫性需求領出", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
+                                                    _ = _SFC_Common.Create_DOC3stock(db, d, out_StoreNO, out_StoreSpacesNO, "", "", "AC01", tmp_int, "", "", $"I計畫性需求領出", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
                                                 }
                                                 #endregion
                                             }
@@ -3150,7 +2610,7 @@ namespace SoftNetWebII.Services
                                                 {
                                                     if (int.Parse(d2["QTY"].ToString()) >= tmp_int)
                                                     {
-                                                        _SFC_Common.Create_DOC3stock(db, d, d2["StoreNO"].ToString(), d2["StoreSpacesNO"].ToString(), "", "", "AC01", tmp_int, "", "", $"計畫性需求領出", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
+                                                        _ = _SFC_Common.Create_DOC3stock(db, d, d2["StoreNO"].ToString(), d2["StoreSpacesNO"].ToString(), "", "", "AC01", tmp_int, "", "", $"計畫性需求領出", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
                                                         tmp_int = 0;
                                                         break;
                                                     }
@@ -3159,7 +2619,7 @@ namespace SoftNetWebII.Services
                                                         int tmp_01 = int.Parse(d2["QTY"].ToString());
                                                         if (tmp_01 != 0)
                                                         {
-                                                            _SFC_Common.Create_DOC3stock(db, d, d2["StoreNO"].ToString(), d2["StoreSpacesNO"].ToString(), "", "", "AC01", tmp_01, "", "", $"計畫性需求領出", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
+                                                            _ = _SFC_Common.Create_DOC3stock(db, d, d2["StoreNO"].ToString(), d2["StoreSpacesNO"].ToString(), "", "", "AC01", tmp_01, "", "", $"計畫性需求領出", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
                                                             tmp_int -= tmp_01;
                                                         }
                                                     }
@@ -3176,7 +2636,7 @@ namespace SoftNetWebII.Services
                                                 _SFC_Common.SelectOUTStore(db, d["PartNO"].ToString(), ref out_StoreNO, ref out_StoreSpacesNO, "AC01");
                                                 #endregion
 
-                                                _SFC_Common.Create_DOC3stock(db, d, out_StoreNO, out_StoreSpacesNO, "", "", "AC01", tmp_int, "", "", $"計畫性需求領出", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
+                                                _ = _SFC_Common.Create_DOC3stock(db, d, out_StoreNO, out_StoreSpacesNO, "", "", "AC01", tmp_int, "", "", $"計畫性需求領出", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "SfcTimerloopautoRUN_DOC_Tick;RUNTimeServer", ref docNumberNO, "系統指派", false);
                                             }
                                             #endregion
                                         }
@@ -3185,7 +2645,7 @@ namespace SoftNetWebII.Services
                                     {
                                         if (db.DB_GetQueryCount($"select * from SoftNetSYSDB.[dbo].[APS_Simulation] where DOCNumberNO='' and SimulationId='{d["SimulationId"].ToString()}'") > 0)
                                         {
-                                            db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_Simulation] set DOCNumberNO='{docNumberNO}' where SimulationId='{d["SimulationId"].ToString()}'");
+                                            _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_Simulation] set DOCNumberNO='{docNumberNO}' where SimulationId='{d["SimulationId"].ToString()}'");
                                         }
                                     }
                                 }
@@ -3220,14 +2680,14 @@ namespace SoftNetWebII.Services
                                         {
                                             #region 寫入庫存
                                             if (row.IsNull("OUT_StoreNO") || row["OUT_StoreNO"].ToString().Trim() == "")
-                                            { db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStock] set QTY+={row["QTY"].ToString()} where ServerId='{_Fun.Config.ServerId}' and PartNO='{row["PartNO"].ToString()}' and StoreNO='{row["IN_StoreNO"].ToString()}' and StoreSpacesNO='{row["IN_StoreSpacesNO"].ToString()}'"); }
-                                            else { db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStock] set QTY-={row["QTY"].ToString()} where ServerId='{_Fun.Config.ServerId}' and PartNO='{row["PartNO"].ToString()}' and StoreNO='{row["OUT_StoreNO"].ToString()}' and StoreSpacesNO='{row["OUT_StoreSpacesNO"].ToString()}'"); }
+                                            { _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStock] set QTY+={row["QTY"].ToString()} where ServerId='{_Fun.Config.ServerId}' and PartNO='{row["PartNO"].ToString()}' and StoreNO='{row["IN_StoreNO"].ToString()}' and StoreSpacesNO='{row["IN_StoreSpacesNO"].ToString()}'"); }
+                                            else { _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStock] set QTY-={row["QTY"].ToString()} where ServerId='{_Fun.Config.ServerId}' and PartNO='{row["PartNO"].ToString()}' and StoreNO='{row["OUT_StoreNO"].ToString()}' and StoreSpacesNO='{row["OUT_StoreSpacesNO"].ToString()}'"); }
                                             #endregion
 
                                             string writeSQL = "";
                                             if (row.IsNull("StartTime")) { writeSQL = $",StartTime='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}'"; }
                                             else { writeSQL = $",StartTime='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}'"; }
-                                            db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC3stockII] set IsOK='1',EndTime='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}',CT=0{writeSQL} where Id='{row["Id"].ToString()}' and DOCNumberNO='{row["DOCNumberNO"].ToString()}' and IsOK='0'");
+                                            _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC3stockII] set IsOK='1',EndTime='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}',CT=0{writeSQL} where Id='{row["Id"].ToString()}' and DOCNumberNO='{row["DOCNumberNO"].ToString()}' and IsOK='0'");
                                         }
                                     }
                                     if (needId.Count > 0)
@@ -3240,7 +2700,7 @@ namespace SoftNetWebII.Services
                                         }
                                         if (sID != "")
                                         {
-                                            db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_NeedData] set Is_Close_DOC3stock='1' where Id in ({sID})");
+                                            _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_NeedData] set Is_Close_DOC3stock='1' where Id in ({sID})");
                                         }
                                     }
                                 }
@@ -3256,7 +2716,7 @@ namespace SoftNetWebII.Services
                         dt_tmp = db.DB_GetData(sql);
                         if (dt_tmp != null && dt_tmp.Rows.Count > 0)
                         {
-                            db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].APS_Simulation_ErrorData SET ActionType='2',ActionLogDate='{logdate}' where ServerId='{_Fun.Config.ServerId}' and NeedId='{dt_tmp.Rows[0]["NeedId"].ToString()}' and ActionType=''");
+                            _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].APS_Simulation_ErrorData SET ActionType='2',ActionLogDate='{logdate}' where ServerId='{_Fun.Config.ServerId}' and NeedId='{dt_tmp.Rows[0]["NeedId"].ToString()}' and ActionType=''");
                         }
                         #endregion
 
@@ -3276,17 +2736,17 @@ namespace SoftNetWebII.Services
                             }
                             if (id != "")
                             {
-                                db.DB_SetData($"delete SoftNetSYSDB.[dbo].[APS_WorkingPaper] where Id in ({id})");
+                                _ = db.DB_SetData($"delete SoftNetSYSDB.[dbo].[APS_WorkingPaper] where Id in ({id})");
                             }
                         }
                         #endregion
 
                         #region 清除APS_WorkingPaper底稿 的 ArrivalDate 已過期
-                        db.DB_SetData($"delete SoftNetSYSDB.[dbo].[APS_WorkingPaper] where ServerId='{_Fun.Config.ServerId}' and IsOK='0' and WorkType!='2' and SendTime is NULL and ArrivalDate<='{logdate}'");
+                        _ = db.DB_SetData($"delete SoftNetSYSDB.[dbo].[APS_WorkingPaper] where ServerId='{_Fun.Config.ServerId}' and IsOK='0' and WorkType!='2' and SendTime is NULL and ArrivalDate<='{logdate}'");
                         #endregion
 
                         #region 清除 BarCode_TMP 已過期
-                        db.DB_SetData($"delete SoftNetMainDB.[dbo].[BarCode_TMP] where ServerId='{_Fun.Config.ServerId}' and CONVERT(varchar(100), FailTime, 111)<='{DateTime.Now.ToString("yyyy/MM/dd")}'");
+                        _ = db.DB_SetData($"delete SoftNetMainDB.[dbo].[BarCode_TMP] where ServerId='{_Fun.Config.ServerId}' and CONVERT(varchar(100), FailTime, 111)<='{DateTime.Now.ToString("yyyy/MM/dd")}'");
                         #endregion
                         _Fun._a01 = threadLoopTime.ElapsedMilliseconds;
                     }
@@ -3358,8 +2818,8 @@ namespace SoftNetWebII.Services
                                                                     #endregion
                                                                     if (_SFC_Common.Create_DOC4stock(db, d, mFNO, price, in_StoreNO, in_StoreSpacesNO, in_NO, detail_qty, "", "", "工單關閉後補單", docdate, docdate, "系統指派", ref docNumberNO))
                                                                     {
-                                                                        db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_Simulation] SET DOCNumberNO='{docNumberNO}' where SimulationId='{d["SimulationId"].ToString()}'");
-                                                                        db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] SET DOCNumberNO='{docNumberNO}' where SimulationId='{d["SimulationId"].ToString()}'");
+                                                                        _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_Simulation] SET DOCNumberNO='{docNumberNO}' where SimulationId='{d["SimulationId"].ToString()}'");
+                                                                        _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] SET DOCNumberNO='{docNumberNO}' where SimulationId='{d["SimulationId"].ToString()}'");
 
                                                                         DataRow tmp_up = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_Simulation] where NeedId='{d["NeedId"].ToString()}' and Master_PartNO='{d["PartNO"].ToString()}' and Apply_StationNO='{d["Source_StationNO"].ToString()}' and IndexSN='{d["Source_StationNO_IndexSN"].ToString()}'");
                                                                         DataRow tmp_down = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_Simulation] where NeedId='{d["NeedId"].ToString()}' and PartNO='{d["Master_PartNO"].ToString()}' and Source_StationNO='{d["Apply_StationNO"].ToString()}' and Source_StationNO_IndexSN='{d["IndexSN"].ToString()}' and PartSN<{d["PartSN"].ToString()} and (Class='4' or Class='5') order by PartSN desc");
@@ -3375,7 +2835,7 @@ namespace SoftNetWebII.Services
                                                                         sql = $@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WorkingPaper] (ServerId,[Id],[WorkType],[PartNO],[Class],[IsOK],[NeedId],[SimulationId],[UP_SimulationId],[Down_SimulationId],[NeedQTY],[Price],[Unit],[MFNO],[IN_StoreNO],[IN_StoreSpacesNO],[OUT_StoreNO],[OUT_StoreSpacesNO],[APS_StationNO],[APS_StationNO_SID],[StartTime],[ArrivalDate],[EndTime],[UpdateTime],DOCNumberNO)
                                                                             VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('P')}','2','{d["PartNO"].ToString()}','{d["Class"].ToString()}','0','{d["NeedId"].ToString()}','{d["SimulationId"].ToString()}','{tmp_up_SID}',{tmp_down_SID},{detail_qty},{price},'PCS','{mFNO}','{in_StoreNO}','{in_StoreSpacesNO}','','',
                                                                             {tmp_down_Source_StationNO},{tmp_down_SID},'{docdate}','{docdate}',NULL,'{logdate}','{docNumberNO}')";
-                                                                        db.DB_SetData(sql);
+                                                                        _ = db.DB_SetData(sql);
                                                                     }
                                                                     #endregion
                                                                 }
@@ -3472,7 +2932,7 @@ namespace SoftNetWebII.Services
                                                     }
                                                 }
                                             }
-                                            db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_WarningData] SET IsDEL='1' where Id='{d_Error["Id"].ToString()}'");
+                                            _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_WarningData] SET IsDEL='1' where Id='{d_Error["Id"].ToString()}'");
                                             #endregion
                                         }
                                         break;
@@ -3599,7 +3059,7 @@ namespace SoftNetWebII.Services
                                                                     {
                                                                         if (db.DB_SetData($"DELETE FROM SoftNetMainDB.[dbo].[ManufactureII] where Id='{d3["Id"].ToString()}'"))
                                                                         {
-                                                                            db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[NeedId],[SimulationId],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,OP_NO,IndexSN) VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{needId}','{d3["SimulationId"].ToString()}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','RUNTimeServer','智慧關站 系統主動干涉','{pP_Name}','{lastStation}','','{d_Error["DOCNumberNO"].ToString()}','系統指派',{d3["IndexSN"].ToString()})");
+                                                                            _ = db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[NeedId],[SimulationId],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,OP_NO,IndexSN) VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{needId}','{d3["SimulationId"].ToString()}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','RUNTimeServer','智慧關站 系統主動干涉','{pP_Name}','{lastStation}','','{d_Error["DOCNumberNO"].ToString()}','系統指派',{d3["IndexSN"].ToString()})");
                                                                             run_HasWeb_Id_Change.Add(d3["StationNO"].ToString());
                                                                         }
                                                                     }
@@ -3618,8 +3078,8 @@ namespace SoftNetWebII.Services
                                                                         }
                                                                         else
                                                                         {
-                                                                            db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[Manufacture] SET Label_ProjectType='0',OrderNO='',OP_NO='',Master_PP_Name='',PP_Name='',PartNO='',IndexSN=0,Station_Custom_IndexSN='',StationNO_Custom_DisplayName='',State='4' where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr_M["StationNO"].ToString()}'");
-                                                                            db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[NeedId],[SimulationId],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,OP_NO,IndexSN) VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{needId}','{dr_M["SimulationId"].ToString()}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','RUNTimeServer','智慧關站 系統主動干涉','{pP_Name}','{lastStation}','','{d_Error["DOCNumberNO"].ToString()}','系統指派',{dr_M["IndexSN"].ToString()})");
+                                                                            _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[Manufacture] SET Label_ProjectType='0',OrderNO='',OP_NO='',Master_PP_Name='',PP_Name='',PartNO='',IndexSN=0,Station_Custom_IndexSN='',StationNO_Custom_DisplayName='',State='4' where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr_M["StationNO"].ToString()}'");
+                                                                            _ = db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[NeedId],[SimulationId],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,OP_NO,IndexSN) VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{needId}','{dr_M["SimulationId"].ToString()}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','RUNTimeServer','智慧關站 系統主動干涉','{pP_Name}','{lastStation}','','{d_Error["DOCNumberNO"].ToString()}','系統指派',{dr_M["IndexSN"].ToString()})");
 
                                                                             #region 更新電子Tag
                                                                             if (dr_M["Config_macID"].ToString().Trim() != "")
@@ -3645,7 +3105,7 @@ namespace SoftNetWebII.Services
                                                                                     {
                                                                                         _Fun.Tag_Write(db, dr_M["Config_macID"].ToString(), "干涉關站", tmp_s);
                                                                                     }
-                                                                                    db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[LabelStateINFO] set ShowValue='{tmp_ShowValue}',Ledrgb='0',Ledstate=0,StationNO='{dr_M["StationNO"].ToString()}',Type='1',OrderNO='',IndexSN='',StoreNO='',StoreSpacesNO='',QTY=0,IsUpdate='{isUpdate}' where ServerId='{_Fun.Config.ServerId}' and macID='{dr_M["Config_macID"].ToString()}'");
+                                                                                    _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[LabelStateINFO] set ShowValue='{tmp_ShowValue}',Ledrgb='0',Ledstate=0,StationNO='{dr_M["StationNO"].ToString()}',Type='1',OrderNO='',IndexSN='',StoreNO='',StoreSpacesNO='',QTY=0,IsUpdate='{isUpdate}' where ServerId='{_Fun.Config.ServerId}' and macID='{dr_M["Config_macID"].ToString()}'");
                                                                                 }
                                                                             }
                                                                             #endregion
@@ -3735,7 +3195,7 @@ namespace SoftNetWebII.Services
                                                                     }
                                                                 }
                                                             }
-                                                            db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_WarningData] SET IsDEL='1' where Id='{d_Error["Id"].ToString()}'");
+                                                            _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_WarningData] SET IsDEL='1' where Id='{d_Error["Id"].ToString()}'");
                                                             #endregion
 
                                                             bool isLastStation = true;
@@ -3772,16 +3232,16 @@ namespace SoftNetWebII.Services
                                                                                             #region 查找適合庫儲別
                                                                                             _SFC_Common.SelectINStore(db, d["PartNO"].ToString(), ref in_StoreNO, ref in_StoreSpacesNO, "BC01");
                                                                                             #endregion
-                                                                                            _SFC_Common.Create_DOC3stock(db, d, "", "", in_StoreNO, in_StoreSpacesNO, "BC01", qty, "", "", "工站移轉加工品餘料入庫", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "ChangeStatus;TagResult_EnterKeyController", ref tmp_no, "系統指派");
+                                                                                            _ = _SFC_Common.Create_DOC3stock(db, d, "", "", in_StoreNO, in_StoreSpacesNO, "BC01", qty, "", "", "工站移轉加工品餘料入庫", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "ChangeStatus;TagResult_EnterKeyController", ref tmp_no, "系統指派");
                                                                                         }
                                                                                         else
                                                                                         {
                                                                                             in_StoreNO = tmp["StoreNO"].ToString();
                                                                                             in_StoreSpacesNO = tmp["StoreSpacesNO"].ToString();
-                                                                                            _SFC_Common.Create_DOC3stock(db, d, "", "", in_StoreNO, in_StoreSpacesNO, "BC01", qty, "", "", "工站移轉加工品餘料入庫", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "ChangeStatus;TagResult_EnterKeyController", ref tmp_no, "系統指派");
+                                                                                            _ = _SFC_Common.Create_DOC3stock(db, d, "", "", in_StoreNO, in_StoreSpacesNO, "BC01", qty, "", "", "工站移轉加工品餘料入庫", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "ChangeStatus;TagResult_EnterKeyController", ref tmp_no, "系統指派");
                                                                                         }
                                                                                         sql = $"UPDATE SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] SET Store_DOCNumberNO='{tmp_no}',Next_StoreQTY+={qty} where SimulationId='{d["SimulationId"].ToString()}'";
-                                                                                        db.DB_SetData(sql);
+                                                                                        _ = db.DB_SetData(sql);
                                                                                         #endregion
                                                                                     }
                                                                                 }
@@ -3819,18 +3279,18 @@ namespace SoftNetWebII.Services
                                                                                     {
                                                                                         if ((int.Parse(d2["QTY"].ToString()) - useQYU) > 0)
                                                                                         {
-                                                                                            _SFC_Common.Create_DOC3stock(db, d, "", "", d2["OUT_StoreNO"].ToString(), d2["OUT_StoreSpacesNO"].ToString(), "EB01", useQYU, "", d2["Id"].ToString(), $"工單結束退回入庫", Convert.ToDateTime(d2["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "ChangeStatus;TagResult_EnterKeyController", ref docNumberNO, "系統指派");
+                                                                                            _ = _SFC_Common.Create_DOC3stock(db, d, "", "", d2["OUT_StoreNO"].ToString(), d2["OUT_StoreSpacesNO"].ToString(), "EB01", useQYU, "", d2["Id"].ToString(), $"工單結束退回入庫", Convert.ToDateTime(d2["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "ChangeStatus;TagResult_EnterKeyController", ref docNumberNO, "系統指派");
                                                                                             break;
                                                                                         }
                                                                                         else
                                                                                         {
-                                                                                            _SFC_Common.Create_DOC3stock(db, d, "", "", d2["OUT_StoreNO"].ToString(), d2["OUT_StoreSpacesNO"].ToString(), "EB01", int.Parse(d2["QTY"].ToString()), "", d2["Id"].ToString(), $"工單結束退回入庫", Convert.ToDateTime(d2["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "ChangeStatus;TagResult_EnterKeyController", ref docNumberNO, "系統指派");
+                                                                                            _ = _SFC_Common.Create_DOC3stock(db, d, "", "", d2["OUT_StoreNO"].ToString(), d2["OUT_StoreSpacesNO"].ToString(), "EB01", int.Parse(d2["QTY"].ToString()), "", d2["Id"].ToString(), $"工單結束退回入庫", Convert.ToDateTime(d2["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "ChangeStatus;TagResult_EnterKeyController", ref docNumberNO, "系統指派");
                                                                                             useQYU -= int.Parse(d2["QTY"].ToString());
                                                                                             if (useQYU <= 0) { break; }
                                                                                         }
                                                                                     }
                                                                                     sql = $"UPDATE SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] SET Store_DOCNumberNO='{docNumberNO}',Next_StoreQTY+={wQTY} where SimulationId='{d["SimulationId"].ToString()}'";
-                                                                                    db.DB_SetData(sql);
+                                                                                    _ = db.DB_SetData(sql);
                                                                                 }
                                                                             }
                                                                         }
@@ -3867,17 +3327,17 @@ namespace SoftNetWebII.Services
                                                                                             #region 查找適合庫儲別
                                                                                             _SFC_Common.SelectINStore(db, d["PartNO"].ToString(), ref in_StoreNO, ref in_StoreSpacesNO, "BC01");
                                                                                             #endregion
-                                                                                            _SFC_Common.Create_DOC3stock(db, d, "", "", in_StoreNO, in_StoreSpacesNO, "BC01", qty, "", "", "工站移轉加工品餘料入庫", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "RUNTimeServer;SfcTimerloopthread_Tick", ref tmp_no, "系統指派");
+                                                                                            _ = _SFC_Common.Create_DOC3stock(db, d, "", "", in_StoreNO, in_StoreSpacesNO, "BC01", qty, "", "", "工站移轉加工品餘料入庫", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "RUNTimeServer;SfcTimerloopthread_Tick", ref tmp_no, "系統指派");
 
                                                                                         }
                                                                                         else
                                                                                         {
                                                                                             in_StoreNO = tmp["StoreNO"].ToString();
                                                                                             in_StoreSpacesNO = tmp["StoreSpacesNO"].ToString();
-                                                                                            _SFC_Common.Create_DOC3stock(db, d, "", "", in_StoreNO, in_StoreSpacesNO, "BC01", qty, "", "", "工站移轉加工品餘料入庫", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "RUNTimeServer;SfcTimerloopthread_Tick", ref tmp_no, "系統指派");
+                                                                                            _ = _SFC_Common.Create_DOC3stock(db, d, "", "", in_StoreNO, in_StoreSpacesNO, "BC01", qty, "", "", "工站移轉加工品餘料入庫", Convert.ToDateTime(d["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "RUNTimeServer;SfcTimerloopthread_Tick", ref tmp_no, "系統指派");
                                                                                         }
                                                                                         sql = $"UPDATE SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] SET Store_DOCNumberNO='{tmp_no}',Next_StoreQTY+={qty} where SimulationId='{d["SimulationId"].ToString()}'";
-                                                                                        db.DB_SetData(sql);
+                                                                                        _ = db.DB_SetData(sql);
                                                                                     }
                                                                                     #endregion
                                                                                 }
@@ -3916,17 +3376,17 @@ namespace SoftNetWebII.Services
                                                                                             if ((int.Parse(d2["QTY"].ToString()) - useQYU) > 0)
                                                                                             {
                                                                                                 if (!bool.Parse(d2["IsOK"].ToString()))
-                                                                                                { db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC3stockII] SET QTY-={useQYU.ToString()} where Id='{d2["Id"].ToString()}' and DOCNumberNO='{d2["DOCNumberNO"].ToString()}'"); }
+                                                                                                { _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC3stockII] SET QTY-={useQYU.ToString()} where Id='{d2["Id"].ToString()}' and DOCNumberNO='{d2["DOCNumberNO"].ToString()}'"); }
                                                                                                 else
-                                                                                                { _SFC_Common.Create_DOC3stock(db, d, "", "", d2["OUT_StoreNO"].ToString(), d2["OUT_StoreSpacesNO"].ToString(), "EB01", useQYU, "", d2["Id"].ToString(), $"生產結束餘料退回入庫", Convert.ToDateTime(d2["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "RUNTimeServer;SfcTimerloopthread_Tick", ref docNumberNO, "系統指派"); }
+                                                                                                { _ = _SFC_Common.Create_DOC3stock(db, d, "", "", d2["OUT_StoreNO"].ToString(), d2["OUT_StoreSpacesNO"].ToString(), "EB01", useQYU, "", d2["Id"].ToString(), $"生產結束餘料退回入庫", Convert.ToDateTime(d2["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "RUNTimeServer;SfcTimerloopthread_Tick", ref docNumberNO, "系統指派"); }
                                                                                                 break;
                                                                                             }
                                                                                             else
                                                                                             {
                                                                                                 if (!bool.Parse(d2["IsOK"].ToString()))
-                                                                                                { db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC3stockII] SET QTY=0,Remark='生產結束清除用量' where Id='{d2["Id"].ToString()}' and DOCNumberNO='{d2["DOCNumberNO"].ToString()}'"); }
+                                                                                                { _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC3stockII] SET QTY=0,Remark='生產結束清除用量' where Id='{d2["Id"].ToString()}' and DOCNumberNO='{d2["DOCNumberNO"].ToString()}'"); }
                                                                                                 else
-                                                                                                { _SFC_Common.Create_DOC3stock(db, d, "", "", d2["OUT_StoreNO"].ToString(), d2["OUT_StoreSpacesNO"].ToString(), "EB01", int.Parse(d2["QTY"].ToString()), "", d2["Id"].ToString(), $"生產結束餘料退回入庫", Convert.ToDateTime(d2["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "RUNTimeServer;SfcTimerloopthread_Tick", ref docNumberNO, "系統指派"); }
+                                                                                                { _ = _SFC_Common.Create_DOC3stock(db, d, "", "", d2["OUT_StoreNO"].ToString(), d2["OUT_StoreSpacesNO"].ToString(), "EB01", int.Parse(d2["QTY"].ToString()), "", d2["Id"].ToString(), $"生產結束餘料退回入庫", Convert.ToDateTime(d2["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "RUNTimeServer;SfcTimerloopthread_Tick", ref docNumberNO, "系統指派"); }
                                                                                                 useQYU -= int.Parse(d2["QTY"].ToString());
                                                                                                 if (useQYU <= 0) { break; }
                                                                                             }
@@ -3957,15 +3417,15 @@ namespace SoftNetWebII.Services
                                                                     //{
                                                                     if (needId != "" && status == "5")
                                                                     {
-                                                                        _CloseWO(dr_M["OP_NO"].ToString());
+                                                                        CloseWO(dr_M["OP_NO"].ToString());
 
-                                                                        db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_WorkTimeNote] set Time1_C=0,Time2_C=0,Time3_C=0,Time4_C=0 where NeedId='{needId}'");
-                                                                        db.DB_SetData($"DELETE FROM SoftNetMainDB.[dbo].[TotalStockII] where NeedId='{needId}'");
-                                                                        db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_Simulation] SET IsOK='1' where NeedId='{needId}'");
-                                                                        db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_WarningData] SET IsDEL='1' where Id='{d_Error["Id"].ToString()}'");
-                                                                        db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].APS_Simulation_ErrorData SET ActionType='0',ActionLogDate='{logdate}' where ServerId='{_Fun.Config.ServerId}' and DOCNumberNO='{d_Error["DOCNumberNO"].ToString()}' and ErrorType='12'");
+                                                                        _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_WorkTimeNote] set Time1_C=0,Time2_C=0,Time3_C=0,Time4_C=0 where NeedId='{needId}'");
+                                                                        _ = db.DB_SetData($"DELETE FROM SoftNetMainDB.[dbo].[TotalStockII] where NeedId='{needId}'");
+                                                                        _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_Simulation] SET IsOK='1' where NeedId='{needId}'");
+                                                                        _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_WarningData] SET IsDEL='1' where Id='{d_Error["Id"].ToString()}'");
+                                                                        _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].APS_Simulation_ErrorData SET ActionType='0',ActionLogDate='{logdate}' where ServerId='{_Fun.Config.ServerId}' and DOCNumberNO='{d_Error["DOCNumberNO"].ToString()}' and ErrorType='12'");
                                                                         MailBody = $"{MailBody}<p>系統將 {d_Error["DOCNumberNO"].ToString()} 工單 除了退入庫單據之外,已自動結案</p>";
-                                                                        db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime,NeedId) VALUES ('已將排程編號:{needId} 工單:{d_Error["DOCNumberNO"].ToString()} 除了退入庫單據之外的工作,已自動結案','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{needId}')");
+                                                                        _ = db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime,NeedId) VALUES ('已將排程編號:{needId} 工單:{d_Error["DOCNumberNO"].ToString()} 除了退入庫單據之外的工作,已自動結案','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{needId}')");
 
                                                                         DataTable dt_ManufactureII = db.DB_GetData($"SELECT * from SoftNetSYSDB.[dbo].[APS_Simulation] where NeedId='{needId}'");
                                                                         if (dt_ManufactureII != null && dt_ManufactureII.Rows.Count > 0)
@@ -3978,7 +3438,7 @@ namespace SoftNetWebII.Services
                                                                             }
                                                                             if (ii_ID != "")
                                                                             {
-                                                                                db.DB_SetData($"DELETE FROM SoftNetMainDB.[dbo].[ManufactureII] where SimulationId in ({ii_ID})");
+                                                                                _ = db.DB_SetData($"DELETE FROM SoftNetMainDB.[dbo].[ManufactureII] where SimulationId in ({ii_ID})");
                                                                             }
                                                                         }
 
@@ -4067,8 +3527,8 @@ namespace SoftNetWebII.Services
                                                         comp = dr_tmp["Shift_Morning"].ToString().Trim().Split(',');
                                                         intime = new DateTime(intime.Year, intime.Month, intime.Day, int.Parse(comp[3].Split(':')[0]), int.Parse(comp[3].Split(':')[1]), 0).AddDays(1);
                                                     }
-                                                    db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_WarningData] SET WarningDate='{intime.ToString("yyyy-MM-dd HH:mm:ss.fff")}' where Id='{d_Error["Id"].ToString()}'");
-                                                    db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime,NeedId) VALUES ('排程編號:{needId} 工單:{d_Error["DOCNumberNO"].ToString()}應該可以結案,但發現尚有工作未完成, 預計 {intime.ToString("yyyy-MM-dd HH:mm:ss.fff")} 後再檢查是否可結案','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{needId}')");
+                                                    _ = db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_WarningData] SET WarningDate='{intime.ToString("yyyy-MM-dd HH:mm:ss.fff")}' where Id='{d_Error["Id"].ToString()}'");
+                                                    _ = db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime,NeedId) VALUES ('排程編號:{needId} 工單:{d_Error["DOCNumberNO"].ToString()}應該可以結案,但發現尚有工作未完成, 預計 {intime.ToString("yyyy-MM-dd HH:mm:ss.fff")} 後再檢查是否可結案','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{needId}')");
 
                                                 }
                                                 #endregion
@@ -4110,20 +3570,20 @@ namespace SoftNetWebII.Services
                                                                     logTime = Convert.ToDateTime(dr_stop["LOGDateTime"]);
                                                                 }
                                                                 wedate = logTime.ToString("MM/dd/yyyy HH:mm:ss");
-                                                                db.DB_SetData($"update SoftNetMainDB.[dbo].[ManufactureII] set RemarkTimeE='{wedate}' where Id='{d2["Id"].ToString()}'");
+                                                                _ = db.DB_SetData($"update SoftNetMainDB.[dbo].[ManufactureII] set RemarkTimeE='{wedate}' where Id='{d2["Id"].ToString()}'");
                                                             }
                                                             else
                                                             {
                                                                 wedate = logdate;
-                                                                db.DB_SetData($"update SoftNetMainDB.[dbo].[ManufactureII] set RemarkTimeE='{logdate}' where Id='{d2["Id"].ToString()}'");
+                                                                _ = db.DB_SetData($"update SoftNetMainDB.[dbo].[ManufactureII] set RemarkTimeE='{logdate}' where Id='{d2["Id"].ToString()}'");
                                                             }
 
-                                                            db.DB_SetData($@"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[NeedId],[SimulationId],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,OP_NO,IndexSN) VALUES 
+                                                            _ = db.DB_SetData($@"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[NeedId],[SimulationId],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,OP_NO,IndexSN) VALUES 
                                                                 ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{d_Error["NeedId"].ToString()}','{d2["SimulationId"].ToString()}','{wedate}','RUNTimeServer','干涉停工','{d2["PP_Name"].ToString()}','{d_Error["StationNO"].ToString()}','{d2["PartNO"].ToString()}','{d2["OrderNO"].ToString()}','',{d2["IndexSN"].ToString()})");
                                                             station_List = $"{station_List} {d_Error["StationNO"].ToString()}";
                                                             MailBody = $"{MailBody}<p>非工作時間已強制設定停工,  工站:{d_Error["StationNO"].ToString()}  工序編號:{d2["IndexSN"].ToString()} 製程:{d2["PP_Name"].ToString()}  料號:{d2["PartNO"].ToString()}</p>";
                                                             #region 通知網頁更新
-                                                            SendWebSocketClent_INFO($"SendALLClient,StationStateChangEvent,8,{d2["Id"].ToString()},2");
+                                                            _ = SendWebSocketClent_INFO($"SendALLClient,StationStateChangEvent,8,{d2["Id"].ToString()},2");
                                                             //if (WebSocketServiceOJB != null)
                                                             //{
                                                             //    lock (WebSocketServiceOJB.lock__WebSocketList)
@@ -4169,7 +3629,7 @@ namespace SoftNetWebII.Services
                                                                     if (meg == "")
                                                                     {
                                                                         //###??? 這裡要是, 標籤是否換燈
-                                                                        db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[LabelStateINFO] set Ledrgb='{ledrgb}',Ledstate=0 where ServerId='{_Fun.Config.ServerId}' and macID='{dr_M["Config_macID"].ToString()}'");
+                                                                        _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[LabelStateINFO] set Ledrgb='{ledrgb}',Ledstate=0 where ServerId='{_Fun.Config.ServerId}' and macID='{dr_M["Config_macID"].ToString()}'");
                                                                     }
                                                                 }
                                                                 if (meg == "")
@@ -4184,10 +3644,10 @@ namespace SoftNetWebII.Services
                                                 }
                                                 if (station_List != "")
                                                 {
-                                                    db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime,NeedId,SimulationId) VALUES ('判定為非工作時間,系統主動停止生產下列工站 {station_List}','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{d_Error["NeedId"].ToString()}','{d_Error["SimulationId"].ToString()}')");
+                                                    _ = db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime,NeedId,SimulationId) VALUES ('判定為非工作時間,系統主動停止生產下列工站 {station_List}','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{d_Error["NeedId"].ToString()}','{d_Error["SimulationId"].ToString()}')");
                                                 }
                                             }
-                                            db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_WarningData] SET IsDEL='1' where Id='{d_Error["Id"].ToString()}'");
+                                            _ = db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_WarningData] SET IsDEL='1' where Id='{d_Error["Id"].ToString()}'");
                                         }
                                         break;
                                     case "19"://工站延後產出時間
@@ -4216,7 +3676,7 @@ namespace SoftNetWebII.Services
                             //{
                             foreach (string sno in run_HasWeb_Id_Change)
                             {
-                                SendWebSocketClent_INFO($"SendALLClient,HasWeb_Id_Change,STView2Work_PageReload,{sno}");
+                                _ = SendWebSocketClent_INFO($"SendALLClient,HasWeb_Id_Change,STView2Work_PageReload,{sno}");
                                 //#region 通知網頁更新
                                 //try
                                 //{
@@ -4288,7 +3748,7 @@ namespace SoftNetWebII.Services
                                                     dr_tmp = db.DB_GetFirstDataByDataRow($"select * from SoftNetMainDB.[dbo].[Material] where ServerId='{_Fun.Config.ServerId}' and PartNO='{d_Paper["PartNO"].ToString()}'");
                                                     MailBody = $"{MailBody}<p>採購單: {docNumberNO} 料號:{d_Paper["PartNO"].ToString()} 品名:{dr_tmp["PartName"].ToString()} 規格:{dr_tmp["Specification"].ToString()} 數量:{d_Paper["NeedQTY"].ToString()} 單價:{d_Paper["Price"].ToString()} 供應商:{tmp_MFNO}</p>";
                                                     id_AGE = $"{id_AGE};{d_Paper["Id"].ToString()}";
-                                                    db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_WorkingPaper] SET MFNO='{tmp_MFNO}',DOCNumberNO='{docNumberNO}'{writesql} where ServerId='{_Fun.Config.ServerId}' and Id='{d_Paper["Id"].ToString()}'");
+                                                    _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_WorkingPaper] SET MFNO='{tmp_MFNO}',DOCNumberNO='{docNumberNO}'{writesql} where ServerId='{_Fun.Config.ServerId}' and Id='{d_Paper["Id"].ToString()}'");
                                                 }
                                             }
                                         }
@@ -4325,7 +3785,7 @@ namespace SoftNetWebII.Services
                                                                 {
                                                                     tmp = db.DB_GetFirstDataByDataRow($"select * from SoftNetMainDB.[dbo].[DOC4ProductionII] where SimulationId='{d_Paper["SimulationId"].ToString()}' and IsOK='0' and SUBSTRING(DOCNumberNO,1,4)='{in_NO}' order by ArrivalDate");
                                                                     if (tmp != null)
-                                                                    { db.DB_SetData($"update SoftNetMainDB.[dbo].[DOC4ProductionII] set  QTY+={(shortQTY - editQTY).ToString()} where Id='{tmp["Id"].ToString()}'"); }
+                                                                    { _ = db.DB_SetData($"update SoftNetMainDB.[dbo].[DOC4ProductionII] set  QTY+={(shortQTY - editQTY).ToString()} where Id='{tmp["Id"].ToString()}'"); }
                                                                 }
                                                                 else
                                                                 {
@@ -4339,13 +3799,13 @@ namespace SoftNetWebII.Services
                                                                             {
                                                                                 if (int.Parse(d2["QTY"].ToString()) > tmp_i)
                                                                                 {
-                                                                                    db.DB_SetData($"update SoftNetMainDB.[dbo].[DOC4ProductionII] set  QTY-={tmp_i.ToString()} where Id='{d2["Id"].ToString()}'");
+                                                                                    _ = db.DB_SetData($"update SoftNetMainDB.[dbo].[DOC4ProductionII] set  QTY-={tmp_i.ToString()} where Id='{d2["Id"].ToString()}'");
                                                                                     break;
                                                                                 }
                                                                                 else
                                                                                 {
                                                                                     tmp_i -= int.Parse(d2["QTY"].ToString());
-                                                                                    db.DB_SetData($"delete from SoftNetMainDB.[dbo].[DOC4ProductionII] where Id='{d2["Id"].ToString()}'");
+                                                                                    _ = db.DB_SetData($"delete from SoftNetMainDB.[dbo].[DOC4ProductionII] where Id='{d2["Id"].ToString()}'");
                                                                                 }
                                                                             }
                                                                         }
@@ -4361,7 +3821,7 @@ namespace SoftNetWebII.Services
                                                     dr_tmp = db.DB_GetFirstDataByDataRow($"select * from SoftNetMainDB.[dbo].[Material] where ServerId='{_Fun.Config.ServerId}' and PartNO='{d_Paper["PartNO"].ToString()}'");
                                                     MailBody = $"{MailBody}<p>委外加工單: {docNumberNO} 料號:{d_Paper["PartNO"].ToString()} 品名:{dr_tmp["PartName"].ToString()} 規格:{dr_tmp["Specification"].ToString()} 計畫數量:{d_Paper["NeedQTY"].ToString()} 實際可發量:{shortQTY.ToString()} 單價:{d_Paper["Price"].ToString()} 供應商:{tmp_MFNO}</p>";
                                                     id_AGE = $"{id_AGE};{d_Paper["Id"].ToString()}";
-                                                    db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_WorkingPaper] SET MFNO='{tmp_MFNO}',DOCNumberNO='{docNumberNO}'{writesql} where ServerId='{_Fun.Config.ServerId}' and Id='{d_Paper["Id"].ToString()}'");
+                                                    _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_WorkingPaper] SET MFNO='{tmp_MFNO}',DOCNumberNO='{docNumberNO}'{writesql} where ServerId='{_Fun.Config.ServerId}' and Id='{d_Paper["Id"].ToString()}'");
                                                 }
                                             }
                                         }
@@ -4383,11 +3843,11 @@ namespace SoftNetWebII.Services
                                                     id_AGE = $"{id_AGE};{d_Paper["Id"].ToString()}";
                                                     if (!_Fun.Config.Default_WorkingPaper_AGE01)
                                                     {
-                                                        db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_WorkingPaper] SET IsOK='2',SendTime='{DateTime.Now.AddMinutes(_Fun.Config.Default_WorkingPaper_AGE02).ToString("MM/dd/yyyy HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and Id='{d_Paper["Id"].ToString()}'");
+                                                        _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_WorkingPaper] SET IsOK='2',SendTime='{DateTime.Now.AddMinutes(_Fun.Config.Default_WorkingPaper_AGE02).ToString("MM/dd/yyyy HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and Id='{d_Paper["Id"].ToString()}'");
                                                     }
                                                     else
                                                     {
-                                                        db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_WorkingPaper] SET IsOK='1'{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")} where ServerId='{_Fun.Config.ServerId}' and Id='{d_Paper["Id"].ToString()}'");
+                                                        _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_WorkingPaper] SET IsOK='1'{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")} where ServerId='{_Fun.Config.ServerId}' and Id='{d_Paper["Id"].ToString()}'");
                                                     }
                                                 }
                                             }
@@ -4402,7 +3862,7 @@ namespace SoftNetWebII.Services
                                 else
                                 { MailBody = $"<form action='http://{_Fun.Config.LocalWebURL}/WorkingPaper/MailAutoAction/{id_AGE}'>{MailBody}<hr />系統將於{_Fun.Config.Default_WorkingPaper_AGE02.ToString()}分鐘後,自動發出正式單據<hr /></form>"; }
                                 _Fun.Mail_Send(_Fun.Config.SendMonitorMail00.Split(',')[0].Split(';'), _Fun.Config.SendMonitorMail00.Split(',')[1].Split(';'), MailSub, MailBody, null, false);
-                                db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime) VALUES ('工作底稿準備主動干涉作業, 明細已Mail發出','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}')");
+                                _ = db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime) VALUES ('工作底稿準備主動干涉作業, 明細已Mail發出','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}')");
                             }
                             #region 通知網頁更新
                             //try
@@ -4472,11 +3932,11 @@ namespace SoftNetWebII.Services
                                                     dr_tmp = db.DB_GetFirstDataByDataRow($"select * from SoftNetMainDB.[dbo].[Material] where ServerId='{_Fun.Config.ServerId}' and PartNO='{d_Paper["PartNO"].ToString()}'");
                                                     MailBody3 = $@"{MailBody3}<tr><th>{d2["DOCNumberNO"].ToString()}</th><th>{d2["PartNO"].ToString()}</th><th>{dr_tmp["PartName"].ToString()}</th><th>{dr_tmp["Specification"].ToString()}</th>
                                                                     <th>{d2["QTY"].ToString()}</th><th>{d2["Unit"].ToString()}</th><th>{d2["Price"].ToString()}</th><th>{d2["ArrivalDate"].ToString()}</th><th>{d2["SimulationId"].ToString()}</th></tr>";
-                                                    db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC1BuyII] set StartTime='{logdate}' where Id='{d2["Id"].ToString()}' and DOCNumberNO='{d_Paper["DOCNumberNO"].ToString()}'");
+                                                    _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC1BuyII] set StartTime='{logdate}' where Id='{d2["Id"].ToString()}' and DOCNumberNO='{d_Paper["DOCNumberNO"].ToString()}'");
 
                                                 }
                                             }
-                                            db.DB_SetData($"delete SoftNetSYSDB.[dbo].[APS_WorkingPaper] where ServerId='{_Fun.Config.ServerId}' and Id='{d_Paper["Id"].ToString()}'");
+                                            _ = db.DB_SetData($"delete SoftNetSYSDB.[dbo].[APS_WorkingPaper] where ServerId='{_Fun.Config.ServerId}' and Id='{d_Paper["Id"].ToString()}'");
                                         }
                                         break;
                                     case "2"://排程委外
@@ -4504,16 +3964,16 @@ namespace SoftNetWebII.Services
                                                         dr_tmp = db.DB_GetFirstDataByDataRow($"select * from SoftNetMainDB.[dbo].[Material] where ServerId='{_Fun.Config.ServerId}' and PartNO='{d_Paper["PartNO"].ToString()}'");
                                                         MailBody2 = $@"{MailBody2}<tr><th>{d2["DOCNumberNO"].ToString()}</th><th>{d2["Id"].ToString()}</th><th>{d2["PartNO"].ToString()}</th><th>{dr_tmp["PartName"].ToString()}</th><th>{dr_tmp["Specification"].ToString()}</th>
                                                                     <th>{d2["QTY"].ToString()}</th><th>{d2["Unit"].ToString()}</th><th>{d2["Price"].ToString()}</th><th>{d2["ArrivalDate"].ToString()}</th><th>{d2["SimulationId"].ToString()}</th></tr>";
-                                                        db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC4ProductionII] set StartTime='{logdate}' where Id='{d2["Id"].ToString()}' and DOCNumberNO='{d2["DOCNumberNO"].ToString()}'");
+                                                        _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC4ProductionII] set StartTime='{logdate}' where Id='{d2["Id"].ToString()}' and DOCNumberNO='{d2["DOCNumberNO"].ToString()}'");
                                                         if (!d_Paper.IsNull("UP_SimulationId") && d_Paper["UP_SimulationId"].ToString() != "")
                                                         {
                                                             dr_tmp = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where NeedId='{d_Paper["NeedId"].ToString()}' and SimulationId='{d_Paper["SimulationId"].ToString()}'");
-                                                            db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] set Next_APS_StationNO='{dr_tmp["APS_StationNO"].ToString()}',Next_StationQTY+={d2["QTY"].ToString()} where NeedId='{d_Paper["NeedId"].ToString()}' and SimulationId='{d_Paper["UP_SimulationId"].ToString()}'");
+                                                            _ = db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] set Next_APS_StationNO='{dr_tmp["APS_StationNO"].ToString()}',Next_StationQTY+={d2["QTY"].ToString()} where NeedId='{d_Paper["NeedId"].ToString()}' and SimulationId='{d_Paper["UP_SimulationId"].ToString()}'");
                                                         }
                                                     }
                                                 }
                                             }
-                                            db.DB_SetData($"delete SoftNetSYSDB.[dbo].[APS_WorkingPaper] where ServerId='{_Fun.Config.ServerId}' and Id='{d_Paper["Id"].ToString()}'");
+                                            _ = db.DB_SetData($"delete SoftNetSYSDB.[dbo].[APS_WorkingPaper] where ServerId='{_Fun.Config.ServerId}' and Id='{d_Paper["Id"].ToString()}'");
                                         }
                                         break;
                                     case "4"://廠內生產
@@ -4536,7 +3996,7 @@ namespace SoftNetWebII.Services
                                                     MailSub4 = $"{_Fun.Config.ServerId} 補足安全存貨工單, 已自動轉廠內生產排程, 內容如下.";
                                                     dr_tmp = db.DB_GetFirstDataByDataRow($"select * from SoftNetMainDB.[dbo].[Material] where ServerId='{_Fun.Config.ServerId}' and PartNO='{d_Paper["PartNO"].ToString()}'");
                                                     MailBody4 = $"{MailBody4}<p>計畫碼:{needID}  料號:{d_Paper["PartNO"].ToString()} 品名:{dr_tmp["PartName"].ToString()} 規格:{dr_tmp["Specification"].ToString()} 數量:{d_Paper["NeedQTY"].ToString()}</p>";
-                                                    db.DB_SetData($"delete SoftNetSYSDB.[dbo].[APS_WorkingPaper] where ServerId='{_Fun.Config.ServerId}' and Id='{d_Paper["Id"].ToString()}'");
+                                                    _ = db.DB_SetData($"delete SoftNetSYSDB.[dbo].[APS_WorkingPaper] where ServerId='{_Fun.Config.ServerId}' and Id='{d_Paper["Id"].ToString()}'");
                                                 }
                                             }
                                         }
@@ -4549,7 +4009,7 @@ namespace SoftNetWebII.Services
                             if (MailBody2 != "") { _Fun.Mail_Send(_Fun.Config.SendMonitorMail00.Split(',')[0].Split(';'), _Fun.Config.SendMonitorMail00.Split(',')[1].Split(';'), MailSub2, MailBody2, null, false); isw = true; }
                             if (isw)
                             {
-                                db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime) VALUES ('工作底稿主動干涉, 作業明細已Mail發出','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}')");
+                                _ = db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime) VALUES ('工作底稿主動干涉, 作業明細已Mail發出','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}')");
                             }
                             if (needID_data.Count > 0)
                             {
@@ -4617,7 +4077,7 @@ namespace SoftNetWebII.Services
                                                     dr_tmp = db.DB_GetFirstDataByDataRow($"select * from SoftNetMainDB.[dbo].[Store] where ServerId='{_Fun.Config.ServerId}' and StoreNO='{d["IN_StoreNO"].ToString()}'");
                                                     if (dr_tmp != null)
                                                     {
-                                                        db.DB_SetData($"INSERT INTO SoftNetMainDB.[dbo].[TotalStock] (Class,ServerId,[Id],[StoreNO],[StoreSpacesNO],[PartNO],[QTY]) VALUES ('{dr_tmp["Class"].ToString()}','{_Fun.Config.ServerId}','{_Str.NewId('Z')}','{d["IN_StoreNO"].ToString()}','{d["IN_StoreSpacesNO"].ToString()}','{d["PartNO"].ToString()}',0)");
+                                                        _ = db.DB_SetData($"INSERT INTO SoftNetMainDB.[dbo].[TotalStock] (Class,ServerId,[Id],[StoreNO],[StoreSpacesNO],[PartNO],[QTY]) VALUES ('{dr_tmp["Class"].ToString()}','{_Fun.Config.ServerId}','{_Str.NewId('Z')}','{d["IN_StoreNO"].ToString()}','{d["IN_StoreSpacesNO"].ToString()}','{d["PartNO"].ToString()}',0)");
                                                     }
                                                 }
                                             }
@@ -4628,9 +4088,9 @@ namespace SoftNetWebII.Services
                                                 startTime = $"'{Convert.ToDateTime(d["ArrivalDate"]).ToString("yyyy/MM/dd HH:mm:ss.fff")}'";
                                                 ct = _SFC_Common.TimeCompute2Seconds_BY_Calendar(db, _Fun.Config.DefaultCalendarName, Convert.ToDateTime(d["StartTime"]), DateTime.Now);
                                             }
-                                            db.DB_SetData($@"INSERT INTO [dbo].[DOC3stockII] (ServerId,[Id],[DOCNumberNO],[PartNO],[Price],[Unit],[QTY],[Remark],[SimulationId],[IsOK],[IN_StoreNO],[IN_StoreSpacesNO],[OUT_StoreNO],[OUT_StoreSpacesNO],StartTime,ArrivalDate,CT) VALUES 
+                                            _ = db.DB_SetData($@"INSERT INTO [dbo].[DOC3stockII] (ServerId,[Id],[DOCNumberNO],[PartNO],[Price],[Unit],[QTY],[Remark],[SimulationId],[IsOK],[IN_StoreNO],[IN_StoreSpacesNO],[OUT_StoreNO],[OUT_StoreSpacesNO],StartTime,ArrivalDate,CT) VALUES 
                                                         ('{_Fun.Config.ServerId}','{_Str.NewId('Z')}','{d["DOCNumberNO"].ToString()}','{d["PartNO"].ToString()}',0,'PCS',{IsOKQTY},'{d["Remark"].ToString()}','{d["SimulationId"].ToString()}','1','{d["IN_StoreNO"].ToString()}','{d["IN_StoreSpacesNO"].ToString()}','{d["OUT_StoreNO"].ToString()}','{d["OUT_StoreSpacesNO"].ToString()}',{startTime},'{Convert.ToDateTime(d["ArrivalDate"]).ToString("yyyy/MM/dd HH:mm:ss.fff")}',{ct.ToString()})");
-                                            db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC3stockII] set QTY={(int.Parse(d["QTY"].ToString()) - IsOKQTY).ToString()} where Id='{d["Id"].ToString()}' and DOCNumberNO='{d["DOCNumberNO"].ToString()}'");
+                                            _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC3stockII] set QTY={(int.Parse(d["QTY"].ToString()) - IsOKQTY).ToString()} where Id='{d["Id"].ToString()}' and DOCNumberNO='{d["DOCNumberNO"].ToString()}'");
                                         }
                                         else
                                         {
@@ -4638,20 +4098,20 @@ namespace SoftNetWebII.Services
                                             DataRow dr_tmp_DOC3 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetMainDB.[dbo].[DOC3stockII] where SimulationId='{d["SimulationId"].ToString()}' and DOCNumberNO='{d["DOCNumberNO"].ToString()}' and PartNO='{d["PartNO"].ToString()}' and IsOK='1' order by StartTime desc");
                                             if (dr_tmp_DOC3 != null && !dr_tmp_DOC3.IsNull("StartTime")) { ct = _SFC_Common.TimeCompute2Seconds_BY_Calendar(db, _Fun.Config.DefaultCalendarName, Convert.ToDateTime(dr_tmp_DOC3["StartTime"]), DateTime.Now); }
                                             else { writeSQL = $",StartTime='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}'"; }
-                                            db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC3stockII] set IsOK='1',CT={ct},EndTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}'{writeSQL} where Id='{d["Id"].ToString()}' and DOCNumberNO='{d["DOCNumberNO"].ToString()}' and IsOK='0'");
+                                            _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC3stockII] set IsOK='1',CT={ct},EndTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}'{writeSQL} where Id='{d["Id"].ToString()}' and DOCNumberNO='{d["DOCNumberNO"].ToString()}' and IsOK='0'");
                                             IsOKQTY = int.Parse(d["QTY"].ToString());
                                         }
                                         string needID = "";
                                         dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT NeedId FROM SoftNetSYSDB.[dbo].[APS_Simulation] where SimulationId='{d["SimulationId"].ToString()}'");
                                         if (dr_tmp != null) { needID = dr_tmp_Note["NeedId"].ToString(); }
-                                        db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime,NeedId,SimulationId) VALUES ('將生產用領料/入庫/退料的單據主動確認,並異動存貨帳的數量 單據碼:{d["DOCNumberNO"].ToString()} 料號:{d["PartNO"].ToString()} 數量:{IsOKQTY.ToString()}','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy -MM-dd HH:mm:ss.fff")}','{needID}','{d["SimulationId"].ToString()}')");
+                                        _ = db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime,NeedId,SimulationId) VALUES ('將生產用領料/入庫/退料的單據主動確認,並異動存貨帳的數量 單據碼:{d["DOCNumberNO"].ToString()} 料號:{d["PartNO"].ToString()} 數量:{IsOKQTY.ToString()}','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy -MM-dd HH:mm:ss.fff")}','{needID}','{d["SimulationId"].ToString()}')");
                                     }
                                     if (IsOKQTY > 0)
                                     {
                                         #region 寫入庫存
                                         if (d.IsNull("OUT_StoreNO") || d["OUT_StoreNO"].ToString().Trim() == "")
-                                        { db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStock] set QTY+={IsOKQTY} where ServerId='{_Fun.Config.ServerId}' and PartNO='{d["PartNO"].ToString()}' and StoreNO='{d["IN_StoreNO"].ToString()}' and StoreSpacesNO='{d["IN_StoreSpacesNO"].ToString()}'"); }
-                                        else { db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStock] set QTY-={IsOKQTY} where ServerId='{_Fun.Config.ServerId}' and PartNO='{d["PartNO"].ToString()}' and StoreNO='{d["OUT_StoreNO"].ToString()}' and StoreSpacesNO='{d["OUT_StoreSpacesNO"].ToString()}'"); }
+                                        { _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStock] set QTY+={IsOKQTY} where ServerId='{_Fun.Config.ServerId}' and PartNO='{d["PartNO"].ToString()}' and StoreNO='{d["IN_StoreNO"].ToString()}' and StoreSpacesNO='{d["IN_StoreSpacesNO"].ToString()}'"); }
+                                        else { _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStock] set QTY-={IsOKQTY} where ServerId='{_Fun.Config.ServerId}' and PartNO='{d["PartNO"].ToString()}' and StoreNO='{d["OUT_StoreNO"].ToString()}' and StoreSpacesNO='{d["OUT_StoreSpacesNO"].ToString()}'"); }
                                         #endregion
 
                                         #region 計算單據CT,平均,有效
@@ -4659,7 +4119,7 @@ namespace SoftNetWebII.Services
                                         string StartTime = "";
                                         if (!d.IsNull("StartTime")) { typeTotalTime = _SFC_Common.TimeCompute2Seconds_BY_Calendar(db, _Fun.Config.DefaultCalendarName, Convert.ToDateTime(d["StartTime"].ToString()), DateTime.Now); }
                                         else { StartTime = $",StartTime='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}'"; }
-                                        db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC3stockII] set IsOK='1',EndTime='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}',CT={typeTotalTime}{StartTime} where Id='{d["Id"].ToString()}' and DOCNumberNO='{d["DOCNumberNO"].ToString()}' and IsOK='0'");
+                                        _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC3stockII] set IsOK='1',EndTime='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}',CT={typeTotalTime}{StartTime} where Id='{d["Id"].ToString()}' and DOCNumberNO='{d["DOCNumberNO"].ToString()}' and IsOK='0'");
                                         if (typeTotalTime > 0)
                                         {
                                             string partNO = d["PartNO"].ToString();
@@ -4717,7 +4177,7 @@ namespace SoftNetWebII.Services
                                 {
                                     if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].APS_Simulation_ErrorData SET ActionType='0',ActionLogDate='{logdate}' where Id='{d["Id"].ToString()}'"))
                                     {
-                                        SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,05,{d["SimulationId"].ToString()},0");
+                                        _ = SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,05,{d["SimulationId"].ToString()},0");
                                         //#region 通知網頁更新
                                         ////var webSocketService = (SNWebSocketService)_Fun.DiBox.GetService(typeof(SNWebSocketService));
                                         //if (WebSocketServiceOJB != null)
@@ -4751,13 +4211,23 @@ namespace SoftNetWebII.Services
                                 dr_tmp = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] where ServerId='{_Fun.Config.ServerId}' and SimulationId='{d["SimulationId"].ToString()}' and ErrorType='05'");
                                 if (dr_tmp == null)
                                 {
-                                    if (db.DB_SetData($"INSERT INTO SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] (Id,ServerId,SimulationId,ErrorType,LogDate,NeedId) VALUES ('{_Str.NewId('E')}','{_Fun.Config.ServerId}','{d["SimulationId"].ToString()}','05','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{d["NeedId"].ToString()}')"))
+                                    // Use parameterized query to avoid string interpolation and SQL injection
+                                    var paramDict = new Dictionary<string, object>
+                                    {
+                                        { "Id", _Str.NewId('E') },
+                                        { "ServerId", _Fun.Config.ServerId },
+                                        { "SimulationId", d["SimulationId"].ToString() },
+                                        { "ErrorType", "05" },
+                                        { "LogDate", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") },
+                                        { "NeedId", d["NeedId"].ToString() }
+                                    };
+                                    if (db.DB_SetDataByParams("INSERT INTO SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] (Id,ServerId,SimulationId,ErrorType,LogDate,NeedId) VALUES (@Id,@ServerId,@SimulationId,@ErrorType,@LogDate,@NeedId)", paramDict))
                                     {
                                         if (_Fun.Config.SendMonitorMail05 != "")
                                         {
                                             mailBody05 = $"{mailBody05}<p>排程碼:{d["NeedId"].ToString()} {d["SimulationId"].ToString()} 工站:{d["StationNO"].ToString()}</p>";
                                         }
-                                        SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,05,{d["SimulationId"].ToString()},");
+                                        _ = SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,05,{d["SimulationId"].ToString()},");
                                         //#region 通知網頁更新
                                         //if (WebSocketServiceOJB != null)
                                         //{
@@ -4843,7 +4313,7 @@ namespace SoftNetWebII.Services
                                 {
                                     if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].APS_Simulation_ErrorData SET ActionType='0',ActionLogDate='{logdate}' where Id='{d["eId"].ToString()}'"))
                                     {
-                                        SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,{d["ErrorType"].ToString()},{d["SimulationId"].ToString()},0");
+                                        _ = SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,{d["ErrorType"].ToString()},{d["SimulationId"].ToString()},0");
                                         //#region 通知網頁更新
                                         //if (WebSocketServiceOJB != null)
                                         //{
@@ -4888,7 +4358,7 @@ namespace SoftNetWebII.Services
                                             {
                                                 mailBody01 = $"{mailBody01}<p>排程碼:{d["NeedId"].ToString()} {d["SimulationId"].ToString()} 料號:{d["PartNO"].ToString()} {d["PartName"].ToString()} {d["Specification"].ToString()} 不足數量:{d["qty"].ToString()}</p>";
                                             }
-                                            SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,01,{d["SimulationId"].ToString()},");
+                                            _ = SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,01,{d["SimulationId"].ToString()},");
                                             //#region 通知網頁更新
                                             //if (WebSocketServiceOJB != null)
                                             //{
@@ -4917,7 +4387,7 @@ namespace SoftNetWebII.Services
                                             {
                                                 if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].APS_Simulation_ErrorData SET ActionType='1',ActionLogDate='{logdate}' where Id='{eID}'"))
                                                 {
-                                                    SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,01,{d["SimulationId"].ToString()},1");
+                                                    _ = SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,01,{d["SimulationId"].ToString()},1");
                                                     //#region 通知網頁更新
                                                     //if (WebSocketServiceOJB != null)
                                                     //{
@@ -4951,7 +4421,7 @@ namespace SoftNetWebII.Services
                                             {
                                                 mailBody02 = $"{mailBody02}<p>排程碼:{d["NeedId"].ToString()} {d["SimulationId"].ToString()} 料號:{d["PartNO"].ToString()} {d["PartName"].ToString()} {d["Specification"].ToString()} 不足數量:{d["qty"].ToString()}</p>";
                                             }
-                                            SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,02,{d["SimulationId"].ToString()},");
+                                            _ = SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,02,{d["SimulationId"].ToString()},");
                                             //#region 通知網頁更新
                                             //if (WebSocketServiceOJB != null)
                                             //{
@@ -4980,7 +4450,7 @@ namespace SoftNetWebII.Services
                                             {
                                                 if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].APS_Simulation_ErrorData SET ActionType='1',ActionLogDate='{logdate}' where Id='{eID}' and ErrorType='02'"))
                                                 {
-                                                    SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,02,{d["SimulationId"].ToString()},1");
+                                                    _ = SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,02,{d["SimulationId"].ToString()},1");
 
                                                     //#region 通知網頁更新
                                                     //if (WebSocketServiceOJB != null)
@@ -5030,7 +4500,7 @@ namespace SoftNetWebII.Services
                                 {
                                     if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].APS_Simulation_ErrorData SET ActionType='0',ActionLogDate='{logdate}' where Id='{d["Id"].ToString()}'"))
                                     {
-                                        SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,{d["ErrorType"].ToString()},{d["SimulationId"].ToString()},0");
+                                        _ = SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,{d["ErrorType"].ToString()},{d["SimulationId"].ToString()},0");
                                         //#region 通知網頁更新
                                         //if (WebSocketServiceOJB != null)
                                         //{
@@ -5071,7 +4541,7 @@ namespace SoftNetWebII.Services
                                         {
                                             mailBody04 = $"{mailBody04}<p>排程碼:{d["NeedId"].ToString()} {d["SimulationId"].ToString()} 工站:{d["StationNO"].ToString()}</p>";
                                         }
-                                        SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,'04',{d["SimulationId"].ToString()}");
+                                        _ = SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,'04',{d["SimulationId"].ToString()}");
                                         //#region 通知網頁更新
                                         //if (WebSocketServiceOJB != null)
                                         //{
@@ -5102,7 +4572,7 @@ namespace SoftNetWebII.Services
                                         {
                                             if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].APS_Simulation_ErrorData SET ActionType='1',ActionLogDate='{logdate}' where Id='{eID}'"))
                                             {
-                                                SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,04,{d["SimulationId"].ToString()},1");
+                                                _ = SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,04,{d["SimulationId"].ToString()},1");
                                                 //#region 通知網頁更新
                                                 //if (WebSocketServiceOJB != null)
                                                 //{
@@ -5175,7 +4645,7 @@ namespace SoftNetWebII.Services
                                 {
                                     if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].APS_Simulation_ErrorData SET ActionType='0',ActionLogDate='{logdate}' where Id='{d["Id"].ToString()}'"))
                                     {
-                                        SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,{d["ErrorType"].ToString()},{d["SimulationId"].ToString()},0");
+                                        _ = SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,{d["ErrorType"].ToString()},{d["SimulationId"].ToString()},0");
                                         //#region 通知網頁更新
                                         //if (WebSocketServiceOJB != null)
                                         //{
@@ -5229,15 +4699,15 @@ namespace SoftNetWebII.Services
                                                 if (dr_DOC3stockII != null)
                                                 {
                                                     if (dr_DOC3stockII.IsNull("OUT_StoreNO") || dr_DOC3stockII["OUT_StoreNO"].ToString().Trim() == "")
-                                                    { db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStock] set QTY+={dr_DOC3stockII["QTY"].ToString()} where ServerId='{_Fun.Config.ServerId}' and PartNO='{dr_DOC3stockII["PartNO"].ToString()}' and StoreNO='{dr_DOC3stockII["IN_StoreNO"].ToString()}' and StoreSpacesNO='{dr_DOC3stockII["IN_StoreSpacesNO"].ToString()}'"); }
-                                                    else { db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStock] set QTY-={dr_DOC3stockII["QTY"].ToString()} where ServerId='{_Fun.Config.ServerId}' and PartNO='{dr_DOC3stockII["PartNO"].ToString()}' and StoreNO='{dr_DOC3stockII["OUT_StoreNO"].ToString()}' and StoreSpacesNO='{dr_DOC3stockII["OUT_StoreSpacesNO"].ToString()}'"); }
+                                                    { _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStock] set QTY+={dr_DOC3stockII["QTY"].ToString()} where ServerId='{_Fun.Config.ServerId}' and PartNO='{dr_DOC3stockII["PartNO"].ToString()}' and StoreNO='{dr_DOC3stockII["IN_StoreNO"].ToString()}' and StoreSpacesNO='{dr_DOC3stockII["IN_StoreSpacesNO"].ToString()}'"); }
+                                                    else { _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStock] set QTY-={dr_DOC3stockII["QTY"].ToString()} where ServerId='{_Fun.Config.ServerId}' and PartNO='{dr_DOC3stockII["PartNO"].ToString()}' and StoreNO='{dr_DOC3stockII["OUT_StoreNO"].ToString()}' and StoreSpacesNO='{dr_DOC3stockII["OUT_StoreSpacesNO"].ToString()}'"); }
 
                                                     #region 計算單據CT,平均,有效, 寫SFC_StationProjectDetail
                                                     int typeTotalTime = 0;
                                                     string writeSQL = "";
                                                     if (!dr_DOC3stockII.IsNull("StartTime")) { typeTotalTime = _SFC_Common.TimeCompute2Seconds_BY_Calendar(db, _Fun.Config.DefaultCalendarName, Convert.ToDateTime(dr_DOC3stockII["StartTime"]), DateTime.Now); }
                                                     else { writeSQL = $",StartTime='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}'"; }
-                                                    db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC3stockII] set IsOK='1',EndTime='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}',CT={typeTotalTime}{writeSQL} where Id='{d["ErrorKey"].ToString()}' and DOCNumberNO='{d["DOCNumberNO"].ToString()}' and IsOK='0'");
+                                                    _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC3stockII] set IsOK='1',EndTime='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}',CT={typeTotalTime}{writeSQL} where Id='{d["ErrorKey"].ToString()}' and DOCNumberNO='{d["DOCNumberNO"].ToString()}' and IsOK='0'");
 
                                                     string partNO = dr_DOC3stockII["PartNO"].ToString();
                                                     string pp_Name = "";
@@ -5279,7 +4749,7 @@ namespace SoftNetWebII.Services
                                         }
                                         if (isrun)
                                         {
-                                            SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,{d["ErrorType"].ToString()},{d["SimulationId"].ToString()},0");
+                                            _ = SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,{d["ErrorType"].ToString()},{d["SimulationId"].ToString()},0");
                                             //#region 通知網頁更新
                                             //if (WebSocketServiceOJB != null)
                                             //{
@@ -5326,7 +4796,7 @@ namespace SoftNetWebII.Services
                                                 mailBody06 = $"{mailBody06}<p>進貨類 單據編號:{d["DOCNumberNO"].ToString()} {d["DOCName"].ToString()}</p>";
                                             }
                                         }
-                                        SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,'06',{d["SimulationId"].ToString()},");
+                                        _ = SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,'06',{d["SimulationId"].ToString()},");
                                         //#region 通知網頁更新
                                         //if (WebSocketServiceOJB != null)
                                         //{
@@ -5375,7 +4845,7 @@ namespace SoftNetWebII.Services
                                                 mailBody07 = $"{mailBody07}<p>銷貨類 單據編號:{d["DOCNumberNO"].ToString()} {d["DOCName"].ToString()}</p>";
                                             }
                                         }
-                                        SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,'07',{d["SimulationId"].ToString()},");
+                                        _ = SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,'07',{d["SimulationId"].ToString()},");
                                         //#region 通知網頁更新
                                         //if (WebSocketServiceOJB != null)
                                         //{
@@ -5423,7 +4893,7 @@ namespace SoftNetWebII.Services
                                                 mailBody08 = $"{mailBody08}<p>存貨類 單據編號:{d["DOCNumberNO"].ToString()} {d["DOCName"].ToString()}</p>";
                                             }
                                         }
-                                        SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,'08',{d["SimulationId"].ToString()},");
+                                        _ = SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,'08',{d["SimulationId"].ToString()},");
                                         //#region 通知網頁更新
                                         //if (WebSocketServiceOJB != null)
                                         //{
@@ -5471,7 +4941,7 @@ namespace SoftNetWebII.Services
                                                 mailBody09 = $"{mailBody09}<p>生產類 單據編號:{d["DOCNumberNO"].ToString()} {d["DOCName"].ToString()}</p>";
                                             }
                                         }
-                                        SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,'09',{d["SimulationId"].ToString()},");
+                                        _ = SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,'09',{d["SimulationId"].ToString()},");
                                         //#region 通知網頁更新
                                         //if (WebSocketServiceOJB != null)
                                         //{
@@ -5520,7 +4990,7 @@ namespace SoftNetWebII.Services
                                                 mailBody10 = $"{mailBody10}<p>委外類 單據編號:{d["DOCNumberNO"].ToString()} {d["DOCName"].ToString()}</p>";
                                             }
                                         }
-                                        SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,'10',{d["SimulationId"].ToString()},");
+                                        _ = SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,'10',{d["SimulationId"].ToString()},");
                                         //#region 通知網頁更新
                                         //if (WebSocketServiceOJB != null)
                                         //{
@@ -5571,8 +5041,8 @@ namespace SoftNetWebII.Services
                                         dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT * from SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where APS_StationNO='{d["StationNO"].ToString()}' and SimulationId='{d["SimulationId"].ToString()}' and Detail_QTY>=NeedQTY");
                                         if (dr_tmp != null)
                                         {
-                                            db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_WorkTimeNote] set Time1_C=0,Time2_C=0,Time3_C=0,Time4_C=0 where StationNO='{d["StationNO"].ToString()}' and SimulationId='{d["SimulationId"].ToString()}'");
-                                            db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_Simulation] set IsOK='1' where SimulationId='{d["SimulationId"].ToString()}'");
+                                            _ = db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_WorkTimeNote] set Time1_C=0,Time2_C=0,Time3_C=0,Time4_C=0 where StationNO='{d["StationNO"].ToString()}' and SimulationId='{d["SimulationId"].ToString()}'");
+                                            _ = db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_Simulation] set IsOK='1' where SimulationId='{d["SimulationId"].ToString()}'");
                                             //###??? 要通知電子紙 或 平板更新
                                         }
                                     }
@@ -5620,8 +5090,8 @@ namespace SoftNetWebII.Services
                                 {
                                     if (int.Parse(d["Time1_C"].ToString()) <= 1 && d["Time2_C"].ToString() == "0" && d["Time3_C"].ToString() == "0" && d["Time4_C"].ToString() == "0")
                                     {
-                                        db.DB_SetData($"delete from SoftNetSYSDB.[dbo].APS_Simulation_ErrorData where Id='{dr_ErrorData["Id"].ToString()}'");
-                                        SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,'03',{d["SimulationId"].ToString()},0");
+                                        _ = db.DB_SetData($"delete from SoftNetSYSDB.[dbo].APS_Simulation_ErrorData where Id='{dr_ErrorData["Id"].ToString()}'");
+                                        _ = SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,'03',{d["SimulationId"].ToString()},0");
                                         //#region 通知網頁更新 解除
                                         //if (WebSocketServiceOJB != null)
                                         //{
@@ -5652,7 +5122,7 @@ namespace SoftNetWebII.Services
                                             {
                                                 if (has_data)
                                                 {
-                                                    db.DB_SetData($"delete from SoftNetSYSDB.[dbo].APS_Simulation_ErrorData where Id='{dr_ErrorData["Id"].ToString()}'"); is_INFO = true;
+                                                    _ = db.DB_SetData($"delete from SoftNetSYSDB.[dbo].APS_Simulation_ErrorData where Id='{dr_ErrorData["Id"].ToString()}'"); is_INFO = true;
                                                 }
                                                 else { continue; }
                                             }
@@ -5660,7 +5130,7 @@ namespace SoftNetWebII.Services
                                             {
                                                 if (has_data)
                                                 {
-                                                    db.DB_SetData($"delete from SoftNetSYSDB.[dbo].APS_Simulation_ErrorData where Id='{dr_ErrorData["Id"].ToString()}'"); is_INFO = true;
+                                                    _ = db.DB_SetData($"delete from SoftNetSYSDB.[dbo].APS_Simulation_ErrorData where Id='{dr_ErrorData["Id"].ToString()}'"); is_INFO = true;
                                                 }
                                                 else { continue; }
                                             }
@@ -5676,7 +5146,7 @@ namespace SoftNetWebII.Services
                                             {
                                                 if (has_data)
                                                 {
-                                                    db.DB_SetData($"delete from SoftNetSYSDB.[dbo].APS_Simulation_ErrorData where Id='{dr_ErrorData["Id"].ToString()}'"); is_INFO = true;
+                                                    _ = db.DB_SetData($"delete from SoftNetSYSDB.[dbo].APS_Simulation_ErrorData where Id='{dr_ErrorData["Id"].ToString()}'"); is_INFO = true;
                                                 }
                                                 else { continue; }
                                             }
@@ -5948,7 +5418,7 @@ namespace SoftNetWebII.Services
                                         {
                                             mailBody03 = $"{mailBody03}<p>排程碼:{d["NeedId"].ToString()} {d["SimulationId"].ToString()} 工站:{d["StationNO"].ToString()} 未開工</p>";
                                         }
-                                        db.DB_SetData($"INSERT INTO SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] (Id,ServerId,SimulationId,ErrorType,LogDate,NeedId,Count,StationNO,DOCNumberNO) VALUES ('{_Str.NewId('E')}','{_Fun.Config.ServerId}','{d["SimulationId"].ToString()}','03','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{d["NeedId"].ToString()}',1,'{d["StationNO"].ToString()}','{d["DOCNumberNO"].ToString()}')");
+                                        _ = db.DB_SetData($"INSERT INTO SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] (Id,ServerId,SimulationId,ErrorType,LogDate,NeedId,Count,StationNO,DOCNumberNO) VALUES ('{_Str.NewId('E')}','{_Fun.Config.ServerId}','{d["SimulationId"].ToString()}','03','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{d["NeedId"].ToString()}',1,'{d["StationNO"].ToString()}','{d["DOCNumberNO"].ToString()}')");
                                     }
                                     else
                                     {
@@ -5961,7 +5431,7 @@ namespace SoftNetWebII.Services
                                 }
                                 if (is_INFO)
                                 {
-                                    SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,'03',{d["SimulationId"].ToString()},0");
+                                    _ = SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,'03',{d["SimulationId"].ToString()},0");
                                     //#region 通知網頁更新 解除
                                     //if (WebSocketServiceOJB != null)
                                     //{
@@ -5996,7 +5466,7 @@ namespace SoftNetWebII.Services
                             {
                                 if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].APS_Simulation_ErrorData SET ActionType='1',ActionLogDate='{logdate}' where Id='{d["Id"].ToString()}'"))
                                 {
-                                    SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,03,{d["SimulationId"].ToString()},1");
+                                    _ = SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,03,{d["SimulationId"].ToString()},1");
                                     //#region 通知網頁更新
                                     //if (WebSocketServiceOJB != null)
                                     //{
@@ -6151,7 +5621,7 @@ namespace SoftNetWebII.Services
                                                 comp = dr_tmp["Shift_Morning"].ToString().Trim().Split(',');
                                                 intime = new DateTime(intime.Year, intime.Month, intime.Day, int.Parse(comp[3].Split(':')[0]), int.Parse(comp[3].Split(':')[1]), 0).AddDays(1);
                                             }
-                                            db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
+                                            _ = db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
                                                                 ('{_Str.NewId('W')}','{_Fun.Config.ServerId}','12','{d["NeedId"].ToString()}','','','{d["OrderNO"].ToString()}','','','{intime.ToString("yyyy-MM-dd HH:mm:ss.fff")}')");
                                         }
                                         #endregion
@@ -6177,7 +5647,7 @@ namespace SoftNetWebII.Services
                                         dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[APS_WarningData] where ErrorType='12' and IsDEL='0' and ServerId='{_Fun.Config.ServerId}' and DOCNumberNO='{d["DOCNumberNO"].ToString()}'");
                                         if (dr_tmp != null)
                                         {
-                                            db.DB_SetData($"delete from SoftNetSYSDB.[dbo].[APS_WarningData] where ErrorType='12' and IsDEL='0' and ServerId='{_Fun.Config.ServerId}' and DOCNumberNO='{d["DOCNumberNO"].ToString()}'");
+                                            _ = db.DB_SetData($"delete from SoftNetSYSDB.[dbo].[APS_WarningData] where ErrorType='12' and IsDEL='0' and ServerId='{_Fun.Config.ServerId}' and DOCNumberNO='{d["DOCNumberNO"].ToString()}'");
                                         }
                                     }
                                 }
@@ -6192,6 +5662,7 @@ namespace SoftNetWebII.Services
                     {
                         //###???
                         #region 監看工單CT/UPH 是否未達有效CT值, 是否遠離偏離目標CT值 14
+
                         #endregion
                         _Fun._a11 = threadLoopTime.ElapsedMilliseconds;
                     }
@@ -6890,7 +6361,7 @@ namespace SoftNetWebII.Services
                             dr_tmp = db.DB_GetFirstDataByDataRow(sql);
                             if (dr_tmp != null)
                             {
-                                db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].APS_Simulation_ErrorData SET ActionType='1' where ServerId='{_Fun.Config.ServerId}' and ActionType='' and ErrorType='15' and CONVERT(varchar(100), LogDate, 23)<='{DateTime.Now.AddDays(-1).ToString("yyyy-MM-dd")}'");
+                                _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].APS_Simulation_ErrorData SET ActionType='1' where ServerId='{_Fun.Config.ServerId}' and ActionType='' and ErrorType='15' and CONVERT(varchar(100), LogDate, 23)<='{DateTime.Now.AddDays(-1).ToString("yyyy-MM-dd")}'");
                             }
                             #endregion
                         }
@@ -6939,20 +6410,23 @@ namespace SoftNetWebII.Services
                                         if (db.DB_SetData($"INSERT INTO SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] (Id,ServerId,SimulationId,ErrorType,LogDate,NeedId,StationNO) VALUES ('{_Str.NewId('E')}','{_Fun.Config.ServerId}','{d["SimulationId"].ToString()}','16','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{d["NeedId"].ToString()}','{d["Source_StationNO"].ToString()}')"))
                                         {
                                             #region 通知網頁更新
-                                            var webSocketService = (SNWebSocketService)_Fun.DiBox.GetService(typeof(SNWebSocketService));
-                                            if (webSocketService != null)
+                                            var service = _Fun.DiBox?.GetService(typeof(SNWebSocketService));
+                                            if (service != null)
                                             {
-                                                                                            lock (WebSocketServiceOJB.lock__WebSocketList)
-                                                                {
-                                                foreach (KeyValuePair<string, rmsConectUserData> r in webSocketService._WebSocketList)
+                                                var webSocketService = (SNWebSocketService)service;
+                                                List<rmsConectUserData> snapshot;
+                                                lock (webSocketService.lock__WebSocketList)
                                                 {
-                                                    if (r.Key != null && r.Value.socket != null)
+                                                    snapshot = new List<rmsConectUserData>(webSocketService._WebSocketList.Values);
+                                                }
+                                                foreach (var r in snapshot)
+                                                {
+                                                    if (r != null && r.socket != null)
                                                     {
                                                         //###???errorType 暫時寫死
-                                                        webSocketService.Send(r.Value.socket, $"SimulatioStatusChange,'16',{d["SimulationId"].ToString()}");
+                                                        webSocketService.Send(r.socket, $"SimulatioStatusChange,'16',{d["SimulationId"].ToString()}");
                                                     }
                                                 }
-                        }
                                             }
                                             #endregion
                                         }
@@ -6969,7 +6443,7 @@ namespace SoftNetWebII.Services
                     {
                         //###???
                         #region 監看料件安全量,在制量,再途量,工站移轉量所有數據是否正常與合理 17
-                        //未完成 在6972行準備要寫 監看料件安全量,在制量,再途量,工站移轉量所有數據是否正常與合理,你有何建議
+
 
                         #endregion
                         _Fun._a14 = threadLoopTime.ElapsedMilliseconds;
@@ -7036,7 +6510,7 @@ namespace SoftNetWebII.Services
                                                     if (!bool.Parse(d2["Flag_Afternoon"].ToString()))
                                                     {
                                                         wdate = new DateTime(tmp_date.Year, tmp_date.Month, tmp_date.Day, int.Parse(d2["Shift_Afternoon"].ToString().Trim().Split(',')[1].Split(':')[0]), int.Parse(d2["Shift_Afternoon"].ToString().Trim().Split(',')[1].Split(':')[1]), 0).AddMinutes(-5);
-                                                        db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
+                                                        _ = db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
                                                                 ('{_Str.NewId('W')}','{_Fun.Config.ServerId}','18','{needId}','{d["SimulationId"].ToString()}','{d["StationNO"].ToString()}','{d["OrderNO"].ToString()}','{d["PartNO"].ToString()}','{d["OP_NO"].ToString()}','{wdate.ToString("yyyy-MM-dd HH:mm:ss.fff")}')");
                                                         continue;
                                                     }
@@ -7049,7 +6523,7 @@ namespace SoftNetWebII.Services
                                                     if (!bool.Parse(d2["Flag_Night"].ToString()))
                                                     {
                                                         wdate = new DateTime(tmp_date.Year, tmp_date.Month, tmp_date.Day, int.Parse(d2["Shift_Night"].ToString().Trim().Split(',')[2].Split(':')[0]), int.Parse(d2["Shift_Night"].ToString().Trim().Split(',')[2].Split(':')[1]), 0).AddMinutes(-5);
-                                                        db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
+                                                        _ = db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
                                                                 ('{_Str.NewId('W')}','{_Fun.Config.ServerId}','18','{needId}','{d["SimulationId"].ToString()}','{d["StationNO"].ToString()}','{d["OrderNO"].ToString()}','','{d["OP_NO"].ToString()}','{wdate.ToString("yyyy-MM-dd HH:mm:ss.fff")}')");
                                                         continue;
                                                     }
@@ -7067,7 +6541,7 @@ namespace SoftNetWebII.Services
                                                         if (!bool.Parse(d2["Flag_Graveyard"].ToString()))
                                                         {
                                                             wdate = new DateTime(tmp_date.Year, tmp_date.Month, tmp_date.Day, int.Parse(d2["Shift_Graveyard"].ToString().Trim().Split(',')[2].Split(':')[0]), int.Parse(d2["Shift_Graveyard"].ToString().Trim().Split(',')[2].Split(':')[1]), 0).AddDays(1).AddMinutes(-5);
-                                                            db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
+                                                            _ = db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
                                                                 ('{_Str.NewId('W')}','{_Fun.Config.ServerId}','18','{needId}','{d["SimulationId"].ToString()}','{d["StationNO"].ToString()}','{d["OrderNO"].ToString()}','','{d["OP_NO"].ToString()}','{wdate.ToString("yyyy-MM-dd HH:mm:ss.fff")}')");
                                                             continue;
                                                         }
@@ -7084,7 +6558,7 @@ namespace SoftNetWebII.Services
                                                             { wdate = new DateTime(tmp_date.Year, tmp_date.Month, tmp_date.Day, int.Parse(d2["Shift_Graveyard"].ToString().Trim().Split(',')[2].Split(':')[0]), int.Parse(d2["Shift_Graveyard"].ToString().Trim().Split(',')[2].Split(':')[1]), 0).AddDays(1).AddMinutes(-5); }
                                                             else
                                                             { wdate = new DateTime(tmp_date.Year, tmp_date.Month, tmp_date.Day, int.Parse(d2["Shift_Graveyard"].ToString().Trim().Split(',')[2].Split(':')[0]), int.Parse(d2["Shift_Graveyard"].ToString().Trim().Split(',')[2].Split(':')[1]), 0).AddMinutes(-5); }
-                                                            db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
+                                                            _ = db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
                                                                 ('{_Str.NewId('W')}','{_Fun.Config.ServerId}','18','{needId}','{d["SimulationId"].ToString()}','{d["StationNO"].ToString()}','{d["OrderNO"].ToString()}','','{d["OP_NO"].ToString()}','{wdate.ToString("yyyy-MM-dd HH:mm:ss.fff")}')");
                                                             continue;
                                                         }
@@ -7103,7 +6577,7 @@ namespace SoftNetWebII.Services
                                                         if (!bool.Parse(d2["Flag_Morning"].ToString()))
                                                         {
                                                             wdate = new DateTime(tmp_date.Year, tmp_date.Month, tmp_date.Day, int.Parse(d2["Shift_Morning"].ToString().Trim().Split(',')[2].Split(':')[0]), int.Parse(d2["Shift_Morning"].ToString().Trim().Split(',')[2].Split(':')[1]), 0).AddDays(1).AddMinutes(-5);
-                                                            db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
+                                                            _ = db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
                                                                 ('{_Str.NewId('W')}','{_Fun.Config.ServerId}','18','{needId}','{d["SimulationId"].ToString()}','{d["StationNO"].ToString()}','{d["OrderNO"].ToString()}','','{d["OP_NO"].ToString()}','{wdate.ToString("yyyy-MM-dd HH:mm:ss.fff")}')");
                                                             continue;
                                                         }
@@ -7118,7 +6592,7 @@ namespace SoftNetWebII.Services
                                                         if (!bool.Parse(d2["Flag_Morning"].ToString()))
                                                         {
                                                             wdate = new DateTime(tmp_date.Year, tmp_date.Month, tmp_date.Day, int.Parse(d2["Shift_Morning"].ToString().Trim().Split(',')[2].Split(':')[0]), int.Parse(d2["Shift_Morning"].ToString().Trim().Split(',')[2].Split(':')[1]), 0).AddDays(1).AddMinutes(-5);
-                                                            db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
+                                                            _ = db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
                                                                 ('{_Str.NewId('W')}','{_Fun.Config.ServerId}','18','{needId}','{d["SimulationId"].ToString()}','{d["StationNO"].ToString()}','{d["OrderNO"].ToString()}','','{d["OP_NO"].ToString()}','{wdate.ToString("yyyy-MM-dd HH:mm:ss.fff")}')");
                                                             continue;
                                                         }
@@ -7184,7 +6658,7 @@ namespace SoftNetWebII.Services
                                                     if (!bool.Parse(d2["Flag_Afternoon"].ToString()))
                                                     {
                                                         wdate = new DateTime(tmp_date.Year, tmp_date.Month, tmp_date.Day, int.Parse(d2["Shift_Afternoon"].ToString().Trim().Split(',')[1].Split(':')[0]), int.Parse(d2["Shift_Afternoon"].ToString().Trim().Split(',')[1].Split(':')[1]), 0).AddMinutes(-5);
-                                                        db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
+                                                        _ = db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
                                                                 ('{_Str.NewId('W')}','{_Fun.Config.ServerId}','18','{needId}','{d["SimulationId"].ToString()}','{d["StationNO"].ToString()}','{d["OrderNO"].ToString()}','{d["PartNO"].ToString()}','系統指派','{wdate.ToString("yyyy-MM-dd HH:mm:ss.fff")}')");
                                                         continue;
                                                     }
@@ -7197,7 +6671,7 @@ namespace SoftNetWebII.Services
                                                     if (!bool.Parse(d2["Flag_Night"].ToString()))
                                                     {
                                                         wdate = new DateTime(tmp_date.Year, tmp_date.Month, tmp_date.Day, int.Parse(d2["Shift_Night"].ToString().Trim().Split(',')[2].Split(':')[0]), int.Parse(d2["Shift_Night"].ToString().Trim().Split(',')[2].Split(':')[1]), 0).AddMinutes(-5);
-                                                        db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
+                                                        _ = db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
                                                                 ('{_Str.NewId('W')}','{_Fun.Config.ServerId}','18','{needId}','{d["SimulationId"].ToString()}','{d["StationNO"].ToString()}','{d["OrderNO"].ToString()}','{d["PartNO"].ToString()}','系統指派','{wdate.ToString("yyyy-MM-dd HH:mm:ss.fff")}')");
                                                         continue;
                                                     }
@@ -7215,7 +6689,7 @@ namespace SoftNetWebII.Services
                                                         if (!bool.Parse(d2["Flag_Graveyard"].ToString()))
                                                         {
                                                             wdate = new DateTime(tmp_date.Year, tmp_date.Month, tmp_date.Day, int.Parse(d2["Shift_Graveyard"].ToString().Trim().Split(',')[2].Split(':')[0]), int.Parse(d2["Shift_Graveyard"].ToString().Trim().Split(',')[2].Split(':')[1]), 0).AddDays(1).AddMinutes(-5);
-                                                            db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
+                                                            _ = db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
                                                                 ('{_Str.NewId('W')}','{_Fun.Config.ServerId}','18','{needId}','{d["SimulationId"].ToString()}','{d["StationNO"].ToString()}','{d["OrderNO"].ToString()}','{d["PartNO"].ToString()}','系統指派','{wdate.ToString("yyyy-MM-dd HH:mm:ss.fff")}')");
                                                             continue;
                                                         }
@@ -7232,7 +6706,7 @@ namespace SoftNetWebII.Services
                                                             { wdate = new DateTime(tmp_date.Year, tmp_date.Month, tmp_date.Day, int.Parse(d2["Shift_Graveyard"].ToString().Trim().Split(',')[2].Split(':')[0]), int.Parse(d2["Shift_Graveyard"].ToString().Trim().Split(',')[2].Split(':')[1]), 0).AddDays(1).AddMinutes(-5); }
                                                             else
                                                             { wdate = new DateTime(tmp_date.Year, tmp_date.Month, tmp_date.Day, int.Parse(d2["Shift_Graveyard"].ToString().Trim().Split(',')[2].Split(':')[0]), int.Parse(d2["Shift_Graveyard"].ToString().Trim().Split(',')[2].Split(':')[1]), 0).AddMinutes(-5); }
-                                                            db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
+                                                            _ = db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
                                                                 ('{_Str.NewId('W')}','{_Fun.Config.ServerId}','18','{needId}','{d["SimulationId"].ToString()}','{d["StationNO"].ToString()}','{d["OrderNO"].ToString()}','{d["PartNO"].ToString()}','系統指派','{wdate.ToString("yyyy-MM-dd HH:mm:ss.fff")}')");
                                                             continue;
                                                         }
@@ -7251,7 +6725,7 @@ namespace SoftNetWebII.Services
                                                         if (!bool.Parse(d2["Flag_Morning"].ToString()))
                                                         {
                                                             wdate = new DateTime(tmp_date.Year, tmp_date.Month, tmp_date.Day, int.Parse(d2["Shift_Morning"].ToString().Trim().Split(',')[2].Split(':')[0]), int.Parse(d2["Shift_Morning"].ToString().Trim().Split(',')[2].Split(':')[1]), 0).AddDays(1).AddMinutes(-5);
-                                                            db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
+                                                            _ = db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
                                                                 ('{_Str.NewId('W')}','{_Fun.Config.ServerId}','18','{needId}','{d["SimulationId"].ToString()}','{d["StationNO"].ToString()}','{d["OrderNO"].ToString()}','{d["PartNO"].ToString()}','系統指派','{wdate.ToString("yyyy-MM-dd HH:mm:ss.fff")}')");
                                                             continue;
                                                         }
@@ -7266,7 +6740,7 @@ namespace SoftNetWebII.Services
                                                         if (!bool.Parse(d2["Flag_Morning"].ToString()))
                                                         {
                                                             wdate = new DateTime(tmp_date.Year, tmp_date.Month, tmp_date.Day, int.Parse(d2["Shift_Morning"].ToString().Trim().Split(',')[2].Split(':')[0]), int.Parse(d2["Shift_Morning"].ToString().Trim().Split(',')[2].Split(':')[1]), 0).AddDays(1).AddMinutes(-5);
-                                                            db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
+                                                            _ = db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate]) VALUES
                                                                 ('{_Str.NewId('W')}','{_Fun.Config.ServerId}','18','{needId}','{d["SimulationId"].ToString()}','{d["StationNO"].ToString()}','{d["OrderNO"].ToString()}','{d["PartNO"].ToString()}','系統指派','{wdate.ToString("yyyy-MM-dd HH:mm:ss.fff")}')");
                                                             continue;
                                                         }
@@ -7474,17 +6948,24 @@ namespace SoftNetWebII.Services
 
 
                     threadLoopTime.Stop();
+
                     if (_Fun.Is_Thread_ForceClose) { IsWork = false; break; }
-                    next_time = _Fun.Config.RunTimeServerLoopTime - (int)threadLoopTime.ElapsedMilliseconds;
-                    if (next_time < 30000)
-                    { SpinWait.SpinUntil(() => !IsWork, 30000); }
-                    else
-                    { SpinWait.SpinUntil(() => !IsWork, next_time); }
+
+                    // 計算下次執行前的等待時間
+                    int elapsedMs = (int)threadLoopTime.ElapsedMilliseconds;
+                    next_time = Math.Max(_Fun.Config.RunTimeServerLoopTime - elapsedMs, 30000);
+                    await Task.Delay(next_time, cancellationToken);
                     if (isFirstRun) { isFirstRun = false; }
                 }
             }
+            catch (OperationCanceledException)
+            {
+                // 正常停止，不需記錄錯誤
+                ++RMSDBErrorCount;
+            }
             catch (Exception ex)
             {
+                ++RMSDBErrorCount;
                 string _s = "";
                 await _Log.ErrorAsync($"RUNTimeServer.cs SfcTimerloopthread_Tick Exception停止Thread: {ex.Message} {ex.StackTrace}", true);
             }
@@ -7492,15 +6973,7 @@ namespace SoftNetWebII.Services
             //SFC_FUN.Dispose();
             db.Dispose();
         }
-
-
-
-
-
-
-
-
-        private async void Check_ElectronicTagsServer_Tick()//每10分鐘確認一次
+        private async void Check_ElectronicTagsServer_Tick(CancellationToken cancellationToken = default)//每10分鐘確認一次
         {
             //###??? 若多台發射器,目前只探測一台
             //###??? 將來改問state並記錄電池容量
@@ -7511,7 +6984,7 @@ namespace SoftNetWebII.Services
                 {
                     string urlIP = _Fun.Config.ElectronicTagsURL.Split(':')[0];
                     if (urlIP.Trim() == "") { _Fun.Is_Tag_Connect = false; _Fun.Is_RUNTimeServer_Thread_State[4] = false; pingSender.Dispose(); return; }
-                    while (IsWork)
+                    while (IsWork && !cancellationToken.IsCancellationRequested)
                     {
                         if (_Fun.Has_Tag_httpClient)
                         {
@@ -7529,7 +7002,7 @@ namespace SoftNetWebII.Services
                                 //await _Log.ErrorAsync($"電子標籤主機網路中斷. IP={urlIP}", true);
                             }
                         }
-                        SpinWait.SpinUntil(() => !IsWork, 600000);
+                        await Task.Delay(600000, cancellationToken);
                     }
                 }
             }
@@ -7544,16 +7017,21 @@ namespace SoftNetWebII.Services
 
         private DateTime _beforeTime = DateTime.Now;//一天只做一次的變數
 
-        private async void SfcTimerloopautoRUN_Json_Tick()//自動更新工站計畫需求電子標籤
+        private async void SfcTimerloopautoRUN_Json_Tick(CancellationToken cancellationToken = default)//自動更新工站計畫需求電子標籤
         {
-            DBADO db = new DBADO("1", _Fun.Config.Db);
+            string err_MEG = "";
+            DBADO db = new DBADO("1", _Fun.Config.Db, ref err_MEG);
+            if (err_MEG == "")
+            {
+                db.Error += new DBADO.ERROR(DBBase_OnException);
+            }
             try
             {
                 Stopwatch threadLoopTime = new Stopwatch();
                 int next_time = 0;
                 string sql = "";
                 string logdate = "";
-                while (IsWork)
+                while (IsWork && !cancellationToken.IsCancellationRequested)
                 {
                     if (_Fun.Is_Thread_For_Test)
                     {
@@ -7577,7 +7055,7 @@ namespace SoftNetWebII.Services
                             }
                             if (dis_DetailQTY!= d["QTY"].ToString().Trim())
                             {
-                                db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[LabelStateINFO] set QTY='{dis_DetailQTY}',IsUpdate='0' where ServerId='{_Fun.Config.ServerId}' and macID='{d["macID"].ToString()}'");
+                                _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[LabelStateINFO] set QTY='{dis_DetailQTY}',IsUpdate='0' where ServerId='{_Fun.Config.ServerId}' and macID='{d["macID"].ToString()}'");
                             }
                         }
                     }
@@ -7612,15 +7090,15 @@ namespace SoftNetWebII.Services
                                             if (db.DB_GetQueryCount($"SELECT * from SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where (Detail_QTY+Detail_Fail_QTY)>=NeedQTY and SimulationId='{tmp_dr["SimulationId"].ToString()}'") < 0)
                                             { continue; }
                                         }
-                                        db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] SET APS_StationNO='{d["Source_StationNO"].ToString()}',DOCNumberNO='{d["DOCNumberNO"].ToString()}' where SimulationId='{d["SimulationId"].ToString()}'");
+                                        _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] SET APS_StationNO='{d["Source_StationNO"].ToString()}',DOCNumberNO='{d["DOCNumberNO"].ToString()}' where SimulationId='{d["SimulationId"].ToString()}'");
                                         if (!bool.Parse(tmp_dr["Config_MutiWO"].ToString()))
-                                        { db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[Manufacture] SET OrderNO='{d["DOCNumberNO"].ToString()}',IndexSN={d["Source_StationNO_IndexSN"].ToString()},OP_NO='排程指派',Station_Custom_IndexSN='{d["Source_StationNO_Custom_IndexSN"].ToString()}',StationNO_Custom_DisplayName='{d["Source_StationNO_Custom_DisplayName"].ToString()}',Master_PP_Name='{d["Apply_PP_Name"].ToString()}',PP_Name='{d["Apply_PP_Name"].ToString()}',PartNO='{d["PartNO"].ToString()}',SimulationId='{d["SimulationId"].ToString()}' where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["Source_StationNO"].ToString()}'"); }
+                                        { _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[Manufacture] SET OrderNO='{d["DOCNumberNO"].ToString()}',IndexSN={d["Source_StationNO_IndexSN"].ToString()},OP_NO='排程指派',Station_Custom_IndexSN='{d["Source_StationNO_Custom_IndexSN"].ToString()}',StationNO_Custom_DisplayName='{d["Source_StationNO_Custom_DisplayName"].ToString()}',Master_PP_Name='{d["Apply_PP_Name"].ToString()}',PP_Name='{d["Apply_PP_Name"].ToString()}',PartNO='{d["PartNO"].ToString()}',SimulationId='{d["SimulationId"].ToString()}' where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["Source_StationNO"].ToString()}'"); }
                                         else
                                         {
                                             if (db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[ManufactureII] ([Id],[StationNO],[ServerId],[OrderNO],[Master_PP_Name],[PP_Name],[IndexSN],[Station_Custom_IndexSN],[StationNO_Custom_DisplayName],[PartNO],[SimulationId],PNQTY)
                                                     VALUES ('{_Str.NewId('C')}','{d["Source_StationNO"].ToString()}','{_Fun.Config.ServerId}','{d["DOCNumberNO"].ToString()}','{d["Apply_PP_Name"].ToString()}','{d["Apply_PP_Name"].ToString()}',{d["Source_StationNO_IndexSN"].ToString()},'{d["Source_StationNO_Custom_IndexSN"].ToString()}','{d["Source_StationNO_Custom_DisplayName"].ToString()}','{d["PartNO"].ToString()}','{d["SimulationId"].ToString()}',{d["QTY"].ToString()})"))
                                             {
-                                                SendWebSocketClent_INFO($"SendALLClient,HasWeb_Id_Change,STView2Work_PageReload,{tmp_logStaion}");
+                                                _ = SendWebSocketClent_INFO($"SendALLClient,HasWeb_Id_Change,STView2Work_PageReload,{tmp_logStaion}");
                                                 //#region 通知網頁更新
                                                 //try
                                                 //{
@@ -7649,7 +7127,7 @@ namespace SoftNetWebII.Services
 
                                             }
                                         }
-                                        db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime,NeedId,SimulationId) VALUES ('依排程需求, 自動派工. 工單:{d["DOCNumberNO"].ToString()} 工站:{d["Source_StationNO"].ToString()} 需求量:{d["QTY"].ToString()}','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{d["NeedId"].ToString()}','{d["SimulationId"].ToString()}')");
+                                        _ = db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime,NeedId,SimulationId) VALUES ('依排程需求, 自動派工. 工單:{d["DOCNumberNO"].ToString()} 工站:{d["Source_StationNO"].ToString()} 需求量:{d["QTY"].ToString()}','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{d["NeedId"].ToString()}','{d["SimulationId"].ToString()}')");
 
                                         #region 更新電子Tag
                                         if (tmp_dr["Config_macID"].ToString().Trim() != "")
@@ -7702,11 +7180,9 @@ namespace SoftNetWebII.Services
                     #endregion
 
                     threadLoopTime.Stop();
-                    next_time = 20000 - (int)threadLoopTime.ElapsedMilliseconds;//###???暫時
-                    if (next_time < 20000)
-                    { SpinWait.SpinUntil(() => !IsWork, 20000); }
-                    else
-                    { SpinWait.SpinUntil(() => !IsWork, next_time); }
+                    next_time = (int)threadLoopTime.ElapsedMilliseconds;//###???暫時
+                    next_time = Math.Max(_Fun.Config.RunTimeServerLoopTime - next_time, 30000);
+                    await Task.Delay(next_time, cancellationToken);
                 }
             }
             catch (Exception ex)
@@ -7717,14 +7193,19 @@ namespace SoftNetWebII.Services
             db.Dispose();
         }
         bool IsUpdateTagValue_OK = false;
-        private void SfcTimerloopUpdateTagValue_Tick()
+        private async void SfcTimerloopUpdateTagValue_Tick(CancellationToken cancellationToken = default)
         {
             if (_Fun.Has_Tag_httpClient)
             {
-                DBADO db = new DBADO("1", _Fun.Config.Db);
+                string err_MEG = "";
+                DBADO db = new DBADO("1", _Fun.Config.Db, ref err_MEG);
+                if (err_MEG == "")
+                {
+                    db.Error += new DBADO.ERROR(DBBase_OnException);
+                }
 
                 #region 電子標籤資料庫初始化
-                GetAPI_AllMACs(db);
+                await GetAPI_AllMACs(db, cancellationToken);
                 #endregion
 
                 try
@@ -7737,7 +7218,7 @@ namespace SoftNetWebII.Services
                     string url = "";
                     var json = "";
                     string verLab = "";
-                    while (IsWork)
+                    while (IsWork && !cancellationToken.IsCancellationRequested)
                     {
                         if (_Fun.Is_Tag_Connect)
                         {
@@ -7762,12 +7243,12 @@ namespace SoftNetWebII.Services
                                         response = httpClient.PostAsync(url, content).Result;
                                         if (!response.IsSuccessStatusCode)
                                         {
-                                            db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[LabelStateLog] ([Id],[macID],[LOGDateTime],[ActionType],[JSON]) VALUES ('{_Str.NewId('L')}','','{now.ToString("yyyy/MM/dd HH:mm:ss.fff")}','發送Fail','{json}')");
+                                            _ = db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[LabelStateLog] ([Id],[macID],[LOGDateTime],[ActionType],[JSON]) VALUES ('{_Str.NewId('L')}','','{now.ToString("yyyy/MM/dd HH:mm:ss.fff")}','發送Fail','{json}')");
                                             System.Threading.Tasks.Task task = _Log.ErrorAsync($"後台 傳送電子訊號失敗,請通知管理者", false);    //false here, not mailRoot, or endless roop !!
                                         }
                                         else 
                                         {
-                                            db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[LabelStateLog] ([Id],[macID],[LOGDateTime],[ActionType]) VALUES ('{_Str.NewId('L')}','','{now.ToString("yyyy/MM/dd HH:mm:ss.fff")}','發送OK')");
+                                            _ = db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[LabelStateLog] ([Id],[macID],[LOGDateTime],[ActionType]) VALUES ('{_Str.NewId('L')}','','{now.ToString("yyyy/MM/dd HH:mm:ss.fff")}','發送OK')");
                                         }
                                     }
                                     catch (Exception ex)
@@ -7806,7 +7287,7 @@ namespace SoftNetWebII.Services
                                 dt = db.DB_GetData($"SELECT * FROM SoftNetMainDB.[dbo].[LabelStateINFO] where ServerId='{_Fun.Config.ServerId}' and IsUpdate='0'");
                                 if (dt != null && dt.Rows.Count > 0)
                                 {
-                                    SpinWait.SpinUntil(() => !IsWork, 1000);
+                                    await Task.Delay(1000, cancellationToken);
                                     json = "";
                                     verLab = "";
                                     foreach (DataRow dr in dt.Rows)
@@ -7848,7 +7329,7 @@ namespace SoftNetWebII.Services
                                                 if (json != "")
                                                 {
                                                     _Fun.Tag_Write(db,dr["macID"].ToString(),"重新更新", json);
-                                                    db.DB_SetData($"update SoftNetMainDB.[dbo].[LabelStateINFO] SET IsUpdate='1' where macID='{dr["macID"].ToString()}'");
+                                                    _ = db.DB_SetData($"update SoftNetMainDB.[dbo].[LabelStateINFO] SET IsUpdate='1' where macID='{dr["macID"].ToString()}'");
                                                 }
                                             }
                                         }
@@ -7859,7 +7340,7 @@ namespace SoftNetWebII.Services
                             #endregion
                         }
                         if (!IsUpdateTagValue_OK) { IsUpdateTagValue_OK = true; }
-                        SpinWait.SpinUntil(() => !IsWork, 1000);
+                        await Task.Delay(1000, cancellationToken);
                     }
                 }
                 catch (Exception ex)
@@ -7871,7 +7352,7 @@ namespace SoftNetWebII.Services
             _Fun.Is_RUNTimeServer_Thread_State[0] = false;
         }
 
-        private void GetAPI_AllMACs(DBADO db)
+        private async Task GetAPI_AllMACs(DBADO db, CancellationToken cancellationToken = default)
         {
             string uri = $"wms/associate/getTagsMsg";
             //string uri = $"http://{_Fun.Config.ElectronicTagsURL}/wms/associate/getTagsMsg";
@@ -7880,7 +7361,7 @@ namespace SoftNetWebII.Services
             {
                 #region 查詢所有的電子紙是否有註冊在資料庫
                 HttpResponseMessage response = httpClient.GetAsync(uri).Result;
-                response.EnsureSuccessStatusCode();//如果 Status Code 不為 2xx，會丟出HttpRequestException
+                _ = response.EnsureSuccessStatusCode();//如果 Status Code 不為 2xx，會丟出HttpRequestException
                 string responseBody = response.Content.ReadAsStringAsync().Result;//取 值
                 var data = JsonConvert.DeserializeObject<List<GetPI01>>(responseBody);
                 if (data != null && data.Count > 0)
@@ -7913,7 +7394,7 @@ namespace SoftNetWebII.Services
                                                 if (db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[LabelStateINFO] (ServerId,[macID],[Version],[Type],[StationNO],[OrderNO],[StoreNO],[StoreSpacesNO],[ShowValue],[IsUpdate],Ledrgb,Ledstate)
                                                             VALUES ('{_Fun.Config.ServerId}','{s.mac.Trim()}','{verLab}','4','{stationNO}','','','','{tmp_s}','0','0',0)"))
                                                 {
-                                                    db.DB_SetData($"update SoftNetMainDB.[dbo].[Manufacture] set State='2',OrderNO='',OP_NO='',Master_PP_Name='',PP_Name='',IndexSN=0,Station_Custom_IndexSN='',SimulationId='',PartNO='' where ServerId='{_Fun.Config.ServerId}' and StationNO='{stationNO}' and Config_macID='{s.mac.Trim()}'");
+                                                    _ = db.DB_SetData($"update SoftNetMainDB.[dbo].[Manufacture] set State='2',OrderNO='',OP_NO='',Master_PP_Name='',PP_Name='',IndexSN=0,Station_Custom_IndexSN='',SimulationId='',PartNO='' where ServerId='{_Fun.Config.ServerId}' and StationNO='{stationNO}' and Config_macID='{s.mac.Trim()}'");
                                                 }
                                             }
                                             continue;
@@ -7939,7 +7420,7 @@ namespace SoftNetWebII.Services
                                                 if (db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[LabelStateINFO] (ServerId,[macID],[Version],[Type],[StationNO],[OrderNO],[StoreNO],[StoreSpacesNO],[ShowValue],[IsUpdate],Ledrgb,Ledstate)
                                                             VALUES ('{_Fun.Config.ServerId}','{s.mac.Trim()}','{verLab}','1','{stationNO}','','','','{tmp_s}','0','0',0)"))
                                                 {
-                                                    db.DB_SetData($"update SoftNetMainDB.[dbo].[Manufacture] set State='2',OrderNO='',OP_NO='',Master_PP_Name='',PP_Name='',IndexSN=0,Station_Custom_IndexSN='',SimulationId='',PartNO='' where ServerId='{_Fun.Config.ServerId}' and StationNO='{stationNO}' and Config_macID='{s.mac.Trim()}'");
+                                                    _ = db.DB_SetData($"update SoftNetMainDB.[dbo].[Manufacture] set State='2',OrderNO='',OP_NO='',Master_PP_Name='',PP_Name='',IndexSN=0,Station_Custom_IndexSN='',SimulationId='',PartNO='' where ServerId='{_Fun.Config.ServerId}' and StationNO='{stationNO}' and Config_macID='{s.mac.Trim()}'");
                                                 }
                                             }
                                             continue;
@@ -7961,7 +7442,7 @@ namespace SoftNetWebII.Services
                                             //{ tmp_s = $"\"mac\":\"{s.mac.Trim()}\",\"mappingtype\":628,\"styleid\":53,{tmp_s}"; }
                                             //else
                                             //{ tmp_s = $"\"mac\":\"{s.mac.Trim()}\",\"mappingtype\":23,\"styleid\":49,{tmp_s}"; }
-                                            db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[LabelStateINFO] (ServerId,[macID],[Version],[Type],[StationNO],[OrderNO],[StoreNO],[StoreSpacesNO],[ShowValue],[IsUpdate],Ledrgb,Ledstate)
+                                            _ = db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[LabelStateINFO] (ServerId,[macID],[Version],[Type],[StationNO],[OrderNO],[StoreNO],[StoreSpacesNO],[ShowValue],[IsUpdate],Ledrgb,Ledstate)
                                                             VALUES ('{_Fun.Config.ServerId}','{s.mac.Trim()}','{verLab}','2','','','{storeNO}','','{tmp_s}','0','0',0)");
                                         }
                                         continue;
@@ -7977,7 +7458,7 @@ namespace SoftNetWebII.Services
                                         tmp = db.DB_GetFirstDataByDataRow($"select * from SoftNetMainDB.[dbo].[LabelStateINFO] where ServerId='{_Fun.Config.ServerId}' and macID='{s.mac.Trim()}'");
                                         if (tmp == null)
                                         {
-                                            db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[LabelStateINFO] (ServerId,[macID],[Version],[Type],[StationNO],[OrderNO],[StoreNO],[StoreSpacesNO],[ShowValue],[IsUpdate])
+                                            _ = db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[LabelStateINFO] (ServerId,[macID],[Version],[Type],[StationNO],[OrderNO],[StoreNO],[StoreSpacesNO],[ShowValue],[IsUpdate])
                                                             VALUES ('{_Fun.Config.ServerId}','{s.mac.Trim()}','{verLab}','3','','','{storeNO}','{storeSpacesNO}','','0')");
                                         }
                                         continue;
@@ -7995,7 +7476,7 @@ namespace SoftNetWebII.Services
                 DataTable dt = db.DB_GetData($"SELECT * FROM SoftNetMainDB.[dbo].[LabelStateINFO] where IsUpdate='0'");
                 if (dt != null && dt.Rows.Count > 0)
                 {
-                    SpinWait.SpinUntil(() => !IsWork, 1000);
+                    await Task.Delay(1000, cancellationToken);
                     string json = "";
                     string verLab = "";
                     foreach (DataRow dr in dt.Rows)
@@ -8039,7 +7520,7 @@ namespace SoftNetWebII.Services
                                     }
                                     break;
                                 case "3":
-                                    db.DB_SetData($"update SoftNetMainDB.[dbo].[LabelStateINFO] SET IsUpdate='1' where macID='{dr["macID"].ToString()}'");
+                                    _ = db.DB_SetData($"update SoftNetMainDB.[dbo].[LabelStateINFO] SET IsUpdate='1' where macID='{dr["macID"].ToString()}'");
 
                                     json = "[{" + $"\"mac\":\"{dr["macID"].ToString()}\",\"outtime\":0,\"ledrgb\":\"{dr["Ledrgb"].ToString()}\",\"ledmode\":0,\"buzzer\":0,\"lednum\":255,\"reserve\":\"reserve\"" + "}]";
                                     var content = new StringContent(json, Encoding.UTF8, "application/json");
@@ -8061,7 +7542,7 @@ namespace SoftNetWebII.Services
                             if (json != "")
                             {
                                 _Fun.Tag_Write(db,dr["macID"].ToString(),"初始化", json);
-                                db.DB_SetData($"update SoftNetMainDB.[dbo].[LabelStateINFO] SET IsUpdate='1' where macID='{dr["macID"].ToString()}'");
+                                _ = db.DB_SetData($"update SoftNetMainDB.[dbo].[LabelStateINFO] SET IsUpdate='1' where macID='{dr["macID"].ToString()}'");
                             }
                         }
                     }
@@ -8082,64 +7563,6 @@ namespace SoftNetWebII.Services
 
 
         private Dictionary<char, List<KeyAndValue>> _efficientConfig = new Dictionary<char, List<KeyAndValue>>();
-
-        private DataTable _shift = null;
-        private void GetShift(DBADO db,string calendarName)
-        {
-            try
-            {
-                _shift = db.DB_GetData(
-                $@"SELECT [Holiday]
-                        ,[Flag_Morning]
-                        ,[Flag_Afternoon]
-                        ,[Flag_Night]
-                        ,[Flag_Graveyard]
-                        ,[Shift_Morning]
-                        ,[Shift_Afternoon]
-                        ,[Shift_Night]
-                        ,[Shift_Graveyard]
-                    FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar]
-                    WHERE CalendarName ='{calendarName}' AND Holiday >= '{DateTime.Now.ToShortDateString()}'");
-            }
-            catch (Exception ex)
-            {
-                //++RMSDBErrorCount;
-                //SoftNetService.Program._NLogMain.Write_ExceptionError(1, "OperationExpectedFinishTime", RMSError.Service_Exception, LogSourceName.Null,
-                //    "", 61, ToolFun.StringAdd("SFC計算報工時效失敗. Exception:", ex.Message), ex);
-                ////ExceptionError A6
-                System.Threading.Tasks.Task task = _Log.ErrorAsync($"RUNTimeServer.cs GetShift {ex.Message} {ex.StackTrace}", true);
-            }
-        }
-        private EnumerableRowCollection<ShiftInformation> GetShift()
-        {
-            return _shift.AsEnumerable().
-                    Select(x =>
-                            new ShiftInformation
-                            {
-                                WorkDay = x.Field<DateTime>("Holiday"),
-                                Flag_Morning = x.Field<bool>("Flag_Morning"),
-                                Flag_Afternoon = x.Field<bool>("Flag_Afternoon"),
-                                Flag_Night = x.Field<bool>("Flag_Night"),
-                                Flag_Graveyard = x.Field<bool>("Flag_Graveyard"),
-                                Shift_Morning = x.Field<string>("Shift_Morning"),
-                                Shift_Afternoon = x.Field<string>("Shift_Afternoon"),
-                                Shift_Night = x.Field<string>("Shift_Night"),
-                                Shift_Graveyard = x.Field<string>("Shift_Graveyard"),
-                            }
-                            );
-        }
-        private class ShiftInformation
-        {
-            public DateTime WorkDay { get; set; }
-            public bool Flag_Morning { get; set; }
-            public bool Flag_Afternoon { get; set; }
-            public bool Flag_Night { get; set; }
-            public bool Flag_Graveyard { get; set; }
-            public string Shift_Morning { get; set; }
-            public string Shift_Afternoon { get; set; }
-            public string Shift_Night { get; set; }
-            public string Shift_Graveyard { get; set; }
-        }
 
         private string LabelProject_Start_Stop(DBADO db, string status, string stationNO, DataRow dr_M, string opNO, ref LabelProject keys)
         {
@@ -8181,7 +7604,7 @@ namespace SoftNetWebII.Services
                     totalQTY += (keys.TOTALOKQTY + keys.TOTALFailQTY);
                     if (d.IsNull("StartTime"))
                     {
-                        db.DB_SetData($"update SoftNetLogDB.[dbo].[SFC_StationProjectDetail] set StartTime='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}',RemarkTimeS='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and Id='{d["Id"].ToString()}' and StationNO='{stationNO}' and OP_NO='{d["OP_NO"].ToString()}'");
+                        _ = db.DB_SetData($"update SoftNetLogDB.[dbo].[SFC_StationProjectDetail] set StartTime='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}',RemarkTimeS='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and Id='{d["Id"].ToString()}' and StationNO='{stationNO}' and OP_NO='{d["OP_NO"].ToString()}'");
                     }
                     else
                     {
@@ -8204,7 +7627,7 @@ namespace SoftNetWebII.Services
                 }
                 else
                 {
-                    db.DB_SetData($"UPDATE SoftNetLogDB.[dbo].[SFC_StationProjectDetail] SET RemarkTimeE=NULL where ServerId='{_Fun.Config.ServerId}' and Id='{dr["Id"].ToString()}' and StationNO='{stationNO}'");
+                    _ = db.DB_SetData($"UPDATE SoftNetLogDB.[dbo].[SFC_StationProjectDetail] SET RemarkTimeE=NULL where ServerId='{_Fun.Config.ServerId}' and Id='{dr["Id"].ToString()}' and StationNO='{stationNO}'");
                 }
                 #endregion
             }
@@ -8213,7 +7636,7 @@ namespace SoftNetWebII.Services
                 #region 停止
                 if (dr != null)
                 {
-                    db.DB_SetData($"UPDATE SoftNetLogDB.[dbo].[SFC_StationProjectDetail] SET RemarkTimeE='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and Id='{dr["Id"].ToString()}' and StationNO='{stationNO}'");
+                    _ = db.DB_SetData($"UPDATE SoftNetLogDB.[dbo].[SFC_StationProjectDetail] SET RemarkTimeE='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and Id='{dr["Id"].ToString()}' and StationNO='{stationNO}'");
                 }
                 #endregion
             }
@@ -8223,8 +7646,8 @@ namespace SoftNetWebII.Services
                 if (dr != null)
                 {
                     Ledstate = "0";
-                    db.DB_SetData($"UPDATE SoftNetLogDB.[dbo].[SFC_StationProjectDetail] SET EndTime='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}',RemarkTimeE='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and Id='{dr["Id"].ToString()}' and StationNO='{stationNO}'");
-                    db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[Manufacture] SET OrderNO='',OP_NO='',Master_PP_Name='',PP_Name='',IndexSN=0,Station_Custom_IndexSN='',StationNO_Custom_DisplayName='',State='4' where ServerId='{_Fun.Config.ServerId}' and ServerId='{_Fun.Config.ServerId}' and StationNO='{stationNO}'");
+                    _ = db.DB_SetData($"UPDATE SoftNetLogDB.[dbo].[SFC_StationProjectDetail] SET EndTime='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}',RemarkTimeE='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and Id='{dr["Id"].ToString()}' and StationNO='{stationNO}'");
+                    _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[Manufacture] SET OrderNO='',OP_NO='',Master_PP_Name='',PP_Name='',IndexSN=0,Station_Custom_IndexSN='',StationNO_Custom_DisplayName='',State='4' where ServerId='{_Fun.Config.ServerId}' and ServerId='{_Fun.Config.ServerId}' and StationNO='{stationNO}'");
                 }
                 else
                 { meg = $"{meg}<br>{stationNO} 查無起動過的紀錄資料, 無法關站."; }
@@ -8232,7 +7655,7 @@ namespace SoftNetWebII.Services
             }
             if (meg == "")
             {
-                db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[Manufacture] SET State='{status}' where ServerId='{_Fun.Config.ServerId}' and StationNO='{stationNO}'");
+                _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[Manufacture] SET State='{status}' where ServerId='{_Fun.Config.ServerId}' and StationNO='{stationNO}'");
                 // db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[Manufacture_Log] ([Id],[logDate],[StationNO],[State],[OrderNO],[PartNO]) VALUES ('{_Str.NewId('C')}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','{stationNO}','{status}','{dr_M["OrderNO"].ToString()}','{dr_M["PartNO"].ToString()}')");
                 string type = "";
                 switch (status)
@@ -8244,7 +7667,7 @@ namespace SoftNetWebII.Services
                     case "4":
                         type = "干涉關站"; break;
                 }
-                db.DB_SetData(@$"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,IndexSN) VALUES 
+                _ = db.DB_SetData(@$"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,IndexSN) VALUES 
                                 ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','RUNTimeServer','{type}','{dr_M["PP_Name"].ToString()} {opNO}','{stationNO}','{dr_M["PartNO"].ToString()}','{dr_M["OrderNO"].ToString()}',{dr_M["IndexSN"].ToString()})");
 
             }

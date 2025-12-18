@@ -64,7 +64,20 @@ namespace Base.Services
             //when _dbStr length > 30, treat it as connection string
             //var connStr = (_dbStr.Length > 30) ? _dbStr : _Config.GetDbStr(_dbStr);
 
+            if (_Fun.DiBox == null)
+            {
+                _status = false;
+                await _Log.ErrorAsync("_Fun.DiBox is null, cannot get DbConnection", true);
+                return false;
+            }
+
             _conn = (DbConnection)_Fun.DiBox.GetService(typeof(DbConnection));
+            if (_conn == null)
+            {
+                _status = false;
+                await _Log.ErrorAsync("Cannot get DbConnection from DiBox", true);
+                return false;
+            }
             //set connect string will get error when connecting state
             //if (_conn.ConnectionString == null || _conn.ConnectionString != _dbStr)
                 _conn.ConnectionString = _dbStr;
@@ -144,7 +157,17 @@ namespace Base.Services
             if (_cmd == null)
             {
                 //_cmd = new SqlCommand();
+                if (_Fun.DiBox == null)
+                {
+                    await _Log.ErrorAsync("_Fun.DiBox is null, cannot get DbCommand", true);
+                    return false;
+                }
                 _cmd = (DbCommand)_Fun.DiBox.GetService(typeof(DbCommand));
+                if (_cmd == null)
+                {
+                    await _Log.ErrorAsync("Cannot get DbCommand from DiBox", true);
+                    return false;
+                }
                 _cmd.Connection = _conn;
             }
             else

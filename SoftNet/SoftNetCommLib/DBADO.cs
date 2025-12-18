@@ -279,6 +279,41 @@ namespace SoftNetCommLib
             }
             return false;
         }
+
+        /// <summary>
+        /// Parameterized Insert/Update/Delete with automatic parameter creation
+        /// </summary>
+        public bool DB_SetDataByParams(string sql, Dictionary<string, object> parameters)
+        {
+            if (string.IsNullOrEmpty(sql)) { return false; }
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(ms_connectString))
+                {
+                    using (SqlCommand cmd = new SqlCommand(sql, conn))
+                    {
+                        if (parameters != null)
+                        {
+                            foreach (var kvp in parameters)
+                            {
+                                cmd.Parameters.AddWithValue("@" + kvp.Key, kvp.Value ?? DBNull.Value);
+                            }
+                        }
+                        conn.Open();
+                        cmd.ExecuteNonQuery();
+                        return true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                if (Error != null)
+                {
+                    Error(sql, $"DB_SetDataByParams fail: {ex.Message}");
+                }
+                return false;
+            }
+        }
         public bool DB_SetData(string sql, ref string err)//異動資料
         {
             if (sql == "") { return false; }

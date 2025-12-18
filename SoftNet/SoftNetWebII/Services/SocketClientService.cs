@@ -157,7 +157,7 @@ namespace SoftNetWebII.Services
                     }
                 }
                 if (_Fun.Is_Thread_ForceClose) { IsWork = false; }
-                SpinWait.SpinUntil(() => !IsWork, 5000);
+                for (int i = 0; i < 500 && IsWork; i++) { Thread.Sleep(10); }
             }
             while (IsWork);
             db.Dispose();
@@ -479,12 +479,19 @@ namespace SoftNetWebII.Services
                                     db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[NeedId],[SimulationId],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,IndexSN) VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{dr_SimulationId["NeedId"].ToString()}','{dr_SimulationId["SimulationId"].ToString()}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','LabelWork','{type}','{cmd[5]} {cmd[3]}','{cmd[0]}','','{cmd[1]}',{cmd[6]})");//###??? dr_M["PartNO"].ToString() 暫時放空
 
                                     //通知webSocket send
-                                    var webSocketService = (SNWebSocketService)_Fun.DiBox.GetService(typeof(SNWebSocketService));
-                                    foreach (KeyValuePair<string, rmsConectUserData> r in webSocketService._WebSocketList)
+                                    if (_Fun.DiBox != null)
                                     {
-                                        if (r.Key!=null && r.Value.socket!=null)
+                                        var service = _Fun.DiBox.GetService(typeof(SNWebSocketService));
+                                        if (service != null)
                                         {
-                                             webSocketService.Send(r.Value.socket, "StationStatusChange");
+                                            var webSocketService = (SNWebSocketService)service;
+                                            foreach (KeyValuePair<string, rmsConectUserData> r in webSocketService._WebSocketList)
+                                            {
+                                                if (r.Key!=null && r.Value.socket!=null)
+                                                {
+                                                     webSocketService.Send(r.Value.socket, "StationStatusChange");
+                                                }
+                                            }
                                         }
                                     }
 
@@ -493,12 +500,19 @@ namespace SoftNetWebII.Services
                             case "5"://通知
                                 {
                                     //通知webSocket send
-                                    var webSocketService = (SNWebSocketService)_Fun.DiBox.GetService(typeof(SNWebSocketService));
-                                    foreach (KeyValuePair<string, rmsConectUserData> r in webSocketService._WebSocketList)
+                                    if (_Fun.DiBox != null)
                                     {
-                                        if (r.Key != null && r.Value.socket != null)
+                                        var service = _Fun.DiBox.GetService(typeof(SNWebSocketService));
+                                        if (service != null)
                                         {
-                                            webSocketService.Send(r.Value.socket, "StationStatusChange");
+                                            var webSocketService = (SNWebSocketService)service;
+                                            foreach (KeyValuePair<string, rmsConectUserData> r in webSocketService._WebSocketList)
+                                            {
+                                                if (r.Key != null && r.Value.socket != null)
+                                                {
+                                                    webSocketService.Send(r.Value.socket, "StationStatusChange");
+                                                }
+                                            }
                                         }
                                     }
                                 }

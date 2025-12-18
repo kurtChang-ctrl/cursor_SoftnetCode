@@ -481,6 +481,7 @@ namespace SoftNetWebII.Services
             {
                 try
                 {
+                    if (_Fun.DiBox == null) { return re; }
                     _SFC_Common = (SFC_Common)_Fun.DiBox.GetService(typeof(SFC_Common));
                     if (_SFC_Common == null) { return re; }
                     if (dt.locationURL != null && dt.locationURL.Trim() != "")

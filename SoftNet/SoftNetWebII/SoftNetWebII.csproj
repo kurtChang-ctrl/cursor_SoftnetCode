@@ -3,6 +3,15 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <UserSecretsId>3b8a9658-d164-44b7-897d-ba95aedf4427</UserSecretsId>
+    <NoWarn>$(NoWarn);CS0219;CS0168;CS4014;CA1416;SYSLIB0006</NoWarn>
+  </PropertyGroup>
+
+  <!-- Performance tuning for Release builds -->
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <TieredCompilation>true</TieredCompilation>
+    <TieredCompilationQuickJIT>true</TieredCompilationQuickJIT>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
   </PropertyGroup>
 
   <ItemGroup>

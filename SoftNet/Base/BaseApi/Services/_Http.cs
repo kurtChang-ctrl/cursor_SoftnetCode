@@ -22,8 +22,9 @@ namespace BaseApi.Services
 
         public static HttpContext GetHttp()
         {
+            if (_Fun.DiBox == null) return null;
             var service = (IHttpContextAccessor)_Fun.DiBox.GetService(typeof(IHttpContextAccessor));
-            return service.HttpContext;
+            return service?.HttpContext;
         }
 
         public static string GetContentTypeByExt(string ext)
