@@ -397,4 +397,5 @@ C:\04_SoftNet\SoftNet\SoftNetWebII\bin\Debug\net10.0\runtimes\win\lib\net10.0\Sy
 C:\04_SoftNet\SoftNet\SoftNetWebII\bin\Debug\net10.0\runtimes\win\lib\net10.0\System.Diagnostics.PerformanceCounter.dll
 C:\04_SoftNet\SoftNet\SoftNetWebII\obj\Debug\net10.0\compressed\aggvl37kem-{0}-6b58gjg108-6b58gjg108.gz
 C:\04_SoftNet\SoftNet\SoftNetWebII\bin\Debug\net10.0\web.config
+C:\04_SoftNet\SoftNet\SoftNetWebII\obj\Debug\net10.0\SoftNetWebII.sourcelink.json
 C:\04_SoftNet\SoftNet\SoftNetWebII\obj\Debug\net10.0\staticwebassets.upToDateCheck.txt

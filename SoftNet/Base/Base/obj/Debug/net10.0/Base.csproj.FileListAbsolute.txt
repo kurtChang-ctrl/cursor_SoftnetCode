@@ -10,3 +10,4 @@ C:\04_SoftNet\SoftNet\Base\Base\obj\Debug\net10.0\Base.dll
 C:\04_SoftNet\SoftNet\Base\Base\obj\Debug\net10.0\refint\Base.dll
 C:\04_SoftNet\SoftNet\Base\Base\obj\Debug\net10.0\Base.pdb
 C:\04_SoftNet\SoftNet\Base\Base\obj\Debug\net10.0\ref\Base.dll
+C:\04_SoftNet\SoftNet\Base\Base\obj\Debug\net10.0\Base.sourcelink.json

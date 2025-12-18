@@ -36,7 +36,6 @@ namespace SoftNetWebII.Controllers
         //
         public ActionResult DefineStandardsCT()//建立人為標準CT
         {
-            string re = "";
             List<string[]> HasStationNO_List = new List<string[]>();
             using (DBADO db = new DBADO("1", _Fun.Config.Db))
             {
@@ -55,7 +54,6 @@ namespace SoftNetWebII.Controllers
         }
         public ActionResult OddCT()//疑似乖離CT異動
         {
-            string re = "";
             List<string[]> HasStationNO_List = new List<string[]>();
             using (DBADO db = new DBADO("1", _Fun.Config.Db))
             {

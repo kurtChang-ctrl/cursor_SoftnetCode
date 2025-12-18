@@ -51,6 +51,74 @@ namespace SoftNetWebII.Services
         int RMSDBErrorCount = 0;
 
         #endregion
+
+        private bool InsertSimulationError(DBADO db, string errorType, string simulationId = null, string needId = null, string docNumberNo = null, string errorKey = null, string stationNo = null, string timeNType = null, int? count = null, string logDate = null)
+        {
+            var parameters = new Dictionary<string, object>
+            {
+                { "Id", _Str.NewId('E') },
+                { "ServerId", _Fun.Config.ServerId },
+                { "ErrorType", errorType },
+                { "LogDate", logDate ?? DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") }
+            };
+
+            if (!string.IsNullOrWhiteSpace(simulationId)) parameters["SimulationId"] = simulationId;
+            if (!string.IsNullOrWhiteSpace(needId)) parameters["NeedId"] = needId;
+            if (!string.IsNullOrWhiteSpace(docNumberNo)) parameters["DOCNumberNO"] = docNumberNo;
+            if (!string.IsNullOrWhiteSpace(errorKey)) parameters["ErrorKey"] = errorKey;
+            if (!string.IsNullOrWhiteSpace(stationNo)) parameters["StationNO"] = stationNo;
+            if (!string.IsNullOrWhiteSpace(timeNType)) parameters["Time_N_Type"] = timeNType;
+            if (count.HasValue) parameters["Count"] = count.Value;
+
+            string columns = string.Join(",", parameters.Keys);
+            string values = string.Join(",", parameters.Keys.Select(k => "@" + k));
+            string sql = $"INSERT INTO SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] ({columns}) VALUES ({values})";
+            return db.DB_SetDataByParams(sql, parameters);
+        }
+
+        private bool InsertApsEventLog(DBADO db, string eventText, string needId = null, string simulationId = null, string eventType = "99", string logDateTime = null)
+        {
+            var parameters = new Dictionary<string, object>
+            {
+                { "Event", eventText },
+                { "EventType", eventType },
+                { "Id", _Str.NewId('Z') },
+                { "ServerId", _Fun.Config.ServerId },
+                { "LOGDateTime", logDateTime ?? DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") }
+            };
+
+            if (!string.IsNullOrWhiteSpace(needId)) parameters["NeedId"] = needId;
+            if (!string.IsNullOrWhiteSpace(simulationId)) parameters["SimulationId"] = simulationId;
+
+            string columns = string.Join(",", parameters.Keys);
+            string values = string.Join(",", parameters.Keys.Select(k => "@" + k));
+            string sql = $"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] ({columns}) VALUES ({values})";
+            return db.DB_SetDataByParams(sql, parameters);
+        }
+
+        private bool InsertWarningData(DBADO db, string errorType, string needId = null, string simulationId = null, string stationNo = null, string docNumberNo = null, string partNo = null, string opNo = null, string dataRemark = null, string warningDate = null)
+        {
+            var parameters = new Dictionary<string, object>
+            {
+                { "Id", _Str.NewId('W') },
+                { "ServerId", _Fun.Config.ServerId },
+                { "ErrorType", errorType },
+                { "WarningDate", warningDate ?? DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") }
+            };
+
+            if (!string.IsNullOrWhiteSpace(needId)) parameters["NeedId"] = needId;
+            if (!string.IsNullOrWhiteSpace(simulationId)) parameters["SimulationId"] = simulationId;
+            if (!string.IsNullOrWhiteSpace(stationNo)) parameters["StationNO"] = stationNo;
+            if (!string.IsNullOrWhiteSpace(docNumberNo)) parameters["DOCNumberNO"] = docNumberNo;
+            if (!string.IsNullOrWhiteSpace(partNo)) parameters["PartNO"] = partNo;
+            if (!string.IsNullOrWhiteSpace(opNo)) parameters["OP_NO"] = opNo;
+            if (!string.IsNullOrWhiteSpace(dataRemark)) parameters["DATA_Remark"] = dataRemark;
+
+            string columns = string.Join(",", parameters.Keys);
+            string values = string.Join(",", parameters.Keys.Select(k => "@" + k));
+            string sql = $"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ({columns}) VALUES ({values})";
+            return db.DB_SetDataByParams(sql, parameters);
+        }
         private void MasterTcpListenerThread(CancellationToken cancellationToken = default)
         {
             Socket _client = null;
@@ -5772,7 +5840,7 @@ namespace SoftNetWebII.Services
                                                                                     string needId = "";
                                                                                     dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT NeedId FROM SoftNetSYSDB.[dbo].[PP_WorkOrder] where ServerId='{_Fun.Config.ServerId}' and OrderNO='{d2["OrderNO"].ToString()}'");
                                                                                     if (dr_tmp3 != null) { needId = dr_tmp3["NeedId"].ToString(); }
-                                                                                    if (db.DB_SetData($"INSERT INTO SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] (Id,ServerId,SimulationId,ErrorType,LogDate,NeedId,Time_N_Type,StationNO) VALUES ('{_Str.NewId('E')}','{_Fun.Config.ServerId}','{d2["SimulationId"].ToString()}','15','{tmp_date.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{needId}','4','{d["StationNO"].ToString()}')"))
+                                                                                    if (InsertSimulationError(db, "15", d2["SimulationId"].ToString(), needId, stationNo: d["StationNO"].ToString(), timeNType: "4", logDate: tmp_date.ToString("yyyy-MM-dd HH:mm:ss.fff")))
                                                                                     {
                                                                                     }
                                                                                 }
@@ -5798,7 +5866,7 @@ namespace SoftNetWebII.Services
                                                                         if (dr_tmp3 == null)
                                                                         {
                                                                             MailBody4 = $"{MailBody4}<p>工站:{d["StationNO"].ToString()}  工序編號:{dr_tmp2["IndexSN"].ToString()} 製程:{dr_tmp2["PP_Name"].ToString()}  料號:{dr_tmp2["PartNO"].ToString()}</p>";
-                                                                            if (db.DB_SetData($"INSERT INTO SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] (Id,ServerId,SimulationId,ErrorType,LogDate,NeedId,Time_N_TypeStationNO,) VALUES ('{_Str.NewId('E')}','{_Fun.Config.ServerId}','{dr_tmp2["SimulationId"].ToString()}','15','{tmp_date.ToString("yyyy-MM-dd HH:mm:ss.fff")}','','4','{d["StationNO"].ToString()}')"))
+                                                                            if (InsertSimulationError(db, "15", dr_tmp2["SimulationId"].ToString(), stationNo: d["StationNO"].ToString(), timeNType: "4", logDate: tmp_date.ToString("yyyy-MM-dd HH:mm:ss.fff")))
                                                                             {
                                                                             }
                                                                         }

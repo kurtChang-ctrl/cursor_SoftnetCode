@@ -62,7 +62,7 @@ namespace SoftNetWebII.Services
                 {
                     // free managed objects
                     _is_active = false;
-                    SpinWait.SpinUntil(() => _chk_thread == null, 500); // wait thread exit
+                    for (int i = 0; i < 50 && _chk_thread != null; i++) { Thread.Sleep(10); } // wait thread exit
 
                     // dispose all thread?
                     if (_thd_scheduler != null)
@@ -96,7 +96,7 @@ namespace SoftNetWebII.Services
             {
                 try
                 {
-                    SpinWait.SpinUntil(() => disposed == true || _is_active == false, 20000);
+                    for (int i = 0; i < 2000 && disposed == false && _is_active == true; i++) { Thread.Sleep(10); }
                     if (disposed == true || _is_active == false) break;
 
                     List<TmThread> need_to_dispose = new List<TmThread>();
@@ -299,7 +299,8 @@ namespace SoftNetWebII.Services
             int re = 0;
             try
             {
-                SpinWait.SpinUntil(() => (re = Check(uid)) != 0, timeout); // wait Action
+                int loops = timeout < 0 ? int.MaxValue : timeout / 10;
+                for (int i = 0; i < loops && (re = Check(uid)) == 0; i++) { Thread.Sleep(10); }
                 return re; // 0 SpinUntil timeout
             }
             catch { return re; }
@@ -310,14 +311,16 @@ namespace SoftNetWebII.Services
             try
             {
                 if (uid == null || uid.Length <= 0) return 1; // done
-                SpinWait.SpinUntil(() =>
+                bool allDone = false;
+                while (!allDone)
                 {
-                    for (int i = 0; (uid != null && i < uid.Length); i++)
+                    allDone = true;
+                    for (int i = 0; uid != null && i < uid.Length; i++)
                     {
-                        if ((re = Check(uid[i])) == 0) return false; // still doing
+                        if ((re = Check(uid[i])) == 0) { allDone = false; break; }
                     }
-                    return true; // all done
-                }, -1); // wait Action
+                    if (!allDone) Thread.Sleep(10);
+                }
                 return re; // 0 SpinUntil timeout
             }
             catch { return re; }
@@ -401,7 +404,7 @@ namespace SoftNetWebII.Services
                 while (disposed == false)
                 {
                     // 這裡不要 try-catch 因為這裡只是跑其他Action (真正Exception的是其他Action)
-                    SpinWait.SpinUntil(() => disposed == true || action != null, 60000); // action
+                    for (int i = 0; i < 6000 && disposed == false && action == null; i++) { Thread.Sleep(10); }
                     if (disposed == true) break;
                     if (action == null) continue;
                     // doing
@@ -518,7 +521,7 @@ namespace SoftNetWebII.Services
                         //if (_invoke != null) Debug.WriteLine(_invoke.ManagedThreadId + "    Exit");
                         disposed = true;
                         // free managed objects
-                        SpinWait.SpinUntil(() => _invoke == null, 500); // wait thread exit
+                        for (int i = 0; i < 50 && _invoke != null; i++) { Thread.Sleep(10); } // wait thread exit
 
                         if (IsThreadStopped(_invoke) == false)
                         {

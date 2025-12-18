@@ -13,3 +13,4 @@ C:\04_SoftNet\SoftNet\Base\BaseApi\obj\Debug\net10.0\BaseApi.dll
 C:\04_SoftNet\SoftNet\Base\BaseApi\obj\Debug\net10.0\refint\BaseApi.dll
 C:\04_SoftNet\SoftNet\Base\BaseApi\obj\Debug\net10.0\BaseApi.pdb
 C:\04_SoftNet\SoftNet\Base\BaseApi\obj\Debug\net10.0\ref\BaseApi.dll
+C:\04_SoftNet\SoftNet\Base\BaseApi\obj\Debug\net10.0\BaseApi.sourcelink.json

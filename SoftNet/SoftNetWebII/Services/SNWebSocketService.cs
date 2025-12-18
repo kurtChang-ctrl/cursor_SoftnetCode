@@ -48,13 +48,20 @@ namespace SoftNetWebII.Services
         private object lock__MasterRMSUserList = new object();
         private object lock_Sevice = new object();
         public char RMSLogMode = '1'; //LogMode 0:Normal Mode 1:Debug Mode
+        private CancellationToken _stoppingToken = CancellationToken.None;
         #endregion
 
-        public SNWebSocketService()
+        public SNWebSocketService(CancellationToken cancellationToken = default)
         {
+            _stoppingToken = cancellationToken;
             StartListening();
-            SpinWait.SpinUntil(() => !IsWork, 2000);
+            Thread.Sleep(2000);
             if (IsWork) { _Fun.Is_SNWebSocketService_OK = true; }
+        }
+
+        public void SetCancellationToken(CancellationToken cancellationToken)
+        {
+            _stoppingToken = cancellationToken;
         }
         private void StartListening()
         {
@@ -68,7 +75,7 @@ namespace SoftNetWebII.Services
                 listener.Listen(1024);//###???將來要改參數化
                 Thread controlDATA_Othread = new Thread(() =>
                 {
-                    startListening_Thread();
+                    startListening_Thread(_stoppingToken);
                 });
                 controlDATA_Othread.IsBackground = true;
                 controlDATA_Othread.Start();
@@ -102,7 +109,7 @@ namespace SoftNetWebII.Services
                 #region 建立 _MasterRMSUserList Socket Client 連線與斷線自動連線
                 Thread MasterSocketInit_thread = new Thread(() =>
                 {
-                    CheckMasterSocketConnectIsOKthread_Tick();
+                    CheckMasterSocketConnectIsOKthread_Tick(_stoppingToken);
                 });
                 MasterSocketInit_thread.IsBackground = true;
                 MasterSocketInit_thread.Start();
@@ -117,12 +124,13 @@ namespace SoftNetWebII.Services
             }
         }
 
-        private void CheckMasterSocketConnectIsOKthread_Tick()//輪巡 _MasterRMSUserList(5431)網路狀況 
+        private void CheckMasterSocketConnectIsOKthread_Tick(CancellationToken cancellationToken = default)//輪巡 _MasterRMSUserList(5431)網路狀況 
         {
             DBADO db = new DBADO("1", _Fun.Config.Db);
             DataRow dr = null;
             do
             {
+                if (cancellationToken.IsCancellationRequested) { break; }
                 for (int i = 0; i < _MasterRMSUserList.Count; i++)
                 {
                     try
@@ -172,12 +180,15 @@ namespace SoftNetWebII.Services
                                 {
                                     lock (lock__MasterRMSUserList) { _MasterRMSUserList[i].isWork = true; }
                                 }
-                                Thread clientThread = new Thread(new ParameterizedThreadStart(MasterProcessRequest))
+                                Thread clientThread = new Thread(() =>
+                                {
+                                    MasterProcessRequest(_MasterRMSUserList[i].socket, _stoppingToken);
+                                })
                                 { IsBackground = true };
-                                clientThread.Start(_MasterRMSUserList[i].socket);
+                                clientThread.Start();
                                 #endregion
                                 //###??? 將來要確認
-                                RmsSend(_MasterRMSUserList[i].socket, 1, "IIS_Login,SoftNet_I,");
+                                _ = RmsSend(_MasterRMSUserList[i].socket, 1, "IIS_Login,SoftNet_I,");
                             }
                             else
                             {
@@ -197,7 +208,7 @@ namespace SoftNetWebII.Services
                             #endregion
                         }
                     }
-                    catch (Exception ee)
+                    catch (Exception)
                     {
                         if (lock__MasterRMSUserList != null)
                         {
@@ -214,9 +225,13 @@ namespace SoftNetWebII.Services
                     }
                 }
                 if (_Fun.Is_Thread_ForceClose) { IsWork = false; break; }
-                SpinWait.SpinUntil(() => !IsWork, 5000);
+                try
+                {
+                    Task.Delay(5000, cancellationToken).Wait(cancellationToken);
+                }
+                catch (OperationCanceledException) { break; }
             }
-            while (IsWork);
+            while (IsWork && !cancellationToken.IsCancellationRequested);
             db.Dispose();
         }
         private bool RmsSendPing(Socket sender)
@@ -328,7 +343,7 @@ namespace SoftNetWebII.Services
             }
             return false;
         }
-        private void MasterProcessRequest(object socket)
+        private void MasterProcessRequest(object socket, CancellationToken cancellationToken = default)
         {
             if (socket == null) { return; }
             object lock_receiveBuffer = new object();
@@ -345,7 +360,7 @@ namespace SoftNetWebII.Services
             {
                 oldEP = _sockinfo.RemoteEndPoint;
                 ipport = oldEP.ToString();
-                while (IsWork)
+                while (IsWork && !cancellationToken.IsCancellationRequested)
                 {
                     if (_Fun.Is_Thread_ForceClose) { IsWork = false; break; }
                     blen = _sockinfo.ReceiveFrom(recvBytes, ref oldEP);
@@ -460,14 +475,10 @@ namespace SoftNetWebII.Services
         }
         private void Master_ResolveData2String(string ipport, string[] cmd)
         {
-            uint logid = 1;
             for (int i = 1; i < cmd.Length; i++)
             {
                 cmd[i] = cmd[i].Replace("\x03", ",");
             }
-            string ip = ipport.Split(':')[0].Trim();
-            string disIP = "";
-            //string disIP = IpportConvertIPandName(ipport);
 
             try
             {
@@ -479,7 +490,6 @@ namespace SoftNetWebII.Services
                             switch (cmd[2])
                             {
                                 case "StationStatusChange":
-                                    string _s = "";
                                     if (_WebSocketList.ContainsKey(cmd[1]))
                                     {
                                         Send(_WebSocketList[cmd[1]].socket, cmd[2]);
@@ -508,12 +518,11 @@ namespace SoftNetWebII.Services
                         break;
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 //++RMSDBErrorCount;
                 //SoftNetService.Program._NLogMain.Write_ExceptionError(logid, "Master_ResolveData2String", RMSError.Service_Exception, LogSourceName.IPPort, ipport, 2012, ToolFun.StringAdd("通訊資料異常,請檢察網路或重啟Service Engine. data:", string.Join(",", cmd), " Exception:", ex.Message));
                 //ExceptionError 72
-                string _s = "";
             }
         }
         private async void Master_ResolveData2RMSProtocol(Socket sender, string ipport, RMSProtocol obj)
@@ -521,30 +530,9 @@ namespace SoftNetWebII.Services
             //###???要檢查來源的條件,如91501的if (_ToolUserList.ContainsKey(ipport)), 5430ㄝ要
 
             //Console.WriteLine("connect " + sender.RemoteEndPoint);
-            uint logid = 1;
-            bool writeLog = false;
-            if (obj.DataType != 11501 && obj.DataType != 11502 && obj.DataType != 11503 && obj.DataType < 91300)
-            {
-                writeLog = true;
-                lock (lock_Sevice)
-                {
-                    if (logid > 4290000000)
-                    {
-                        //SoftNetService.Program._NLogMain.NewOtherLogFile();
-                        logID = 2;
-                    }
-                    logid = ++logID;
-                }
-            }
-            if (RMSLogMode == '0')
-            {
-                writeLog = false;
-            }
             string[] cmd = null;
-            string errMEG = "";
             try
             {
-                DataRow dr = null;
                 await _Log.SocketLogAsync("Socket5431Log", $"R Type={obj.DataType.ToString()} Data={obj.Data}");
 
                 switch (obj.DataType)
@@ -646,13 +634,15 @@ namespace SoftNetWebII.Services
 
 
 
-        private void startListening_Thread()
+        private void startListening_Thread(CancellationToken cancellationToken = default)
         {
-            while (IsWork)
+            while (IsWork && !cancellationToken.IsCancellationRequested)
             {
                 allDone.Reset();
                 listener.BeginAccept(new AsyncCallback(AcceptCallback), listener);
-                allDone.WaitOne();
+                // 使用有逾時的等待以便能檢查取消
+                allDone.WaitOne(1000);
+                if (cancellationToken.IsCancellationRequested) { break; }
             }
         }
         private void AcceptCallback(IAsyncResult ar)
@@ -785,19 +775,18 @@ namespace SoftNetWebII.Services
                 //RunError A26
                 return;
             }
-            uint logid = 1;
             string[] cmd = null;
             try
             {
                 rmsConectUserData sender = _WebSocketList[ipport];
                 lock (lock_WebSocket)
                 {
-                    if (logid > 4290000000)
+                    if (logID > 4290000000)
                     {
                         //SoftNetService.Program._NLogMain.NewOtherLogFile();
                         logID = 2;
                     }
-                    logid = ++logID;
+                    ++logID;
                 }
                 switch (obj.DataType)
                 {
@@ -838,14 +827,13 @@ namespace SoftNetWebII.Services
                         return;
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 //if (lock__WebSocketList == null || lock_ThingsConfig == null || lock_MonitorConfig == null || lock_groupsItemList == null || lock_dashboard_thingNameData == null) { return; }
                 //++RMSDBErrorCount;
                 //SoftNetService.Program._NLogMain.Write_ExceptionError(logid, "rms_ResolveData2RMSProtocol", RMSError.Service_Exception,
                 //    LogSourceName.IPPort, ipDis, 61, ToolFun.StringAdd("通訊資料異常,請重啟Service Engine或聯絡TMM. data:", obj.Data, " Exception:", ex.Message), ex);
                 //ExceptionError A6
-                string _s = "";
             }
 
         }
@@ -1019,7 +1007,7 @@ namespace SoftNetWebII.Services
             }
         }
         private string uniqueID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-        private SHA1 sha1Crypto = SHA1CryptoServiceProvider.Create();
+        private SHA1 sha1Crypto = SHA1.Create();
         private void parseReceiveData(List<byte> data)
         {
             var mask = data.Skip(2).Take(4).ToArray();
@@ -1083,7 +1071,7 @@ namespace SoftNetWebII.Services
                         ipport = rud.Key;
                     }
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     //if (lock__WebSocketList == null) { }
                     //else
@@ -1167,7 +1155,7 @@ namespace SoftNetWebII.Services
                                     //_WebSocketList[ipport] = rud;
                                 }
                             }
-                            catch (Exception ex)
+                            catch (Exception)
                             {
                                 if (lock__WebSocketList == null) { }
                                 else
