@@ -52,6 +52,7 @@ TestResults/
 # 其他 IDE 文件
 .idea/
 .vscode/
+!.vscode/keybindings.json
 *.sublime-project
 *.sublime-workspace
 
@@ -65,6 +66,8 @@ desktop.ini
 !.cursorignore
 !.gitignore
 !.gitattributes
+!.cursor/
+!.cursorrules
 
 # IIS Express 配置（Visual Studio 自動生成）
 .vs/*/config/applicationhost.config

@@ -1,0 +1,32 @@
+---
+description: 自動包含 SoftNet 專案目錄至 Cursor 上下文
+globs: 
+  - "**/*.cs"
+  - "**/*.cshtml"
+  - "**/*.js"
+  - "**/*.json"
+  - "**/*.md"
+  - "**/*.csproj"
+  - "**/*.sln"
+alwaysApply: true
+---
+
+# SoftNet 專案自動上下文規則
+
+此規則會自動將整個 SoftNet 專案目錄（`C:\04_SoftNet\SoftNet`）包含在 Cursor 的上下文中。
+
+## 專案結構
+- **主要 Web 專案**: `SoftNetWebII`
+- **共用函式庫**: `Base`、`SoftNetCommLib`
+- **專案規範**: 請參考 `ProjectRules.md`
+
+## 使用方式
+在對話中，您可以直接使用：
+- `@ProjectRules.md` - 附加專案規範文件
+- `@folders "C:\04_SoftNet\SoftNet"` - 明確指定專案目錄（如果需要）
+
+## 注意事項
+- 此規則會自動包含所有符合 glob 模式的檔案
+- 已排除的檔案請參考 `.cursorignore`
+
+

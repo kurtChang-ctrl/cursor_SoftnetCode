@@ -1,0 +1,27 @@
+# SoftNet 專案 Cursor 規則
+
+## 專案上下文
+此專案位於：`C:\04_SoftNet\SoftNet`
+
+在開始對話時，請自動包含以下內容：
+- 專案根目錄：`C:\04_SoftNet\SoftNet`
+- 專案規範文件：`ProjectRules.md`
+
+## 專案結構
+- **主要 Web 專案**: `SoftNetWebII`
+- **共用函式庫**: `Base`（DBADO、Models、Services）、`SoftNetCommLib`
+- **啟動流程**: `SoftNetWebII/Program.cs` → `SoftNetWebII/Startup.cs`
+
+## 開發規範
+請遵循 `ProjectRules.md` 中的規範，包括：
+- 資料庫操作規範（使用參數化查詢）
+- 程式碼風格（PascalCase for classes/properties, camelCase for variables）
+- 背景服務與併發處理規範
+
+## 常用指令
+在對話中可以使用：
+- `@folders "C:\04_SoftNet\SoftNet"` - 包含整個專案目錄
+- `@ProjectRules.md` - 附加專案規範文件
+- `@folders "C:\04_SoftNet\SoftNet\SoftNetWebII"` - 僅包含 Web 專案
+
+
