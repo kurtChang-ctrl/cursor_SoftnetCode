@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
@@ -341,8 +341,138 @@ namespace Base
 
         }
 
+        public string Get_APS_Simulation_ErrorData_TErrorType2String(string errorType)
+        {
+            switch(errorType)
+            {
+                case "01":
+                case "02":
+                    return "排程計畫料件預備量不足";
+                case "03":
+                    return "工站未如期開工";
+                case "04":
+                    return "工站生產料件應領用而未領用";
+                case "05":
+                    return "發現排程生產備料無單據發起";
+                case "06":
+                case "07":
+                case "08":
+                case "09":
+                case "10":
+                    return "監測到單據未如預期完成,導致庫存數量更新異常";
+                case "11":
+                    return "";
+                case "12":
+                    return "工單應關未關";
+                case "14":
+                    return "實際CT遠離目標CT";
+                case "15":
+                    return "報工延遲,影響目標CT的正確性";
+                case "16":
+                    return "";
+                case "17":
+                    return "料件數量移轉量不合理";
+                case "18":
+                    return "工站應停工未停工";
+                case "19":
+                    return "排程計畫已偏離需求日";
+                case "21":
+                    return "工單關閉,強制檢查各站報工的合理性";
+                case "22":
+                    return "疑似重複報工";
+                case "23":
+                    return "疑似委外加工數量多出";
+                case "24":
+                    return "工單關閉後才補開委外加工單";
+                case "25":
+                    return "系統干涉補報工數量";
+                case "26":
+                    return $"領入庫單據時間晚於計畫逾7天";
+                case "27":
+                    return $"領入庫單據時間早於計畫逾7天";
+                case "28":
+                    return $"計畫日已過報工明顯不足";
+                case "29":
+                    return $"工站移轉或在制數量為負";
+                case "30":
+                    return $"報工時間遠超計畫工時";
+                case "31":
+                    return $"領料或入庫數量為負";
+                default:
+                    return "";
+            }
+        }
 
+        public bool InsertSimulationError(DBADO db, string errorType,string actionType, string simulationId = null, string needId = null, string docNumberNo = null, string errorKey = null, string stationNo = null, string timeNType = null, int? count = null, string logDate = null)
+        {
+            var parameters = new Dictionary<string, object>
+            {
+                { "Id", _Str.NewId('E') },
+                { "ServerId", _Fun.Config.ServerId },
+                { "ErrorType", errorType },
+                { "ActionType", actionType },
+                { "LogDate", logDate ?? DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") }
+            };
+            if (actionType == "0") { parameters["ActionLogDate"] = logDate ?? DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"); }
+            if (!string.IsNullOrWhiteSpace(simulationId)) parameters["SimulationId"] = simulationId;
+            if (!string.IsNullOrWhiteSpace(needId)) parameters["NeedId"] = needId;
+            if (!string.IsNullOrWhiteSpace(docNumberNo)) parameters["DOCNumberNO"] = docNumberNo;
+            if (!string.IsNullOrWhiteSpace(errorKey)) parameters["ErrorKey"] = errorKey;
+            if (!string.IsNullOrWhiteSpace(stationNo)) parameters["StationNO"] = stationNo;
+            if (!string.IsNullOrWhiteSpace(timeNType)) parameters["Time_N_Type"] = timeNType;
+            if (count.HasValue) parameters["Count"] = count.Value;
 
+            string columns = string.Join(",", parameters.Keys);
+            string values = string.Join(",", parameters.Keys.Select(k => "@" + k));
+            string sql = $"INSERT INTO SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] ({columns}) VALUES ({values})";
+            return db.DB_SetDataByParams(sql, parameters);
+        }
+        /// <summary>
+        /// INSERT APS_EventLog eventType 99=僅記錄 Wx=警告 Ex=異常 II=干涉
+        /// </summary>
+        public bool InsertApsEventLog(DBADO db, string eventText, string needId = null, string simulationId = null, string eventType = "99", string logDateTime = null)
+        {
+            var parameters = new Dictionary<string, object>
+            {
+                { "Event", eventText },
+                { "EventType", eventType },
+                { "Id", _Str.NewId('Z') },
+                { "ServerId", _Fun.Config.ServerId },
+                { "LOGDateTime", logDateTime ?? DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") }
+            };
+
+            if (!string.IsNullOrWhiteSpace(needId)) parameters["NeedId"] = needId;
+            if (!string.IsNullOrWhiteSpace(simulationId)) parameters["SimulationId"] = simulationId;
+
+            string columns = string.Join(",", parameters.Keys);
+            string values = string.Join(",", parameters.Keys.Select(k => "@" + k));
+            string sql = $"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] ({columns}) VALUES ({values})";
+            return db.DB_SetDataByParams(sql, parameters);
+        }
+
+        public bool InsertWarningData(DBADO db, string errorType, string needId = null, string simulationId = null, string stationNo = null, string docNumberNo = null, string partNo = null, string opNo = null, string dataRemark = null, string warningDate = null)
+        {
+            var parameters = new Dictionary<string, object>
+            {
+                { "Id", _Str.NewId('W') },
+                { "ServerId", _Fun.Config.ServerId },
+                { "ErrorType", errorType },
+                { "WarningDate", warningDate ?? DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") }
+            };
+
+            if (!string.IsNullOrWhiteSpace(needId)) parameters["NeedId"] = needId;
+            if (!string.IsNullOrWhiteSpace(simulationId)) parameters["SimulationId"] = simulationId;
+            if (!string.IsNullOrWhiteSpace(stationNo)) parameters["StationNO"] = stationNo;
+            if (!string.IsNullOrWhiteSpace(docNumberNo)) parameters["DOCNumberNO"] = docNumberNo;
+            if (!string.IsNullOrWhiteSpace(partNo)) parameters["PartNO"] = partNo;
+            if (!string.IsNullOrWhiteSpace(opNo)) parameters["OP_NO"] = opNo;
+            if (!string.IsNullOrWhiteSpace(dataRemark)) parameters["DATA_Remark"] = dataRemark;
+
+            string columns = string.Join(",", parameters.Keys);
+            string values = string.Join(",", parameters.Keys.Select(k => "@" + k));
+            string sql = $"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ({columns}) VALUES ({values})";
+            return db.DB_SetDataByParams(sql, parameters);
+        }
 
         public string[] Get_Service_DB_TypeandConnectString(string dbType, string dbConnectString, string dbID)
         {
@@ -834,7 +964,7 @@ namespace Base
                 {
                     string name = "";
                     int StatndCycleTime = int.Parse(dr_APS_Simulation["Math_EfficientCT"].ToString());
-                    string StartTime = DateTime.Now.ToString("MM/dd/yyyy H:mm:ss");
+                    string StartTime = DateTime.Now.ToString("yyyy-MM-dd H:mm:ss");
                     DataRow tmp = db.DB_GetFirstDataByDataRow($"SELECT StationName FROM SoftNetSYSDB.[dbo].[PP_Station] WHERE ServerId='{_Fun.Config.ServerId}' and StationNO='{dr_APS_Simulation["Source_StationNO"].ToString()}'");
                     if (tmp != null)
                     { name = tmp.IsNull("StationName") ? "" : tmp["StationName"].ToString(); }
@@ -865,7 +995,7 @@ namespace Base
                                     isEND, //6
                                     dr_APS_Simulation["Apply_PP_Name"].ToString(), //7 Sub_PP_Name
                                     StatndCycleTime.ToString(), //8
-                                    DateTime.Now.ToString("MM/dd/yyyy H:mm:ss"), //9
+                                    DateTime.Now.ToString("yyyy-MM-dd H:mm:ss"), //9
                                     indexSN_Merge, _Fun.Config.ServerId);//10
                     }
                     else
@@ -889,7 +1019,7 @@ namespace Base
                                     dr_APS_Simulation["Apply_PP_Name"].ToString(), //7 Sub_PP_Name
                                     StartTime, //8
                                     StatndCycleTime.ToString(), //9
-                                    DateTime.Now.ToString("MM/dd/yyyy H:mm:ss"), //10                                                                                    
+                                    DateTime.Now.ToString("yyyy-MM-dd H:mm:ss"), //10                                                                                    
                                     indexSN_Merge, _Fun.Config.ServerId);//11
                     }
                     if (!db.DB_SetData(sfc_sql))
@@ -906,7 +1036,7 @@ namespace Base
                             @"Update SoftNetSYSDB.[dbo].PP_WorkOrder_Settlement SET 
                                                                                   StartTime='{0}',UpdateTime='{0}',IsLastStation='{3}',IndexSN_Merge='{5}' 
                                                                                   WHERE ServerId='{6}' and OrderNO='{1}' and StationNO='{2}' and IndexSN={4}",
-                              DateTime.Now.ToString("MM/dd/yyyy H:mm:ss"),
+                              DateTime.Now.ToString("yyyy-MM-dd H:mm:ss"),
                               wo,
                               dr_APS_Simulation["Source_StationNO"].ToString(),
                               isEND,
@@ -920,7 +1050,7 @@ namespace Base
                             @"Update SoftNetSYSDB.[dbo].PP_WorkOrder_Settlement SET 
                                                                                   UpdateTime='{0}',IsLastStation='{3}',IndexSN_Merge='{5}' 
                                                                                   WHERE ServerId='{6}' and OrderNO='{1}' and StationNO='{2}' and IndexSN={4}",
-                              DateTime.Now.ToString("MM/dd/yyyy H:mm:ss"),
+                              DateTime.Now.ToString("yyyy-MM-dd H:mm:ss"),
                               wo,
                               dr_APS_Simulation["Source_StationNO"].ToString(),
                               isEND,
@@ -980,7 +1110,7 @@ namespace Base
                                 dataRow["_FPY"].ToString(),//9
                                 dataRow["_YieldRate"].ToString(),//10
                                 dataRow["_StationYieldRate"].ToString(),//11 
-                                DateTime.Now.ToString("MM/dd/yyyy H:mm:ss"),//12 
+                                DateTime.Now.ToString("yyyy-MM-dd H:mm:ss"),//12 
                                 wo,//13 
                                 dr_APS_Simulation["Source_StationNO"].ToString(), dr_APS_Simulation["Source_StationNO_IndexSN"].ToString(), _Fun.Config.ServerId),//14 15
                                 ref err);
@@ -1046,7 +1176,7 @@ namespace Base
                                                                                     [TotalInput],[TotalOutput],[TotalFail],[TotalKeep],[FPY],
                                                                                     [YieldRate],[StationYieldRate],ServerId) VALUES 
                                                                                     ('{data[1]}','{data[0]}','{dr_StationNO["StationName"].ToString()}','{dr_Manufacture["PP_Name"].ToString()}',
-                                                                                    {data[2]},0,'{isend}','{dr_Manufacture["PP_Name"].ToString()}',{dr_APS_Simulation["Math_StandardCT"].ToString()},'{DateTime.Now.ToString("MM/dd/yyyy H:mm:ss")}',
+                                                                                    {data[2]},0,'{isend}','{dr_Manufacture["PP_Name"].ToString()}',{dr_APS_Simulation["Math_StandardCT"].ToString()},'{DateTime.Now.ToString("yyyy-MM-dd H:mm:ss")}',
                                                                                     '{is_IndexSN_Merge}',null,0,0,0,0,0,0,0,0,0,0,0,'{_Fun.Config.ServerId}')";
 
                         if (!db.DB_SetData(sfc_sql))
@@ -1109,7 +1239,7 @@ namespace Base
                     string old_ProductFinishedQty = "0";
                     string old_ProductFailedQty = "0";
                     int OP_Count = 1;
-                    string logTime = DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff");
+                    string logTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
 
                     DataRow dr_StationDetail = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetLogDB.[dbo].[SFC_StationDetail] WHERE ServerId='{_Fun.Config.ServerId}' and OrderNO='{data[1]}' AND StationNO='{data[0]}' AND IndexSN={data[2]}");
                     if (dr_StationDetail == null)
@@ -1144,9 +1274,9 @@ namespace Base
                     }
                     else
                     {
-                        logTime = Convert.ToDateTime(dr_StationDetail["LOGDateTime"]).ToString("MM/dd/yyyy HH:mm:ss.fff");
-                        old_InTime = Convert.ToDateTime(dr_StationDetail["InTime"]).ToString("MM/dd/yyyy HH:mm:ss.fff");
-                        old_OutTime = Convert.ToDateTime(dr_StationDetail["OutTime"]).ToString("MM/dd/yyyy HH:mm:ss.fff");
+                        logTime = Convert.ToDateTime(dr_StationDetail["LOGDateTime"]).ToString("yyyy-MM-dd HH:mm:ss.fff");
+                        old_InTime = Convert.ToDateTime(dr_StationDetail["InTime"]).ToString("yyyy-MM-dd HH:mm:ss.fff");
+                        old_OutTime = Convert.ToDateTime(dr_StationDetail["OutTime"]).ToString("yyyy-MM-dd HH:mm:ss.fff");
                         old_ProductFinishedQty = dr_StationDetail["ProductFinishedQty"].ToString();
                         old_ProductFailedQty = dr_StationDetail["ProductFailedQty"].ToString();
                         if (!is_Back)
@@ -1178,8 +1308,8 @@ namespace Base
                     if (db.DB_SetData(sql))
                     {
                         string logtype = "智慧報工";
-                        if (is_Back) { logtype = "干涉修正"; }
-                        db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[NeedId],[SimulationId],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,OP_NO,IndexSN) VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{dr_APS_Simulation["NeedId"].ToString()}','{dr_APS_Simulation["SimulationId"].ToString()}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','LabelWork','{logtype}','{dr_Manufacture["PP_Name"].ToString()}','{keys.Station}','{dr_Manufacture["PartNO"].ToString()}','{dr_Manufacture["OrderNO"].ToString()}','{UserNO}',{dr_Manufacture["IndexSN"].ToString()})");
+                        if (is_Back) { logtype = "干涉修正報工量"; }
+                        db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[NeedId],[SimulationId],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,OP_NO,IndexSN) VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{dr_APS_Simulation["NeedId"].ToString()}','{dr_APS_Simulation["SimulationId"].ToString()}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','LabelWork','{logtype}','{dr_Manufacture["PP_Name"].ToString()}','{keys.Station}','{dr_Manufacture["PartNO"].ToString()}','{dr_Manufacture["OrderNO"].ToString()}','{UserNO}',{dr_Manufacture["IndexSN"].ToString()})");
 
                         #region 更新標籤累計量
                         if (!is_Back)
@@ -1328,27 +1458,27 @@ namespace Base
                                 {
                                     if (!dr_Manufacture.IsNull("RemarkTimeS"))
                                     {
-                                        if (d.IsNull("StartTime")) { k_stime = $",StartTime='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss")}'"; } else { k_stime = ""; }
+                                        if (d.IsNull("StartTime")) { k_stime = $",StartTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}'"; } else { k_stime = ""; }
                                         if (!dr_Manufacture.IsNull("RemarkTimeE"))
                                         {
-                                            tmp_dr = db.DB_GetFirstDataByDataRow($"SELECT TOP 1 * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.Station}' and PartNO='{dr_Manufacture["PartNO"].ToString()}' and LOGDateTime>'{Convert.ToDateTime(dr_Manufacture["RemarkTimeS"]).ToString("yyyy/MM/dd HH:mm:ss")}' and LOGDateTime<='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.fff")}' and OperateType like '%報工%'");
+                                            tmp_dr = db.DB_GetFirstDataByDataRow($"SELECT TOP 1 * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.Station}' and PartNO='{dr_Manufacture["PartNO"].ToString()}' and LOGDateTime>'{Convert.ToDateTime(dr_Manufacture["RemarkTimeS"]).ToString("yyyy-MM-dd HH:mm:ss")}' and LOGDateTime<='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}' and OperateType like '%報工%'");
                                             if (tmp_dr != null)
                                             {
                                                 db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[TotalStockII_Knives_LOG] ([Id],[KId],[ServerId],[LOGDateTime],[StationNO],[PartNO],[WorkQTY],[WorkTime]) VALUES 
-                                                            ('{_Str.NewId('K')}','{d["KId"].ToString()}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','{keys.Station}','{dr_Manufacture["PartNO"].ToString()}',{(useCount).ToString()},0)");
+                                                            ('{_Str.NewId('K')}','{d["KId"].ToString()}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{keys.Station}','{dr_Manufacture["PartNO"].ToString()}',{(useCount).ToString()},0)");
                                             }
                                             else
                                             {
                                                 useTime = TimeCompute2Seconds_BY_Calendar(db, dr_StationNO["CalendarName"].ToString(), Convert.ToDateTime(dr_Manufacture["RemarkTimeS"].ToString()), DateTime.Now);
                                                 db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[TotalStockII_Knives_LOG] ([Id],[KId],[ServerId],[LOGDateTime],[StationNO],[PartNO],[WorkQTY],[WorkTime]) VALUES 
-                                                            ('{_Str.NewId('K')}','{d["KId"].ToString()}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','{keys.Station}','{dr_Manufacture["PartNO"].ToString()}',{(useCount).ToString()},{useTime.ToString()})");
+                                                            ('{_Str.NewId('K')}','{d["KId"].ToString()}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{keys.Station}','{dr_Manufacture["PartNO"].ToString()}',{(useCount).ToString()},{useTime.ToString()})");
                                             }
                                         }
                                         else
                                         {
                                             useTime = TimeCompute2Seconds_BY_Calendar(db, dr_StationNO["CalendarName"].ToString(), Convert.ToDateTime(dr_Manufacture["RemarkTimeS"].ToString()), DateTime.Now);
                                             db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[TotalStockII_Knives_LOG] ([Id],[KId],[ServerId],[LOGDateTime],[StationNO],[PartNO],[WorkQTY],[WorkTime]) VALUES 
-                                                        ('{_Str.NewId('K')}','{d["KId"].ToString()}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','{keys.Station}','{dr_Manufacture["PartNO"].ToString()}',{(useCount).ToString()},{useTime.ToString()})");
+                                                        ('{_Str.NewId('K')}','{d["KId"].ToString()}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{keys.Station}','{dr_Manufacture["PartNO"].ToString()}',{(useCount).ToString()},{useTime.ToString()})");
                                         }
                                         db.DB_SetData($"update SoftNetMainDB.[dbo].[TotalStockII_Knives] set TOTWorkTime+={useTime.ToString()},TOTCount+={useCount.ToString()}{k_stime} where ServerId='{_Fun.Config.ServerId}' and KId='{d["KId"].ToString()}'");
                                     }
@@ -1361,7 +1491,7 @@ namespace Base
                         {
                             #region 修正工站開始日期
                             if (dr_Manufacture["State"].ToString() == "1")
-                            { db.DB_SetData($"update SoftNetMainDB.[dbo].[Manufacture] set RemarkTimeS='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and StationNO='{data[0]}'"); }
+                            { db.DB_SetData($"update SoftNetMainDB.[dbo].[Manufacture] set RemarkTimeS='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and StationNO='{data[0]}'"); }
                             #endregion
                             Update_PP_WorkOrder_Settlement(db, data[1], keys.SimulationId);
                         }
@@ -1462,7 +1592,7 @@ namespace Base
                                                     {
                                                         #region 回寫上一站報工移轉時間
                                                         bool isRUNNextStationTime = false;
-                                                        DataTable dt_SFC_StationDetail_ChangeLOG = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] where ServerId='{_Fun.Config.ServerId}' and LOGDateTime='{Convert.ToDateTime(tmp["LOGDateTime"]).ToString("MM/dd/yyyy HH:mm:ss.fff")}' and StationNO='{tmp["StationNO"].ToString()}' and PartNO='{d["PartNO"].ToString()}' order by LOGDateTime");
+                                                        DataTable dt_SFC_StationDetail_ChangeLOG = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] where ServerId='{_Fun.Config.ServerId}' and LOGDateTime='{Convert.ToDateTime(tmp["LOGDateTime"]).ToString("yyyy-MM-dd HH:mm:ss.fff")}' and StationNO='{tmp["StationNO"].ToString()}' and PartNO='{d["PartNO"].ToString()}' order by LOGDateTime");
 
                                                         if (dt_SFC_StationDetail_ChangeLOG != null && dt_SFC_StationDetail_ChangeLOG.Rows.Count > 0)
                                                         {
@@ -1560,8 +1690,8 @@ namespace Base
                                                             int typeTotalTime = 0;
                                                             string writeSQL = "";
                                                             if (!dr_DOC3stockII.IsNull("StartTime")) { typeTotalTime = TimeCompute2Seconds_BY_Calendar(db, _Fun.Config.DefaultCalendarName, Convert.ToDateTime(dr_DOC3stockII["StartTime"].ToString()), DateTime.Now); }
-                                                            else { writeSQL = $",StartTime='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}'"; }
-                                                            db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC3stockII] set IsOK='1',EndTime='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}',CT={typeTotalTime}{writeSQL} where Id='{dr_DOC3stockII["Id"].ToString()}' and DOCNumberNO='{dr_DOC3stockII["DOCNumberNO"].ToString()}'");
+                                                            else { writeSQL = $",StartTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}'"; }
+                                                            db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC3stockII] set IsOK='1',EndTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}',CT={typeTotalTime}{writeSQL} where Id='{dr_DOC3stockII["Id"].ToString()}' and DOCNumberNO='{dr_DOC3stockII["DOCNumberNO"].ToString()}'");
                                                             string efficient_partNO = dr_DOC3stockII["PartNO"].ToString();
                                                             string efficient_pp_Name = "";
                                                             string E_stationNO = "";
@@ -1640,7 +1770,7 @@ namespace Base
                                                         {
                                                             #region 回寫上一站報工移轉時間
                                                             bool isRUNNextStationTime = false;
-                                                            DataTable dt_SFC_StationDetail_ChangeLOG = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] where ServerId='{_Fun.Config.ServerId}' and LOGDateTime='{Convert.ToDateTime(tmp["LOGDateTime"]).ToString("MM/dd/yyyy HH:mm:ss.fff")}' and StationNO='{tmp["StationNO"].ToString()}' and PartNO='{d["PartNO"].ToString()}' order by LOGDateTime");
+                                                            DataTable dt_SFC_StationDetail_ChangeLOG = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] where ServerId='{_Fun.Config.ServerId}' and LOGDateTime='{Convert.ToDateTime(tmp["LOGDateTime"]).ToString("yyyy-MM-dd HH:mm:ss.fff")}' and StationNO='{tmp["StationNO"].ToString()}' and PartNO='{d["PartNO"].ToString()}' order by LOGDateTime");
 
                                                             if (dt_SFC_StationDetail_ChangeLOG != null && dt_SFC_StationDetail_ChangeLOG.Rows.Count > 0)
                                                             {
@@ -1751,7 +1881,7 @@ namespace Base
                                                         if (NextStationTime > 0)
                                                         {
                                                             #region 回寫上一站報工移轉時間
-                                                            DataTable dt_SFC_StationDetail_ChangeLOG = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] where ServerId='{_Fun.Config.ServerId}' and LOGDateTime='{Convert.ToDateTime(tmp["LOGDateTime"]).ToString("MM/dd/yyyy HH:mm:ss.fff")}' and StationNO='{tmp["StationNO"].ToString()}' and PartNO='{tmp["PartNO"].ToString()}' order by LOGDateTime");
+                                                            DataTable dt_SFC_StationDetail_ChangeLOG = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] where ServerId='{_Fun.Config.ServerId}' and LOGDateTime='{Convert.ToDateTime(tmp["LOGDateTime"]).ToString("yyyy-MM-dd HH:mm:ss.fff")}' and StationNO='{tmp["StationNO"].ToString()}' and PartNO='{tmp["PartNO"].ToString()}' order by LOGDateTime");
                                                             if (dt_SFC_StationDetail_ChangeLOG != null && dt_SFC_StationDetail_ChangeLOG.Rows.Count > 0)
                                                             {
                                                                 for (int i = 1; i <= dt_SFC_StationDetail_ChangeLOG.Rows.Count; i++)
@@ -2109,13 +2239,13 @@ namespace Base
                                         {
                                             if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_Simulation] SET IsOK='1' where SimulationId='{d["SimulationId"].ToString()}'"))
                                             {
-                                                db.DB_SetData($"update SoftNetMainDB.[dbo].[DOC3stockII] set ArrivalDate='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}' where IsOK='0' and SimulationId='{d["SimulationId"].ToString()}'");
+                                                db.DB_SetData($"update SoftNetMainDB.[dbo].[DOC3stockII] set ArrivalDate='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}' where IsOK='0' and SimulationId='{d["SimulationId"].ToString()}'");
                                                 db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_WorkTimeNote] set Time1_C=1,Time2_C=0,Time3_C=0,Time4_C=0 where NeedId='{d["NeedId"].ToString()}' and SimulationId='{d["SimulationId"].ToString()}'");
                                             }
                                         }
                                         else
                                         {
-                                            db.DB_SetData($"update SoftNetMainDB.[dbo].[DOC3stockII] set ArrivalDate='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}' where IsOK='0' and SimulationId='{d["SimulationId"].ToString()}'");
+                                            db.DB_SetData($"update SoftNetMainDB.[dbo].[DOC3stockII] set ArrivalDate='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}' where IsOK='0' and SimulationId='{d["SimulationId"].ToString()}'");
                                         }
                                     }
                                     #endregion
@@ -2370,7 +2500,7 @@ namespace Base
                             stationNO_Custom_IndexSN = dr["Station_Custom_IndexSN"].ToString();
                             stationNO_Custom_DisplayName = dr["DisplayName"].ToString();
                         }
-                        string tmpTime = DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff");
+                        string tmpTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
                         db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[ManufactureII] ([Id],[StationNO],[ServerId],[OrderNO],[Master_PP_Name],[PP_Name],[IndexSN],[Station_Custom_IndexSN],[StationNO_Custom_DisplayName],[PartNO],[SimulationId],StartTime,EndTime,RemarkTimeS,RemarkTimeE)
                                               VALUES ('{id}','{keys.StationNO}','{_Fun.Config.ServerId}','{keys.SI_OrderNO}','{keys.SI_PP_Name}','{keys.SI_PP_Name}',{keys.SI_IndexSN},'{stationNO_Custom_IndexSN}','{stationNO_Custom_DisplayName}','{keys.SI_PartNO}','{keys.SI_SimulationId}','{tmpTime}','{tmpTime}','{tmpTime}','{tmpTime}')");
                         dr_MII = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetMainDB.[dbo].[ManufactureII] where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and SimulationId='{keys.SI_SimulationId}'");
@@ -2402,7 +2532,7 @@ namespace Base
                                                                                     [TotalInput],[TotalOutput],[TotalFail],[TotalKeep],[FPY],
                                                                                     [YieldRate],[StationYieldRate],ServerId) VALUES 
                                                                                     ('{data[1]}','{data[0]}','{dr_PP_Station["StationName"].ToString()}','{dr_MII["PP_Name"].ToString()}',
-                                                                                    {data[2]},0,'{isend}','{dr_MII["PP_Name"].ToString()}',{dr_APS_Simulation["Math_StandardCT"].ToString()},'{DateTime.Now.ToString("MM/dd/yyyy H:mm:ss")}',
+                                                                                    {data[2]},0,'{isend}','{dr_MII["PP_Name"].ToString()}',{dr_APS_Simulation["Math_StandardCT"].ToString()},'{DateTime.Now.ToString("yyyy-MM-dd H:mm:ss")}',
                                                                                     '{is_IndexSN_Merge}',null,0,0,0,0,0,0,0,0,0,0,0,'{_Fun.Config.ServerId}')";
 
                         if (!db.DB_SetData(sfc_sql))
@@ -2472,7 +2602,7 @@ namespace Base
                     #endregion
 
                     #region 寫SFC_StationDetail
-                    string logTime = DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff");
+                    string logTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
                     string lOGDateTime = logTime;
                     string old_InTime = "";
                     string old_OutTime = "";
@@ -2515,9 +2645,9 @@ namespace Base
                     }
                     else
                     {
-                        logTime = Convert.ToDateTime(dr_StationDetail["LOGDateTime"]).ToString("MM/dd/yyyy HH:mm:ss.fff");
-                        old_InTime = Convert.ToDateTime(dr_StationDetail["InTime"]).ToString("MM/dd/yyyy HH:mm:ss.fff");
-                        old_OutTime = Convert.ToDateTime(dr_StationDetail["OutTime"]).ToString("MM/dd/yyyy HH:mm:ss.fff");
+                        logTime = Convert.ToDateTime(dr_StationDetail["LOGDateTime"]).ToString("yyyy-MM-dd HH:mm:ss.fff");
+                        old_InTime = Convert.ToDateTime(dr_StationDetail["InTime"]).ToString("yyyy-MM-dd HH:mm:ss.fff");
+                        old_OutTime = Convert.ToDateTime(dr_StationDetail["OutTime"]).ToString("yyyy-MM-dd HH:mm:ss.fff");
                         old_ProductFinishedQty = dr_StationDetail["ProductFinishedQty"].ToString();
                         old_ProductFailedQty = dr_StationDetail["ProductFailedQty"].ToString();
                         if (!is_Back)
@@ -2549,7 +2679,7 @@ namespace Base
                         if (dr_StationDetail != null)
                         {
                             #region 計算上一次報工與現在時間差
-                            SFC_StationDetail_ChangeLOG = db.DB_GetFirstDataByDataRow($"SELECT LOGDateTimeID FROM SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] where ServerId='{_Fun.Config.ServerId}' and LOGDateTime='{Convert.ToDateTime(dr_StationDetail["LOGDateTime"]).ToString("yyyy-MM-dd HH:mm:ss.fff")}' order by LOGDateTime,LOGDateTimeID desc");
+                            SFC_StationDetail_ChangeLOG = db.DB_GetFirstDataByDataRow($"SELECT LOGDateTimeID,ECT FROM SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] where ServerId='{_Fun.Config.ServerId}' and LOGDateTime='{Convert.ToDateTime(dr_StationDetail["LOGDateTime"]).ToString("yyyy-MM-dd HH:mm:ss.fff")}' order by LOGDateTime,LOGDateTimeID desc");
                             if (SFC_StationDetail_ChangeLOG != null && !is_Back)
                             { reportTime = TimeCompute2Seconds_BY_Calendar(db, dr_PP_Station["CalendarName"].ToString(), Convert.ToDateTime(SFC_StationDetail_ChangeLOG["LOGDateTimeID"]), DateTime.Now); }
                             #endregion
@@ -2668,27 +2798,27 @@ namespace Base
                                 {
                                     if (!dr_MII.IsNull("RemarkTimeS"))
                                     {
-                                        if (d.IsNull("StartTime")) { k_stime = $",StartTime='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss")}'"; } else { k_stime = ""; }
+                                        if (d.IsNull("StartTime")) { k_stime = $",StartTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}'"; } else { k_stime = ""; }
                                         if (!dr_MII.IsNull("RemarkTimeE"))
                                         {
-                                            tmp_dr = db.DB_GetFirstDataByDataRow($"SELECT TOP 1 * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and PartNO='{dr_MII["PartNO"].ToString()}' and LOGDateTime>'{Convert.ToDateTime(dr_MII["RemarkTimeS"]).ToString("yyyy/MM/dd HH:mm:ss")}' and LOGDateTime<='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.fff")}' and OperateType like '%報工%'");
+                                            tmp_dr = db.DB_GetFirstDataByDataRow($"SELECT TOP 1 * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and PartNO='{dr_MII["PartNO"].ToString()}' and LOGDateTime>'{Convert.ToDateTime(dr_MII["RemarkTimeS"]).ToString("yyyy-MM-dd HH:mm:ss")}' and LOGDateTime<='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}' and OperateType like '%報工%'");
                                             if (tmp_dr != null)
                                             {
                                                 db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[TotalStockII_Knives_LOG] ([Id],[KId],[ServerId],[LOGDateTime],[StationNO],[PartNO],[WorkQTY],[WorkTime]) VALUES 
-                                                            ('{_Str.NewId('K')}','{d["KId"].ToString()}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','{keys.StationNO}','{dr_MII["PartNO"].ToString()}',{(useCount).ToString()},0)");
+                                                            ('{_Str.NewId('K')}','{d["KId"].ToString()}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{keys.StationNO}','{dr_MII["PartNO"].ToString()}',{(useCount).ToString()},0)");
                                             }
                                             else
                                             {
                                                 useTime = TimeCompute2Seconds_BY_Calendar(db, dr_PP_Station["CalendarName"].ToString(), Convert.ToDateTime(dr_MII["RemarkTimeS"].ToString()), DateTime.Now);
                                                 db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[TotalStockII_Knives_LOG] ([Id],[KId],[ServerId],[LOGDateTime],[StationNO],[PartNO],[WorkQTY],[WorkTime]) VALUES 
-                                                            ('{_Str.NewId('K')}','{d["KId"].ToString()}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','{keys.StationNO}','{dr_MII["PartNO"].ToString()}',{(useCount).ToString()},{useTime.ToString()})");
+                                                            ('{_Str.NewId('K')}','{d["KId"].ToString()}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{keys.StationNO}','{dr_MII["PartNO"].ToString()}',{(useCount).ToString()},{useTime.ToString()})");
                                             }
                                         }
                                         else
                                         {
                                             useTime = TimeCompute2Seconds_BY_Calendar(db, dr_PP_Station["CalendarName"].ToString(), Convert.ToDateTime(dr_MII["RemarkTimeS"].ToString()), DateTime.Now);
                                             db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[TotalStockII_Knives_LOG] ([Id],[KId],[ServerId],[LOGDateTime],[StationNO],[PartNO],[WorkQTY],[WorkTime]) VALUES 
-                                                        ('{_Str.NewId('K')}','{d["KId"].ToString()}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','{keys.StationNO}','{dr_MII["PartNO"].ToString()}',{(useCount).ToString()},{useTime.ToString()})");
+                                                        ('{_Str.NewId('K')}','{d["KId"].ToString()}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{keys.StationNO}','{dr_MII["PartNO"].ToString()}',{(useCount).ToString()},{useTime.ToString()})");
                                         }
                                         db.DB_SetData($"update SoftNetMainDB.[dbo].[TotalStockII_Knives] set TOTWorkTime+={useTime.ToString()},TOTCount+={useCount.ToString()}{k_stime} where ServerId='{_Fun.Config.ServerId}' and KId='{d["KId"].ToString()}'");
                                     }
@@ -2809,7 +2939,7 @@ namespace Base
                                                     {
                                                         #region 回寫上一站報工移轉時間
                                                         bool isRUNNextStationTime = false;
-                                                        DataTable dt_SFC_StationDetail_ChangeLOG = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] where ServerId='{_Fun.Config.ServerId}' and LOGDateTime='{Convert.ToDateTime(tmp["LOGDateTime"]).ToString("MM/dd/yyyy HH:mm:ss.fff")}' and StationNO='{tmp["StationNO"].ToString()}' and PartNO='{d["PartNO"].ToString()}' order by LOGDateTime");
+                                                        DataTable dt_SFC_StationDetail_ChangeLOG = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] where ServerId='{_Fun.Config.ServerId}' and LOGDateTime='{Convert.ToDateTime(tmp["LOGDateTime"]).ToString("yyyy-MM-dd HH:mm:ss.fff")}' and StationNO='{tmp["StationNO"].ToString()}' and PartNO='{d["PartNO"].ToString()}' order by LOGDateTime");
 
                                                         if (dt_SFC_StationDetail_ChangeLOG != null && dt_SFC_StationDetail_ChangeLOG.Rows.Count > 0)
                                                         {
@@ -2907,8 +3037,8 @@ namespace Base
                                                             int typeTotalTime = 0;
                                                             string writeSQL = "";
                                                             if (!dr_DOC3stockII.IsNull("StartTime")) { typeTotalTime = TimeCompute2Seconds_BY_Calendar(db, _Fun.Config.DefaultCalendarName, Convert.ToDateTime(dr_DOC3stockII["StartTime"].ToString()), DateTime.Now); }
-                                                            else { writeSQL = $",StartTime='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}'"; }
-                                                            db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC3stockII] set IsOK='1',EndTime='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}',CT={typeTotalTime}{writeSQL} where Id='{dr_DOC3stockII["Id"].ToString()}' and DOCNumberNO='{dr_DOC3stockII["DOCNumberNO"].ToString()}'");
+                                                            else { writeSQL = $",StartTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}'"; }
+                                                            db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC3stockII] set IsOK='1',EndTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}',CT={typeTotalTime}{writeSQL} where Id='{dr_DOC3stockII["Id"].ToString()}' and DOCNumberNO='{dr_DOC3stockII["DOCNumberNO"].ToString()}'");
                                                             string efficient_partNO = dr_DOC3stockII["PartNO"].ToString();
                                                             string efficient_pp_Name = "";
                                                             string E_stationNO = "";
@@ -2987,7 +3117,7 @@ namespace Base
                                                         {
                                                             #region 回寫上一站報工移轉時間
                                                             bool isRUNNextStationTime = false;
-                                                            DataTable dt_SFC_StationDetail_ChangeLOG = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] where ServerId='{_Fun.Config.ServerId}' and LOGDateTime='{Convert.ToDateTime(tmp["LOGDateTime"]).ToString("MM/dd/yyyy HH:mm:ss.fff")}' and StationNO='{tmp["StationNO"].ToString()}' and PartNO='{d["PartNO"].ToString()}' order by LOGDateTime");
+                                                            DataTable dt_SFC_StationDetail_ChangeLOG = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] where ServerId='{_Fun.Config.ServerId}' and LOGDateTime='{Convert.ToDateTime(tmp["LOGDateTime"]).ToString("yyyy-MM-dd HH:mm:ss.fff")}' and StationNO='{tmp["StationNO"].ToString()}' and PartNO='{d["PartNO"].ToString()}' order by LOGDateTime");
 
                                                             if (dt_SFC_StationDetail_ChangeLOG != null && dt_SFC_StationDetail_ChangeLOG.Rows.Count > 0)
                                                             {
@@ -3099,7 +3229,7 @@ namespace Base
                                                         if (NextStationTime > 0)
                                                         {
                                                             #region 回寫上一站報工移轉時間
-                                                            DataTable dt_SFC_StationDetail_ChangeLOG = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] where ServerId='{_Fun.Config.ServerId}' and LOGDateTime='{Convert.ToDateTime(tmp["LOGDateTime"]).ToString("MM/dd/yyyy HH:mm:ss.fff")}' and StationNO='{tmp["StationNO"].ToString()}' and PartNO='{tmp["PartNO"].ToString()}' order by LOGDateTime");
+                                                            DataTable dt_SFC_StationDetail_ChangeLOG = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] where ServerId='{_Fun.Config.ServerId}' and LOGDateTime='{Convert.ToDateTime(tmp["LOGDateTime"]).ToString("yyyy-MM-dd HH:mm:ss.fff")}' and StationNO='{tmp["StationNO"].ToString()}' and PartNO='{tmp["PartNO"].ToString()}' order by LOGDateTime");
                                                             if (dt_SFC_StationDetail_ChangeLOG != null && dt_SFC_StationDetail_ChangeLOG.Rows.Count > 0)
                                                             {
                                                                 for (int i = 1; i <= dt_SFC_StationDetail_ChangeLOG.Rows.Count; i++)
@@ -3459,13 +3589,13 @@ namespace Base
                                         {
                                             if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_Simulation] SET IsOK='1' where SimulationId='{d["SimulationId"].ToString()}'"))
                                             {
-                                                db.DB_SetData($"update SoftNetMainDB.[dbo].[DOC3stockII] set ArrivalDate='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}' where IsOK='0' and SimulationId='{d["SimulationId"].ToString()}'");
+                                                db.DB_SetData($"update SoftNetMainDB.[dbo].[DOC3stockII] set ArrivalDate='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}' where IsOK='0' and SimulationId='{d["SimulationId"].ToString()}'");
                                                 db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_WorkTimeNote] set Time1_C=1,Time2_C=0,Time3_C=0,Time4_C=0 where NeedId='{d["NeedId"].ToString()}' and SimulationId='{d["SimulationId"].ToString()}'");
                                             }
                                         }
                                         else
                                         {
-                                            db.DB_SetData($"update SoftNetMainDB.[dbo].[DOC3stockII] set ArrivalDate='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}' where IsOK='0' and SimulationId='{d["SimulationId"].ToString()}'");
+                                            db.DB_SetData($"update SoftNetMainDB.[dbo].[DOC3stockII] set ArrivalDate='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}' where IsOK='0' and SimulationId='{d["SimulationId"].ToString()}'");
                                         }
                                     }
                                     #endregion
@@ -3668,8 +3798,8 @@ namespace Base
                         keys.SI_PartNO = "";
                         keys.MES_String = "完成報工作業.";
                         string logtype = "智慧報工";
-                        if (is_Back) { logtype = "干涉修正"; }
-                        db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[NeedId],[SimulationId],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,OP_NO,IndexSN) VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{dr_APS_Simulation["NeedId"].ToString()}','{dr_APS_Simulation["SimulationId"].ToString()}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','STView2Work','{logtype}','{dr_MII["PP_Name"].ToString()}','{keys.StationNO}','{dr_MII["PartNO"].ToString()}','{dr_MII["OrderNO"].ToString()}','{keys.SI_Slect_OPNOs}',{dr_MII["IndexSN"].ToString()})");
+                        if (is_Back) { logtype = "干涉修正報工量"; }
+                        db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[NeedId],[SimulationId],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,OP_NO,IndexSN) VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{dr_APS_Simulation["NeedId"].ToString()}','{dr_APS_Simulation["SimulationId"].ToString()}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','STView2Work','{logtype}','{dr_MII["PP_Name"].ToString()}','{keys.StationNO}','{dr_MII["PartNO"].ToString()}','{dr_MII["OrderNO"].ToString()}','{keys.SI_Slect_OPNOs}',{dr_MII["IndexSN"].ToString()})");
                         keys.SI_OPNO = "";
                         keys.SI_Slect_OPNOs = "";
                     }
@@ -3807,7 +3937,7 @@ namespace Base
             }
             else
             {
-                if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_NeedData] SET State='9',StateINFO='無APS_Simulation資料,無生產行為',UpdateTime='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and Id='{needID}'"))
+                if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_NeedData] SET State='9',StateINFO='無APS_Simulation資料,無生產行為',UpdateTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and Id='{needID}'"))
                 {
                     db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_Simulation] SET IsOK='1' where NeedId='{needID}'");
                     db.DB_SetData($"DELETE FROM SoftNetMainDB.[dbo].[TotalStockII] where NeedId='{needID}'");
@@ -3951,14 +4081,14 @@ namespace Base
                 string[] tmp_array = funName.Split(";");
                 string proName = "";
                 if (tmp_array.Length >= 2) { proName = tmp_array[1]; }
-                db.DB_SetData($"INSERT INTO [dbo].[DOCUpdateLog] ([Id],[LOGDateTime],[DOCId],[DOCNumberNO],[NeedId],[SimulationId],[PartNO],[QTY],[FunName],[ProName]) VALUES ('{_Str.NewId('0')}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss")}','{beforeId}','{docNumberNO}','{needId}','{simulationID}','{partNO}',{qty.ToString()},'{tmp_array[0]}','{proName}')");
+                db.DB_SetData($"INSERT INTO [dbo].[DOCUpdateLog] ([Id],[LOGDateTime],[DOCId],[DOCNumberNO],[NeedId],[SimulationId],[PartNO],[QTY],[FunName],[ProName]) VALUES ('{_Str.NewId('0')}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}','{beforeId}','{docNumberNO}','{needId}','{simulationID}','{partNO}',{qty.ToString()},'{tmp_array[0]}','{proName}')");
                 if (remark != "")
                 {
-                    db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime,NeedId,SimulationId) VALUES ('開立{dr_DOCRole["DOCName"].ToString()} {remark}  料號:{partNO} 數量:{qty.ToString()}','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{needId}','{simulationID}')");
+                    InsertApsEventLog(db, $"開立{dr_DOCRole["DOCName"].ToString()} {remark}  料號:{partNO} 數量:{qty.ToString()}", needId, simulationID);
                 }
             }
             else
-            { db.DB_SetData($"INSERT INTO [dbo].[DOCUpdateLog] ([Id],[LOGDateTime],[DOCId],[DOCNumberNO],[NeedId],[SimulationId],[PartNO],[QTY],[FunName],[ProName]) VALUES ('{_Str.NewId('0')}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss")}','{beforeId}','{docNumberNO}','{needId}','{simulationID}','{partNO}',{qty.ToString()},'程式錯誤','{funName}')"); }
+            { db.DB_SetData($"INSERT INTO [dbo].[DOCUpdateLog] ([Id],[LOGDateTime],[DOCId],[DOCNumberNO],[NeedId],[SimulationId],[PartNO],[QTY],[FunName],[ProName]) VALUES ('{_Str.NewId('0')}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}','{beforeId}','{docNumberNO}','{needId}','{simulationID}','{partNO}',{qty.ToString()},'程式錯誤','{funName}')"); }
 
             return true;
         }
@@ -4092,14 +4222,14 @@ namespace Base
                 string[] tmp_array = funName.Split(";");
                 string proName = "";
                 if (tmp_array.Length >= 2) { proName = tmp_array[1]; }
-                db.DB_SetData($"INSERT INTO [dbo].[DOCUpdateLog] ([Id],[LOGDateTime],[DOCId],[DOCNumberNO],[NeedId],[SimulationId],[PartNO],[QTY],[FunName],[ProName]) VALUES ('{_Str.NewId('0')}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss")}','{beforeId}','{docNumberNO}','{needId}','{simulationID}','{partNO}',{qty.ToString()},'{tmp_array[0]}','{proName}')");
+                db.DB_SetData($"INSERT INTO [dbo].[DOCUpdateLog] ([Id],[LOGDateTime],[DOCId],[DOCNumberNO],[NeedId],[SimulationId],[PartNO],[QTY],[FunName],[ProName]) VALUES ('{_Str.NewId('0')}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}','{beforeId}','{docNumberNO}','{needId}','{simulationID}','{partNO}',{qty.ToString()},'{tmp_array[0]}','{proName}')");
                 if (remark != "")
                 {
-                    db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime,NeedId,SimulationId) VALUES ('開立{dr_DOCRole["DOCName"].ToString()} {remark} 料號:{partNO} 數量:{qty.ToString()}','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{needId}','{simulationID}')");
+                    InsertApsEventLog(db, $"開立{dr_DOCRole["DOCName"].ToString()} {remark} 料號:{partNO} 數量:{qty.ToString()}", needId, simulationID);
                 }
             }
             else
-            { db.DB_SetData($"INSERT INTO [dbo].[DOCUpdateLog] ([Id],[LOGDateTime],[DOCId],[DOCNumberNO],[NeedId],[SimulationId],[PartNO],[QTY],[FunName],[ProName]) VALUES ('{_Str.NewId('0')}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss")}','{beforeId}','{docNumberNO}','{needId}','{simulationID}','{partNO}',{qty.ToString()},'程式錯誤','{funName}')"); }
+            { db.DB_SetData($"INSERT INTO [dbo].[DOCUpdateLog] ([Id],[LOGDateTime],[DOCId],[DOCNumberNO],[NeedId],[SimulationId],[PartNO],[QTY],[FunName],[ProName]) VALUES ('{_Str.NewId('0')}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}','{beforeId}','{docNumberNO}','{needId}','{simulationID}','{partNO}',{qty.ToString()},'程式錯誤','{funName}')"); }
 
             return true;
         }
@@ -4280,14 +4410,14 @@ namespace Base
                     string[] tmp_array = funName.Split(";");
                     string proName = "";
                     if (tmp_array.Length >= 2) { proName = tmp_array[1]; }
-                    db.DB_SetData($"INSERT INTO [dbo].[DOCUpdateLog] ([Id],[LOGDateTime],[DOCId],[DOCNumberNO],[NeedId],[SimulationId],[PartNO],[QTY],[FunName],[ProName]) VALUES ('{_Str.NewId('0')}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss")}','{beforeId}','{docNumberNO}','{needId}','{simulationID}','{partNO}',{qty.ToString()},'{tmp_array[0]}','{proName}')");
+                    db.DB_SetData($"INSERT INTO [dbo].[DOCUpdateLog] ([Id],[LOGDateTime],[DOCId],[DOCNumberNO],[NeedId],[SimulationId],[PartNO],[QTY],[FunName],[ProName]) VALUES ('{_Str.NewId('0')}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}','{beforeId}','{docNumberNO}','{needId}','{simulationID}','{partNO}',{qty.ToString()},'{tmp_array[0]}','{proName}')");
                     if (remark != "")
                     {
-                        db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime,NeedId,SimulationId) VALUES ('開立{dr_DOCRole["DOCName"].ToString()} {remark} 料號:{partNO} 數量:{qty.ToString()}','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{needId}','{simulationID}')");
+                        InsertApsEventLog(db, $"開立{dr_DOCRole["DOCName"].ToString()} {remark} 料號:{partNO} 數量:{qty.ToString()}", needId, simulationID);
                     }
                 }
                 else
-                { db.DB_SetData($"INSERT INTO [dbo].[DOCUpdateLog] ([Id],[LOGDateTime],[DOCId],[DOCNumberNO],[NeedId],[SimulationId],[PartNO],[QTY],[FunName],[ProName]) VALUES ('{_Str.NewId('0')}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss")}','{beforeId}','{docNumberNO}','{needId}','{simulationID}','{partNO}',{qty.ToString()},'程式錯誤','{funName}')"); }
+                { db.DB_SetData($"INSERT INTO [dbo].[DOCUpdateLog] ([Id],[LOGDateTime],[DOCId],[DOCNumberNO],[NeedId],[SimulationId],[PartNO],[QTY],[FunName],[ProName]) VALUES ('{_Str.NewId('0')}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}','{beforeId}','{docNumberNO}','{needId}','{simulationID}','{partNO}',{qty.ToString()},'程式錯誤','{funName}')"); }
             }
             catch (Exception ex)
             {
@@ -4678,7 +4808,7 @@ namespace Base
                     DataTable dt_tmp = null;
                     DataRow dr_tmp;
                     string first_M = "";
-                    string today = DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss");
+                    string today = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
                     for (int ai = 0; ai < needId.Count; ai++)
                     {
                         err = "";
@@ -4687,7 +4817,7 @@ namespace Base
                         DateTime intime = Convert.ToDateTime(dr_M["NeedDate"]);
                         if (wType == '5')
                         {
-                            db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime,NeedId) VALUES ('系統主動發出生產製造命令, 排程碼:{needId[ai]} 生產件:{dr_M["PartNO"].ToString()} 生產量:{dr_M["NeedQTY"].ToString()}','99','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{needId[ai]}')");
+                            InsertApsEventLog(db, $"系統主動發出生產製造命令, 排程碼:{needId[ai]} 生產件:{dr_M["PartNO"].ToString()} 生產量:{dr_M["NeedQTY"].ToString()}", needId[ai],"99");
                         }
                         #region 若庫存足量跳過排程, 或減 NeedQTY 需求量
                         if (args.ARGs[11] && wType != '5')
@@ -4726,13 +4856,16 @@ namespace Base
                                 #region 計算領料單計劃日, 得到 startDate 日期
                                 int math_EfficientCT = 0;
                                 //###??? DOCNO 暫時寫死 BC01  , 應該改成 針對領出類型的統計
-                                dr_tmp = db.DB_GetFirstDataByDataRow($"select ROUND(sum(EfficientCycleTime)*sum(CountQTY)/sum(CountQTY),0) as CT from SoftNetSYSDB.[dbo].[PP_EfficientDetail] where ServerId='{_Fun.Config.ServerId}' and DOCNO='BC01' and Sub_PartNO='{dr_M["PartNO"].ToString()}' group by Sub_PartNO");
+                                // 使用 BIGINT 避免 sum(EfficientCycleTime)*sum(CountQTY) 在 SQL 發生 int 算術溢位
+                                dr_tmp = db.DB_GetFirstDataByDataRow($"select ROUND(CAST(SUM(EfficientCycleTime) AS BIGINT)*CAST(SUM(CountQTY) AS BIGINT)/NULLIF(SUM(CountQTY),0),0) as CT from SoftNetSYSDB.[dbo].[PP_EfficientDetail] where ServerId='{_Fun.Config.ServerId}' and DOCNO='BC01' and Sub_PartNO='{dr_M["PartNO"].ToString()}' group by Sub_PartNO");
                                 if (dr_tmp != null && !dr_tmp.IsNull("CT") && dr_tmp["CT"].ToString() != "" && dr_tmp["CT"].ToString() != "0")
                                 {
-                                    math_EfficientCT = int.Parse(dr_tmp["CT"].ToString());
+                                    long ctVal;
+                                    if (long.TryParse(dr_tmp["CT"].ToString(), out ctVal))
+                                        math_EfficientCT = ctVal > int.MaxValue ? int.MaxValue : (int)ctVal;
                                 }
                                 intime = new DateTime(intime.Year, intime.Month, intime.Day, intime.Hour, intime.Minute, DateTime.Now.Second, DateTime.Now.Millisecond);
-                                DataTable dt = db.DB_GetData($"select * from SoftNetSYSDB.[dbo].PP_HolidayCalendar where ServerId='{_Fun.Config.ServerId}' and CalendarName='{dr_M["CalendarName"].ToString()}' and Holiday<='{intime.ToString("MM/dd/yyyy HH:mm:ss.fff")}' order by Holiday desc");
+                                DataTable dt = db.DB_GetData($"select * from SoftNetSYSDB.[dbo].PP_HolidayCalendar where ServerId='{_Fun.Config.ServerId}' and CalendarName='{dr_M["CalendarName"].ToString()}' and Holiday<='{intime.ToString("yyyy-MM-dd HH:mm:ss.fff")}' order by Holiday desc");
                                 DateTime etime = DateTime.Now;
                                 DateTime stime2 = DateTime.Now;
                                 int typeTotalTime = 0;
@@ -4813,7 +4946,7 @@ namespace Base
                                         else { intime = stime2; break; }
                                     }
                                 }
-                                string startDate = intime.ToString("MM/dd/yyyy HH:mm:ss.fff");
+                                string startDate = intime.ToString("yyyy-MM-dd HH:mm:ss.fff");
                                 #endregion
 
                                 #region 改變 NeedQTY 需求量
@@ -4852,14 +4985,14 @@ namespace Base
                                         }
                                     }
                                     string sql = @$"INSERT INTO SoftNetSYSDB.[dbo].[APS_Simulation] (ServerId,Apply_BOMId,SimulationId,NeedId,PartSN,Master_PartNO,Apply_PP_Name,Apply_StationNO,IndexSN,Station_Custom_IndexSN,PartNO,BOMQTY,NeedQTY,SafeQTY,Math_TotalStock_HasUseQTY,Master_Class,PartType,Class,Math_StandardCT,IsEnd,StartDate,SimulationDate)
-                                        VALUES ('{_Fun.Config.ServerId}','','{id}','{needId[ai]}',-1,'','','',-1,'','{dr_M["PartNO"].ToString()}',1,{tot_QTY.ToString()},0,{tot_QTY.ToString()},'','0','{dr_Material["Class"].ToString()}',0,'0','{startDate}','{Convert.ToDateTime(dr_M["NeedDate"]).ToString("MM/dd/yyyy HH:mm:ss.fff")}')";
+                                        VALUES ('{_Fun.Config.ServerId}','','{id}','{needId[ai]}',-1,'','','',-1,'','{dr_M["PartNO"].ToString()}',1,{tot_QTY.ToString()},0,{tot_QTY.ToString()},'','0','{dr_Material["Class"].ToString()}',0,'0','{startDate}','{Convert.ToDateTime(dr_M["NeedDate"]).ToString("yyyy-MM-dd HH:mm:ss.fff")}')";
                                     db.DB_SetData(sql);
                                     if (tmp_int == 0)
                                     {
                                         if (DateTime.Now.AddDays(1) > Convert.ToDateTime(startDate))
-                                        { db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_NeedData] SET State='4',StateINFO=NULL,UpdateTime='{DateTime.Now.AddDays(1).ToString("MM/dd/yyyy HH:mm:ss.fff")}',NeedSimulationDate='{Convert.ToDateTime(dr_M["NeedDate"]).ToString("MM/dd/yyyy HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and Id='{needId[ai]}'"); }
+                                        { db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_NeedData] SET State='4',StateINFO=NULL,UpdateTime='{DateTime.Now.AddDays(1).ToString("yyyy-MM-dd HH:mm:ss.fff")}',NeedSimulationDate='{Convert.ToDateTime(dr_M["NeedDate"]).ToString("yyyy-MM-dd HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and Id='{needId[ai]}'"); }
                                         else
-                                        { db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_NeedData] SET State='4',StateINFO=NULL,UpdateTime='{DateTime.Now.AddMinutes(isARGs10_offset).ToString("MM/dd/yyyy HH:mm:ss.fff")}',NeedSimulationDate='{Convert.ToDateTime(dr_M["NeedDate"]).ToString("MM/dd/yyyy HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and Id='{needId[ai]}'"); }
+                                        { db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_NeedData] SET State='4',StateINFO=NULL,UpdateTime='{DateTime.Now.AddMinutes(isARGs10_offset).ToString("yyyy-MM-dd HH:mm:ss.fff")}',NeedSimulationDate='{Convert.ToDateTime(dr_M["NeedDate"]).ToString("yyyy-MM-dd HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and Id='{needId[ai]}'"); }
                                         continue;
                                     }
                                 }
@@ -4962,7 +5095,7 @@ namespace Base
                                 if (wType == '5')
                                 {
                                     db.DB_SetData($"DELETE FROM SoftNetSYSDB.[dbo].[APS_NeedData] where ServerId='{_Fun.Config.ServerId}' and Id='{needId[ai]}'");
-                                    db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] (Event,EventType,Id,ServerId,LOGDateTime,NeedId) VALUES ('系統主動發出生產製造命令,發生BOM表與製程有差異錯誤: 排程碼:{needId[ai]} 生產件:{dr_M["PartNO"].ToString()} 生產量:{dr_M["NeedQTY"].ToString()}','01','{_Str.NewId('Z')}','{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{needId[ai]}')");
+                                    InsertApsEventLog(db, $"系統主動發出生產製造命令,發生BOM表與製程有差異錯誤: 排程碼:{needId[ai]} 生產件:{dr_M["PartNO"].ToString()} 生產量:{dr_M["NeedQTY"].ToString()}", needId[ai], null, "EE");
 
                                     System.Threading.Tasks.Task task = _Log.ErrorAsync($"工作底稿發出自動生產失敗, 原因:料號:{dr_M["PartNO"].ToString()} 參數BOM;{mainBOMID} 運算BOM:{bomid} BOM表與製程有差異", true);
                                 }
@@ -5039,7 +5172,7 @@ namespace Base
 
 
             #region 建立BOM結構,寫入模擬表 新增(APS_Simulation)
-            string today = DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss");
+            string today = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
             if (dr_M["BOMId"].ToString() != "") { sql = $"select a.Id,a.PartNO,a.Apply_PartNO,a.Apply_PP_Name,a.Apply_StationNO,a.IsEnd,a.IndexSN,a.Station_Custom_IndexSN,a.StationNO_Custom_DisplayName,a.OutPackType,b.Class from SoftNetMainDB.[dbo].[BOM] as a,dbo.[Material] as b where a.IsConfirm='1' and a.Main_Item='1' and b.ServerId='{_Fun.Config.ServerId}' and a.Apply_PartNO='{dr_M["PartNO"].ToString()}' and a.Id='{dr_M["BOMId"].ToString()}' and a.Apply_PartNO=b.PartNO order by EffectiveDate desc"; }
             else if (dr_M["Apply_PP_Name"].ToString() != "") { sql = $"select a.Id,a.PartNO,a.Apply_PartNO,a.Apply_PP_Name,a.Apply_StationNO,a.IsEnd,a.IndexSN,a.Station_Custom_IndexSN,a.StationNO_Custom_DisplayName,a.OutPackType,b.Class from SoftNetMainDB.[dbo].[BOM] as a,dbo.[Material] as b where a.IsConfirm='1' and a.Main_Item='1' and b.ServerId='{_Fun.Config.ServerId}' and a.Apply_PartNO='{dr_M["PartNO"].ToString()}' and a.Apply_PP_Name='{dr_M["Apply_PP_Name"].ToString()}' and a.Apply_PartNO=b.PartNO order by EffectiveDate desc"; }
             else { sql = $"select a.Id,a.PartNO,a.Apply_PartNO,a.Apply_PP_Name,a.Apply_StationNO,a.IsEnd,a.IndexSN,a.Station_Custom_IndexSN,a.StationNO_Custom_DisplayName,a.OutPackType,b.Class from SoftNetMainDB.[dbo].[BOM] as a,dbo.[Material] as b where a.IsConfirm='1' and a.Main_Item='1' and b.ServerId='{_Fun.Config.ServerId}' and a.Apply_PartNO='{dr_M["PartNO"].ToString()}' and a.Apply_PartNO=b.PartNO and a.EffectiveDate<='{today}' and a.ExpiryDate>='{today}' order by EffectiveDate desc"; }
@@ -5570,7 +5703,7 @@ namespace Base
                                     }
                                 }
                                 if (mfData != "") { mfData = $" and MFNO='{mfData}'"; }
-                                dr_tmp = db.DB_GetFirstDataByDataRow($"select ROUND(sum(EfficientCycleTime)*sum(CountQTY)/sum(CountQTY),0) as CT from SoftNetSYSDB.[dbo].[PP_EfficientDetail] where ServerId='{_Fun.Config.ServerId}' and PP_Name='{dr["Apply_PP_Name"].ToString()}' and StationNO='{_Fun.Config.OutPackStationName}' and IndexSN={dr["Source_StationNO_IndexSN"].ToString()} and Sub_PartNO='{dr["PartNO"].ToString()}' {mfData} group by Sub_PartNO");
+                                dr_tmp = db.DB_GetFirstDataByDataRow($"select ROUND(CAST(SUM(EfficientCycleTime) AS BIGINT)*CAST(SUM(CountQTY) AS BIGINT)/NULLIF(SUM(CountQTY),0),0) as CT from SoftNetSYSDB.[dbo].[PP_EfficientDetail] where ServerId='{_Fun.Config.ServerId}' and PP_Name='{dr["Apply_PP_Name"].ToString()}' and StationNO='{_Fun.Config.OutPackStationName}' and IndexSN={dr["Source_StationNO_IndexSN"].ToString()} and Sub_PartNO='{dr["PartNO"].ToString()}' {mfData} group by Sub_PartNO");
                                 if (dr_tmp != null && !dr_tmp.IsNull("CT") && dr_tmp["CT"].ToString() != "" && dr_tmp["CT"].ToString() != "0")
                                 { db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_Simulation] set Math_EfficientCT={dr_tmp["CT"].ToString()} where SimulationId='{dr["SimulationId"].ToString()}'"); }
 
@@ -5584,7 +5717,7 @@ namespace Base
                                     tmp_station = dr["StationNO_Merge"].ToString().Trim().Substring(0, dr["StationNO_Merge"].ToString().Trim().Length - 1);
                                     tmp_station = $" in ('{tmp_station.Replace(",", "','")}')";
                                 }
-                                dr_tmp = db.DB_GetFirstDataByDataRow($"select ROUND(sum(EfficientCycleTime)*sum(CountQTY)/sum(CountQTY),0) as CT from SoftNetSYSDB.[dbo].[PP_EfficientDetail] where ServerId='{_Fun.Config.ServerId}' and StationNO{tmp_station}  and DOCNO='' and Sub_PartNO='{dr["PartNO"].ToString()}' and IndexSN={dr["Source_StationNO_IndexSN"].ToString()} group by Sub_PartNO");
+                                dr_tmp = db.DB_GetFirstDataByDataRow($"select ROUND(CAST(SUM(EfficientCycleTime) AS BIGINT)*CAST(SUM(CountQTY) AS BIGINT)/NULLIF(SUM(CountQTY),0),0) as CT from SoftNetSYSDB.[dbo].[PP_EfficientDetail] where ServerId='{_Fun.Config.ServerId}' and StationNO{tmp_station}  and DOCNO='' and Sub_PartNO='{dr["PartNO"].ToString()}' and IndexSN={dr["Source_StationNO_IndexSN"].ToString()} group by Sub_PartNO");
                                 if (dr_tmp != null && !dr_tmp.IsNull("CT") && dr_tmp["CT"].ToString() != "" && dr_tmp["CT"].ToString() != "0")
                                 { db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_Simulation] set Math_EfficientCT={dr_tmp["CT"].ToString()} where SimulationId='{dr["SimulationId"].ToString()}'"); }
                             }
@@ -5593,7 +5726,7 @@ namespace Base
                     else
                     {
                         //###??? DOCNO 暫時寫死 AC01
-                        dr_tmp = db.DB_GetFirstDataByDataRow($"select ROUND(sum(EfficientCycleTime)*sum(CountQTY)/sum(CountQTY),0) as CT from SoftNetSYSDB.[dbo].[PP_EfficientDetail] where ServerId='{_Fun.Config.ServerId}' and DOCNO='AC01' and Sub_PartNO='{dr["PartNO"].ToString()}' group by Sub_PartNO");
+                        dr_tmp = db.DB_GetFirstDataByDataRow($"select ROUND(CAST(SUM(EfficientCycleTime) AS BIGINT)*CAST(SUM(CountQTY) AS BIGINT)/NULLIF(SUM(CountQTY),0),0) as CT from SoftNetSYSDB.[dbo].[PP_EfficientDetail] where ServerId='{_Fun.Config.ServerId}' and DOCNO='AC01' and Sub_PartNO='{dr["PartNO"].ToString()}' group by Sub_PartNO");
                         if (dr_tmp != null && !dr_tmp.IsNull("CT") && dr_tmp["CT"].ToString() != "" && dr_tmp["CT"].ToString() != "0")
                         { db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_Simulation] set Math_EfficientCT={dr_tmp["CT"].ToString()} where SimulationId='{dr["SimulationId"].ToString()}'"); }
                     }
@@ -5947,7 +6080,7 @@ namespace Base
                     DataRow dr_M = null;
                     int needQTY = 0;
                     string Apply_PartNO = "";
-                    string today = DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss");
+                    string today = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
                     foreach (DataRow dr in dt_Simulation.Rows)
                     {
                         needQTY = int.Parse(dr["sQTY"].ToString());//重新計算扣除量
@@ -6714,7 +6847,7 @@ namespace Base
                         {
                             if (!d.IsNull("StartDate") && d["StartDate"].ToString() != "")
                             {
-                                db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStockII] SET ArrivalDate='{Convert.ToDateTime(d["StartDate"]).ToString("MM/dd/yyyy HH:mm:ss.fff")}' where Id='{d["Id"].ToString()}' and NeedId='{d["NeedId"].ToString()}' and SimulationId='{d["SimulationId"].ToString()}'");
+                                db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStockII] SET ArrivalDate='{Convert.ToDateTime(d["StartDate"]).ToString("yyyy-MM-dd HH:mm:ss.fff")}' where Id='{d["Id"].ToString()}' and NeedId='{d["NeedId"].ToString()}' and SimulationId='{d["SimulationId"].ToString()}'");
                             }
                         }
                     }
@@ -6730,7 +6863,7 @@ namespace Base
                     if (ERR != "") { errINFO = ERR; }
                     if (run)
                     {
-                        if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_NeedData] SET State='6',StateINFO=NULL,UpdateTime='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}',NeedSimulationDate='{sTimeLog.ToString("yyyy-MM-dd HH:mm:ss")}' where ServerId='{_Fun.Config.ServerId}' and Id='{needId}'")) { run = true; }
+                        if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_NeedData] SET State='6',StateINFO=NULL,UpdateTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}',NeedSimulationDate='{sTimeLog.ToString("yyyy-MM-dd HH:mm:ss")}' where ServerId='{_Fun.Config.ServerId}' and Id='{needId}'")) { run = true; }
                     }
                     else { isError = true; }
                 }
@@ -6834,7 +6967,7 @@ namespace Base
                         sQTY = int.Parse(dr_tmp["SQTY"].ToString());
                         if (int.Parse(dr_tmp["PQTY"].ToString()) == 0)
                         {
-                            dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT TOP 1 * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{station}' and IndexSN={indexSN} and OrderNO='{orderNO}'  and PartNO='{partNO}' and LOGDateTime>='{startDate.ToString("yyyy/MM/dd HH:mm:ss")}' and LOGDateTime<'{simulationDate.ToString("yyyy/MM/dd HH:mm:ss")}' and OperateType like '%開工%' order by LOGDateTime desc");
+                            dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT TOP 1 * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{station}' and IndexSN={indexSN} and OrderNO='{orderNO}'  and PartNO='{partNO}' and LOGDateTime>='{startDate.ToString("yyyy-MM-dd HH:mm:ss")}' and LOGDateTime<'{simulationDate.ToString("yyyy-MM-dd HH:mm:ss")}' and OperateType like '%開工%' order by LOGDateTime desc");
                             if (dr_tmp == null)
                             {
                                 type = '2';
@@ -7233,7 +7366,7 @@ namespace Base
                             {
                                 foreach (DataRow dr in dt_tmp.Rows)
                                 {
-                                    dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT TOP 1 * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["Source_StationNO"].ToString()}' and IndexSN={dr["Source_StationNO_IndexSN"].ToString()} and OrderNO='{dr["DOCNumberNO"].ToString()}' and PartNO='{dr["PartNO"].ToString()}' and LOGDateTime>='{Convert.ToDateTime(dr["StartDate"]).ToString("MM/dd/yyyy HH:mm:ss.fff")}' and LOGDateTime<'{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.fff")}' and OperateType like '%開工%'");
+                                    dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT TOP 1 * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["Source_StationNO"].ToString()}' and IndexSN={dr["Source_StationNO_IndexSN"].ToString()} and OrderNO='{dr["DOCNumberNO"].ToString()}' and PartNO='{dr["PartNO"].ToString()}' and LOGDateTime>='{Convert.ToDateTime(dr["StartDate"]).ToString("yyyy-MM-dd HH:mm:ss.fff")}' and LOGDateTime<'{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}' and OperateType like '%開工%'");
                                     if (dr_tmp != null)
                                     {
                                         int i_tmp = int.Parse(dr["PartSN"].ToString()) - 1;
@@ -8352,7 +8485,7 @@ namespace Base
                                 if (op_Count > 1) { typeTotalTime *= op_Count; }
                                 #endregion
 
-                                dr_WorkTimeNote = db.DB_GetFirstDataByDataRow($"select sum(Time1_C) as TOT from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where CONVERT(varchar(100), CalendarDate, 23)='{intime.ToString("yyyy-MM-dd")}' and StationNO='{staionNO}'");
+                                dr_WorkTimeNote = db.DB_GetFirstDataByDataRow($"select sum(Time1_C) as TOT from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where CONVERT(varchar(10), CalendarDate, 23)='{intime.ToString("yyyy-MM-dd")}' and StationNO='{staionNO}'");
                                 if (dr_WorkTimeNote != null && !dr_WorkTimeNote.IsNull("TOT") && int.Parse(dr_WorkTimeNote["TOT"].ToString()) > 0)
                                 {
                                     #region 已有其他排程, 與其他合計
@@ -8530,7 +8663,7 @@ namespace Base
                                 if (op_Count > 1) { typeTotalTime *= op_Count; }
                                 #endregion
 
-                                dr_WorkTimeNote = db.DB_GetFirstDataByDataRow($"select sum(Time2_C) as TOT from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where StationNO='{staionNO}' and CONVERT(varchar(100), CalendarDate, 23)='{intime.ToString("yyyy-MM-dd")}'");
+                                dr_WorkTimeNote = db.DB_GetFirstDataByDataRow($"select sum(Time2_C) as TOT from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where StationNO='{staionNO}' and CONVERT(varchar(10), CalendarDate, 23)='{intime.ToString("yyyy-MM-dd")}'");
                                 if (dr_WorkTimeNote != null && !dr_WorkTimeNote.IsNull("TOT") && int.Parse(dr_WorkTimeNote["TOT"].ToString()) > 0)
                                 {
                                     #region 已有其他排程, 與其他合計
@@ -8705,7 +8838,7 @@ namespace Base
                                 if (op_Count > 1) { typeTotalTime *= op_Count; }
                                 #endregion
                                 //###???要計算合併站的問題
-                                dr_WorkTimeNote = db.DB_GetFirstDataByDataRow($"select sum(Time3_C) as TOT from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where StationNO='{staionNO}' and CONVERT(varchar(100), CalendarDate, 23)='{intime.ToString("yyyy-MM-dd")}'");
+                                dr_WorkTimeNote = db.DB_GetFirstDataByDataRow($"select sum(Time3_C) as TOT from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where StationNO='{staionNO}' and CONVERT(varchar(10), CalendarDate, 23)='{intime.ToString("yyyy-MM-dd")}'");
                                 if (dr_WorkTimeNote != null && !dr_WorkTimeNote.IsNull("TOT") && int.Parse(dr_WorkTimeNote["TOT"].ToString()) > 0)
                                 {
                                     #region 已有其他排程, 與其他合計
@@ -8891,7 +9024,7 @@ namespace Base
                                 #region 多工單, 增加可用工時
                                 if (op_Count > 1) { typeTotalTime *= op_Count; }
                                 #endregion
-                                dr_WorkTimeNote = db.DB_GetFirstDataByDataRow($"select sum(Time4_C) as TOT from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where StationNO='{staionNO}' and CONVERT(varchar(100), CalendarDate, 23)='{intime.ToString("yyyy-MM-dd")}'");
+                                dr_WorkTimeNote = db.DB_GetFirstDataByDataRow($"select sum(Time4_C) as TOT from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where StationNO='{staionNO}' and CONVERT(varchar(10), CalendarDate, 23)='{intime.ToString("yyyy-MM-dd")}'");
                                 if (dr_WorkTimeNote != null && !dr_WorkTimeNote.IsNull("TOT") && int.Parse(dr_WorkTimeNote["TOT"].ToString()) > 0)
                                 {
                                     #region 已有其他排程, 與其他合計
@@ -10514,7 +10647,7 @@ namespace Base
                     {
                         status = "5";//關站加關工單
                     }
-                    //db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[Manufacture_Log] ([Id],[logDate],[StationNO],[State],[OrderNO],[PartNO]) VALUES ('{_Str.NewId('C')}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss")}','{data[i]}','{status}','{dr_M["OrderNO"].ToString()}','{dr_M["PartNO"].ToString()}')");
+                    //db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[Manufacture_Log] ([Id],[logDate],[StationNO],[State],[OrderNO],[PartNO]) VALUES ('{_Str.NewId('C')}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}','{data[i]}','{status}','{dr_M["OrderNO"].ToString()}','{dr_M["PartNO"].ToString()}')");
                     string type = "";
                     string tmp_date = "";
                     switch (status)
@@ -10522,12 +10655,12 @@ namespace Base
                         case "1":
                             tmp_date = $",RemarkTimeE=NULL";
                             if (dr_M.IsNull("RemarkTimeS")) { tmp_date = $"{tmp_date},RemarkTimeS='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}'"; }
-                            if (dr_M.IsNull("StartTime")) { tmp_date = $"{tmp_date},StartTime='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}'"; }
+                            if (dr_M.IsNull("StartTime")) { tmp_date = $"{tmp_date},StartTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}'"; }
                             type = "智慧開工"; break;
                         case "2":
                             if (is_RUNTimeSTOP)
                             {
-                                DataRow dr_stop = db.DB_GetFirstDataByDataRow($"SELECT top 1 * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where Holiday<='{DateTime.Now.ToString("yyyy/MM/dd")}' and ServerId='{_Fun.Config.ServerId}' and CalendarName='{dr["CalendarName"].ToString()}' order by CalendarName,Holiday desc");
+                                DataRow dr_stop = db.DB_GetFirstDataByDataRow($"SELECT top 1 * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where Holiday<='{DateTime.Now.ToString("yyyy-MM-dd")}' and ServerId='{_Fun.Config.ServerId}' and CalendarName='{dr["CalendarName"].ToString()}' order by CalendarName,Holiday desc");
                                 if (dr_stop != null)
                                 {
                                     DateTime logTime = DateTime.Now;
@@ -10539,35 +10672,35 @@ namespace Base
                                     { logTime = new DateTime(logTime.Year, logTime.Month, logTime.Day, int.Parse(dr_stop["Shift_Night"].ToString().Trim().Split(',')[3].Split(':')[0]), int.Parse(dr_stop["Shift_Night"].ToString().Trim().Split(',')[3].Split(':')[1]), 0); }
                                     if (bool.Parse(dr_stop["Flag_Graveyard"].ToString()))
                                     { logTime = new DateTime(logTime.Year, logTime.Month, logTime.Day, int.Parse(dr_stop["Shift_Graveyard"].ToString().Trim().Split(',')[3].Split(':')[0]), int.Parse(dr_stop["Shift_Graveyard"].ToString().Trim().Split(',')[3].Split(':')[1]), 0); }
-                                    dr_stop = db.DB_GetFirstDataByDataRow($"SELECT top 1 * FROM SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr_M["OrderNO"].ToString()}' and IndexSN={dr_M["IndexSN"].ToString()} and LOGDateTime>'{logTime.ToString("MM/dd/yyyy HH:mm:ss")}' and LOGDateTime='{logTime.ToString("yyyy/MM/dd")}' and OrderNO='{dr_M["OrderNO"].ToString()}' and OperateType like '%報工%' and OperateType not like '%網頁報工%' order by LOGDateTime desc");
+                                    dr_stop = db.DB_GetFirstDataByDataRow($"SELECT top 1 * FROM SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr_M["OrderNO"].ToString()}' and IndexSN={dr_M["IndexSN"].ToString()} and LOGDateTime>'{logTime.ToString("yyyy-MM-dd HH:mm:ss")}' and LOGDateTime='{logTime.ToString("yyyy-MM-dd")}' and OrderNO='{dr_M["OrderNO"].ToString()}' and OperateType like '%報工%' and OperateType not like '%網頁報工%' order by LOGDateTime desc");
                                     if (dr_stop != null)
                                     {
                                         logTime = Convert.ToDateTime(dr_stop["LOGDateTime"]);
                                     }
-                                    tmp_date = $",RemarkTimeE='{logTime.ToString("MM/dd/yyyy HH:mm:ss")}'";
+                                    tmp_date = $",RemarkTimeE='{logTime.ToString("yyyy-MM-dd HH:mm:ss")}'";
                                 }
                                 else
                                 {
-                                    tmp_date = $",RemarkTimeE='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}'";
+                                    tmp_date = $",RemarkTimeE='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}'";
                                 }
                                 type = "干涉停工";
                             }
                             else
                             {
-                                tmp_date = $",RemarkTimeE='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}'";
+                                tmp_date = $",RemarkTimeE='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}'";
                                 type = "智慧停工";
                             }
                             break;
                         case "4":
                         case "5":
-                            tmp_date = $",EndTime='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}'";
-                            if (dr_M.IsNull("StartTime")) { tmp_date = $"{tmp_date},StartTime='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}'"; }
-                            if (dr_M.IsNull("RemarkTimeS")) { tmp_date = $"{tmp_date},RemarkTimeS='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}'"; }
-                            if (dr_M.IsNull("RemarkTimeE")) { tmp_date = $"{tmp_date},RemarkTimeE='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}'"; }
+                            tmp_date = $",EndTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}'";
+                            if (dr_M.IsNull("StartTime")) { tmp_date = $"{tmp_date},StartTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}'"; }
+                            if (dr_M.IsNull("RemarkTimeS")) { tmp_date = $"{tmp_date},RemarkTimeS='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}'"; }
+                            if (dr_M.IsNull("RemarkTimeE")) { tmp_date = $"{tmp_date},RemarkTimeE='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}'"; }
                             type = "智慧關站"; break;
                     }
                     db.DB_SetData(@$"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[NeedId],[SimulationId],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,OP_NO,IndexSN) VALUES 
-                                    ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{dr_APS_Simulation["NeedId"].ToString()}','{dr_APS_Simulation["SimulationId"].ToString()}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','{programName}','{type}','{dr_M["PP_Name"].ToString()}','{data[i]}','{dr_M["PartNO"].ToString()}','{dr_M["OrderNO"].ToString()}','{dr_M["OP_NO"].ToString()}',{dr_M["IndexSN"].ToString()})");
+                                    ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{dr_APS_Simulation["NeedId"].ToString()}','{dr_APS_Simulation["SimulationId"].ToString()}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{programName}','{type}','{dr_M["PP_Name"].ToString()}','{data[i]}','{dr_M["PartNO"].ToString()}','{dr_M["OrderNO"].ToString()}','{dr_M["OP_NO"].ToString()}',{dr_M["IndexSN"].ToString()})");
                     db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[Manufacture] SET State='{status}'{tmp_date} where ServerId='{_Fun.Config.ServerId}' and StationNO='{data[i]}'");
 
                     if (SendRMSSocketINFO(1, $"WebChangeStationStatus,{status},{data[i]},WEBProg,{data[i]},{dr_M["OP_NO"].ToString()},{dr_M["OrderNO"].ToString()},{dr_M["IndexSN"].ToString()},{dr_M["Config_OutQtyTagName"].ToString()},{dr_M["Config_FailQtyTagName"].ToString()},{dr_M["Config_IsTagValueCumulative"].ToString()},{dr_M["Config_WaitTagValueDIO"].ToString()},{dr_M["Config_CalculatePauseTime"].ToString()},{dr_M["Config_WaitTime_Formula"].ToString()},{dr_M["Config_CycleTime_Formula"].ToString()},{dr_M["Config_IsWaitTargetFinish"].ToString()}"))
@@ -10732,10 +10865,10 @@ namespace Base
             }
         }
 
-        public SFCSqlFunction(DBADO SoftNetSYSDB, DBADO TMLogDB = null)
+        public SFCSqlFunction(DBADO SoftNetSYSDB)
         {
             _SoftNetSYSDB = SoftNetSYSDB;
-            _tmLogDB = TMLogDB;
+            _tmLogDB = SoftNetSYSDB;
         }
 
         public SFCSqlFunction(DBADO SoftNetSYSDB, string MasterDBType, string MasterDBConnectString)
@@ -10938,7 +11071,7 @@ namespace Base
                     TimeSpan timeSpan = new TimeSpan(DateTime.Now.Ticks - Convert.ToDateTime(dataRow2["StartTime"]).Ticks);
                     if (timeSpan.TotalSeconds > 0.0)
                     {
-                        _SoftNetSYSDB.DB_SetData(string.Format("UPDATE SoftNetSYSDB.[dbo].PP_WorkOrder_Settlement SET \r\n                                AvarageCycleTime={0},CumulativeTime+={1},TotalCheckIn={2},TotalCheckOut={3},\r\n                                TotalInput={4},TotalOutput={5},TotalFail={6},TotalKeep={7},\r\n                                FPY={8},YieldRate={9},StationYieldRate={10},UpdateTime=N'{11}' \r\n                                WHERE ServerId='{15}' and OrderNO=N'{12}' AND StationNO=N'{13}' and IndexSN={14}", num.ToString(), timeSpan.Seconds, dataRow["_TotalCheckIn"].ToString(), dataRow["_TotalCheckOut"].ToString(), dataRow["_TotalInput"].ToString(), dataRow["_TotalOutput"].ToString(), dataRow["_TotalFail"].ToString(), dataRow["_TotalKeep"].ToString(), dataRow["_FPY"].ToString(), dataRow["_YieldRate"].ToString(), dataRow["_StationYieldRate"].ToString(), DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss"), wo, stationNO, indexSN, serverId));
+                        _SoftNetSYSDB.DB_SetData(string.Format("UPDATE SoftNetSYSDB.[dbo].PP_WorkOrder_Settlement SET \r\n                                AvarageCycleTime={0},CumulativeTime+={1},TotalCheckIn={2},TotalCheckOut={3},\r\n                                TotalInput={4},TotalOutput={5},TotalFail={6},TotalKeep={7},\r\n                                FPY={8},YieldRate={9},StationYieldRate={10},UpdateTime=N'{11}' \r\n                                WHERE ServerId='{15}' and OrderNO=N'{12}' AND StationNO=N'{13}' and IndexSN={14}", num.ToString(), timeSpan.Seconds, dataRow["_TotalCheckIn"].ToString(), dataRow["_TotalCheckOut"].ToString(), dataRow["_TotalInput"].ToString(), dataRow["_TotalOutput"].ToString(), dataRow["_TotalFail"].ToString(), dataRow["_TotalKeep"].ToString(), dataRow["_FPY"].ToString(), dataRow["_YieldRate"].ToString(), dataRow["_StationYieldRate"].ToString(), DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), wo, stationNO, indexSN, serverId));
                     }
                 }
             }
@@ -10985,8 +11118,8 @@ namespace Base
             {
                 DateTime dateTime = DateTime.Parse(woInfo["FirstInTime"].ToString());
                 DateTime dateTime2 = DateTime.Parse(woInfo["LastOutTime"].ToString());
-                string text = dateTime.ToString("yyyy/MM/dd");
-                string text2 = dateTime2.ToString("yyyy/MM/dd");
+                string text = dateTime.ToString("yyyy-MM-dd");
+                string text2 = dateTime2.ToString("yyyy-MM-dd");
                 string s = dateTime.ToString("HH:mm:ss");
                 string s2 = dateTime2.ToString("HH:mm:ss");
                 if (woInfo["CalendarName"].ToString() != "")
@@ -11109,8 +11242,8 @@ namespace Base
             int item = num + num2;
             return Tuple.Create(new List<string>
         {
-            (dataRow != null && !string.IsNullOrEmpty(dataRow["FirstInTime"].ToString())) ? ("'" + DateTime.Parse(dataRow["FirstInTime"].ToString()).ToString("yyyy/MM/dd HH:mm:ss") + "'") : "NULL",
-            (dataRow2 != null && !string.IsNullOrEmpty(dataRow2["LastOutTime"].ToString())) ? ("'" + DateTime.Parse(dataRow2["LastOutTime"].ToString()).ToString("yyyy/MM/dd HH:mm:ss") + "'") : "NULL"
+            (dataRow != null && !string.IsNullOrEmpty(dataRow["FirstInTime"].ToString())) ? ("'" + DateTime.Parse(dataRow["FirstInTime"].ToString()).ToString("yyyy-MM-dd HH:mm:ss") + "'") : "NULL",
+            (dataRow2 != null && !string.IsNullOrEmpty(dataRow2["LastOutTime"].ToString())) ? ("'" + DateTime.Parse(dataRow2["LastOutTime"].ToString()).ToString("yyyy-MM-dd HH:mm:ss") + "'") : "NULL"
         }, item);
         }
     }
