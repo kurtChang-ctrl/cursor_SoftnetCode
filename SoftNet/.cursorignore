@@ -87,3 +87,18 @@ desktop.ini
 # 文檔生成
 docs/_build/
 docs/.doctrees/
+
+# 大型前端函式庫（索引極慢）
+SoftNetWebII/wwwroot/js/lib.js
+SoftNetWebII/wwwroot/js/lib.min.js
+SoftNetWebII/wwwroot/js/lib/
+SoftNetWebII/wwwroot/lib/
+
+# ML / ONNX
+*.onnx
+**/Models/vocab.txt
+
+# Playwright / 日誌輸出
+.playwright-mcp/
+SoftNetWebII/_log/
+RAG_Setup_Output.txt

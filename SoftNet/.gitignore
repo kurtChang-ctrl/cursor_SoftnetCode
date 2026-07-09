@@ -7,6 +7,18 @@
 bin/
 obj/
 TestResults/
+*.dll
+*.pdb
+*.exe
+*.cache
+**/project.assets.json
+**/project.nuget.cache
+**/*.csproj.nuget.*
+**/*.AssemblyInfo.cs
+**/*.GeneratedMSBuildEditorConfig.editorconfig
+**/*.csproj.CoreCompileInputs.cache
+**/*.csproj.FileListAbsolute.txt
+**/*.assets.cache
 
 # User-specific files
 *.user

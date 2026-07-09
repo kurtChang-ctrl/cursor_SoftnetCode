@@ -3,7 +3,10 @@ description: 自動包含 SoftNet 專案目錄至 Cursor 上下文
 globs: 
   - "**/*.cs"
   - "**/*.cshtml"
-  - "**/*.js"
+  - "SoftNetWebII/wwwroot/js/base/**"
+  - "SoftNetWebII/wwwroot/js/zh-*.js"
+  - "SoftNetWebII/wwwroot/locale/**"
+  - "SoftNetWebII/wwwroot/css/**"
   - "**/*.json"
   - "**/*.md"
   - "**/*.csproj"
@@ -17,7 +20,7 @@ alwaysApply: true
 
 ## 專案結構
 - **主要 Web 專案**: `SoftNetWebII`
-- **共用函式庫**: `Base`、`SoftNetCommLib`
+- **共用函式庫**: `Base`、`BaseApi`、`BaseWeb`
 - **專案規範**: 請參考 `ProjectRules.md`
 
 ## 使用方式

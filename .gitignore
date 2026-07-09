@@ -1,0 +1,18 @@
+# Git 根目錄 (c:\04_SoftNet) — 不追蹤建置產物與 IDE 快取
+SoftNet/**/bin/
+SoftNet/**/obj/
+SoftNet/.vs/
+SoftNet/**/*.dll
+SoftNet/**/*.pdb
+SoftNet/**/*.exe
+SoftNet/**/project.assets.json
+SoftNet/**/project.nuget.cache
+SoftNet/**/*.csproj.nuget.*
+SoftNet/**/TestResults/
+
+# 勿在 repo 根目錄放置程式碼副本
+/RUNTimeServer.cs
+
+# Cursor / 工具暫存（非專案程式）
+.agent-tools/
+terminals/
