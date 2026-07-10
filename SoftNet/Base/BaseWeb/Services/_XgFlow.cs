@@ -163,7 +163,7 @@ insert into dbo.{signTable}(
                 if (level == 0)
                 {
                     userType = "UserId";
-                    signTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss");
+                    signTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
                     if (row[userFid] != null)
                         signerId = row[userFid].ToString();
                 } 

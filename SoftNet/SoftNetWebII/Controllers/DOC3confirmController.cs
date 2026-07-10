@@ -162,8 +162,8 @@ namespace SoftNetWebII.Controllers
                             int typeTotalTime = 0;
                             string writeSQL = "";
                             if (!dr_DOC3.IsNull("StartTime")) { typeTotalTime = _SFC_Common.TimeCompute2Seconds_BY_Calendar(db, _Fun.Config.DefaultCalendarName,Convert.ToDateTime(dr_DOC3["StartTime"]), DateTime.Now); }
-                            else{ writeSQL = $",StartTime='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}'"; }
-                            if (db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC3stockII] set IsOK='1',EndTime='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}',CT={typeTotalTime}{writeSQL} where Id='{s}' and DOCNumberNO='{dr_DOC3["DOCNumberNO"].ToString()}' and IsOK='0'"))
+                            else{ writeSQL = $",StartTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}'"; }
+                            if (db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC3stockII] set IsOK='1',EndTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}',CT={typeTotalTime}{writeSQL} where Id='{s}' and DOCNumberNO='{dr_DOC3["DOCNumberNO"].ToString()}' and IsOK='0'"))
                             {
 
                                 #region 計算單據PP_EfficientDetail

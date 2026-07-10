@@ -1,0 +1,364 @@
+@inject IHtmlLocalizer<SoftNetWebII.R0> R
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+        _me.init();
+        _me.updateDashboard();
+        setInterval(_me.updateDashboard, 180000); // 每3分鐘更新
+    });
+
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+
+        init: function () {
+            // 初始化
+        },
+
+        updateDashboard: function () {
+            _me.loadProductionOverview();
+            _me.loadScheduleWarnings();
+            _me.loadStationLoadAnalysis();
+            _me.loadMaterialStockWarnings();
+            _me.loadWorkOrderStatus();
+            _me.loadInterventionEventStats();
+        },
+
+        loadProductionOverview: function () {
+            _ajax.getJson('@Url.Action("GetProductionOverview", "WarRoom")', {}, function (data) {
+                if (data) {
+                    // 今日產量
+                    $('#todaySemiFinished').text(data.TodayOutput.SemiFinished);
+                    $('#todayFinished').text(data.TodayOutput.Finished);
+                    $('#todayTotal').text(data.TodayOutput.Total);
+                    
+                    // 昨日產量
+                    $('#yesterdaySemiFinished').text(data.YesterdayOutput.SemiFinished);
+                    $('#yesterdayFinished').text(data.YesterdayOutput.Finished);
+                    $('#yesterdayTotal').text(data.YesterdayOutput.Total);
+                    
+                    // 工單統計
+                    $('#activeWorkOrders').text(data.ActiveWorkOrders);
+                    $('#pendingWorkOrders').text(data.PendingWorkOrders);
+                    $('#errorWorkOrders').text(data.ErrorWorkOrders);
+                    $('#completedWorkOrders').text(data.CompletedWorkOrders);
+                }
+            });
+        },
+
+        loadScheduleWarnings: function () {
+            _ajax.getJson('@Url.Action("GetScheduleWarnings", "WarRoom")', { days: 7 }, function (data) {
+                if (data && data.Warnings) {
+                    var html = '<table class="table table-bordered table-striped">';
+                    html += '<thead><tr><th>日期</th><th>計畫工單</th><th>預警項目</th><th>風險等級</th><th>建議行動</th></tr></thead><tbody>';
+                    
+                    data.Warnings.forEach(function (warning) {
+                        var riskIcon = warning.RiskLevel === '高' ? '🔴' : warning.RiskLevel === '中' ? '🟡' : '🟢';
+                        var action = warning.RiskLevel === '高' ? '緊急採購' : warning.RiskLevel === '中' ? '調整排程' : '-';
+                        
+                        html += '<tr>';
+                        html += '<td>' + warning.Date + '</td>';
+                        html += '<td>' + warning.PlanWorkOrders + ' 筆</td>';
+                        html += '<td>物料短缺等</td>';
+                        html += '<td>' + riskIcon + ' ' + warning.RiskLevel + '</td>';
+                        html += '<td>' + action + '</td>';
+                        html += '</tr>';
+                    });
+                    
+                    html += '</tbody></table>';
+                    $('#scheduleWarningsTable').html(html);
+                }
+            });
+        },
+
+        loadStationLoadAnalysis: function () {
+            _ajax.getJson('@Url.Action("GetStationLoadAnalysis", "WarRoom")', { dateType: 'today' }, function (data) {
+                if (data && data.Stations) {
+                    var html = '<div class="table-responsive">';
+                    html += '<table class="table table-bordered table-striped">';
+                    html += '<thead><tr><th>工站編號</th><th>工站名稱</th><th>計畫時間(秒)</th><th>實際時間(秒)</th><th>利用率</th><th>狀態</th></tr></thead><tbody>';
+                    
+                    data.Stations.forEach(function (station) {
+                        var statusIcon = station.Status === '過載' ? '🔴' : station.Status === '警告' ? '🟡' : '🟢';
+                        var statusClass = station.Status === '過載' ? 'text-danger' : station.Status === '警告' ? 'text-warning' : 'text-success';
+                        
+                        html += '<tr>';
+                        html += '<td>' + station.StationNO + '</td>';
+                        html += '<td>' + station.StationName + '</td>';
+                        html += '<td>' + station.PlannedSeconds + '</td>';
+                        html += '<td>' + station.ActualSeconds + '</td>';
+                        html += '<td class="' + statusClass + '">' + station.UtilizationRate + '%</td>';
+                        html += '<td>' + statusIcon + ' ' + station.Status + '</td>';
+                        html += '</tr>';
+                    });
+                    
+                    html += '</tbody></table></div>';
+                    $('#stationLoadTable').html(html);
+                }
+            });
+        },
+
+        loadMaterialStockWarnings: function () {
+            _ajax.getJson('@Url.Action("GetMaterialStockWarnings", "WarRoom")', {}, function (data) {
+                if (data && data.Materials) {
+                    var html = '<table class="table table-bordered table-striped">';
+                    html += '<thead><tr><th>料號</th><th>可用庫存</th><th>安全存量</th><th>預警狀態</th><th>建議行動</th></tr></thead><tbody>';
+                    
+                    data.Materials.forEach(function (mat) {
+                        var statusIcon = mat.WarningStatus === '缺料' ? '🔴' : mat.WarningStatus === '低於' ? '🟡' : '🟢';
+                        
+                        html += '<tr>';
+                        html += '<td>' + mat.PartNO + '</td>';
+                        html += '<td>' + mat.StockQty + '</td>';
+                        html += '<td>' + mat.SafeQTY + '</td>';
+                        html += '<td>' + statusIcon + ' ' + mat.WarningStatus + '</td>';
+                        html += '<td>' + mat.Action + '</td>';
+                        html += '</tr>';
+                    });
+                    
+                    html += '</tbody></table>';
+                    $('#materialStockWarningsTable').html(html);
+                }
+            });
+        },
+
+        loadWorkOrderStatus: function () {
+            _ajax.getJson('@Url.Action("GetWorkOrderStatus", "WarRoom")', { status: 'all' }, function (data) {
+                if (data && data.WorkOrders) {
+                    var html = '<table class="table table-bordered table-striped">';
+                    html += '<thead><tr><th>工單編號</th><th>料號</th><th>計畫數量</th><th>完成進度</th><th>交期狀態</th></tr></thead><tbody>';
+                    
+                    data.WorkOrders.slice(0, 20).forEach(function (wo) {
+                        var statusIcon = wo.Status === '完成' ? '✅' : wo.Status === '達標' ? '🟢' : wo.Status === '進行中' ? '🟡' : wo.Status === '延遲' ? '🔴' : '⚠️';
+                        
+                        html += '<tr>';
+                        html += '<td>' + wo.OrderNO + '</td>';
+                        html += '<td>' + wo.PartNO + '</td>';
+                        html += '<td>' + wo.PlanQty + '</td>';
+                        html += '<td>' + wo.Progress + '%</td>';
+                        html += '<td>' + statusIcon + ' ' + wo.Status + '</td>';
+                        html += '</tr>';
+                    });
+                    
+                    html += '</tbody></table>';
+                    $('#workOrderStatusTable').html(html);
+                }
+            });
+        },
+
+        loadInterventionEventStats: function () {
+            _ajax.getJson('@Url.Action("GetInterventionEventStats", "WarRoom")', { dateType: 'today' }, function (data) {
+                if (data && data.Stats) {
+                    var html = '<table class="table table-bordered table-striped">';
+                    html += '<thead><tr><th>規則類型</th><th>觸發次數</th><th>已處理</th><th>待處理</th></tr></thead><tbody>';
+                    
+                    data.Stats.forEach(function (stat) {
+                        html += '<tr>';
+                        html += '<td>' + stat.RuleType + '</td>';
+                        html += '<td>' + stat.TotalCount + '</td>';
+                        html += '<td>' + stat.ProcessedCount + '</td>';
+                        html += '<td>' + stat.PendingCount + '</td>';
+                        html += '</tr>';
+                    });
+                    
+                    html += '</tbody></table>';
+                    $('#interventionEventStatsTable').html(html);
+                }
+            });
+        }
+    };
+</script>
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "生管戰情室" } })
+
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col-12 text-end">
+            <small>更新時間: <span id="updateTime"></span> | 自動刷新: 3分鐘</small>
+        </div>
+    </div>
+
+    <!-- 生產現況總覽 -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5>今日計畫產量</h5>
+                    <h2 id="todayPlanQty">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5>今日實際產量</h5>
+                    <h6>半成品: <span id="todaySemiFinished">-</span> PCS</h6>
+                    <h6>成品: <span id="todayFinished">-</span> PCS</h6>
+                    <h2>總計: <span id="todayTotal">-</span> PCS</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5>昨日實際產量</h5>
+                    <h6>半成品: <span id="yesterdaySemiFinished">-</span> PCS</h6>
+                    <h6>成品: <span id="yesterdayFinished">-</span> PCS</h6>
+                    <h2>總計: <span id="yesterdayTotal">-</span> PCS</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h5>達成率</h5>
+                    <h2 id="achievementRate">-</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5>進行中工單</h5>
+                    <h2 id="activeWorkOrders">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5>待派工工單</h5>
+                    <h2 id="pendingWorkOrders">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5>異常工單</h5>
+                    <h2 id="errorWorkOrders">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5>今日完成工單</h5>
+                    <h2 id="completedWorkOrders">-</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 未來7天排程預警 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>📅 未來 7 天排程預警 (主動干涉引擎)</h5>
+                </div>
+                <div class="card-body" id="scheduleWarningsTable">
+                    <p class="text-center">載入中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 工站負荷分析 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>🏭 工站負荷分析</h5>
+                    <div class="float-end">
+                        <select id="filterDateType" class="form-select form-select-sm d-inline-block" style="width: auto;">
+                            <option value="today">今日</option>
+                            <option value="yesterday">昨日</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body" id="stationLoadTable">
+                    <p class="text-center">載入中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 物料庫存預警 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>📦 物料庫存預警</h5>
+                </div>
+                <div class="card-body" id="materialStockWarningsTable">
+                    <p class="text-center">載入中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 工單執行狀態 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>📋 工單執行狀態</h5>
+                    <div class="float-end">
+                        <select id="filterStatus" class="form-select form-select-sm d-inline-block" style="width: auto;">
+                            <option value="all">全部</option>
+                            <option value="active">進行中</option>
+                            <option value="completed">已完成</option>
+                            <option value="error">異常</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body" id="workOrderStatusTable">
+                    <p class="text-center">載入中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主動干涉事件統計 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>⚠️ 主動干涉事件統計 (今日)</h5>
+                </div>
+                <div class="card-body" id="interventionEventStatsTable">
+                    <p class="text-center">載入中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 更新時間顯示
+    function updateTimeDisplay() {
+        var element = document.getElementById('updateTime');
+        if (element) {
+            element.textContent = new Date().toLocaleString('zh-TW');
+        }
+    }
+    // 確保 DOM 載入後才執行
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            updateTimeDisplay();
+            setInterval(updateTimeDisplay, 1000);
+        });
+    } else {
+        updateTimeDisplay();
+        setInterval(updateTimeDisplay, 1000);
+    }
+</script>

@@ -1,4 +1,4 @@
-﻿<script type="text/javascript">
+<script type="text/javascript">
     $(function () {
         IS_SYS_Clock = false;
         if (SYS_ClickBlock) { _fun.unBlock(); }
@@ -9,13 +9,52 @@
         hasSimulatioStatus: false,
         STView2Work_PageReload: false,
         hasStaionChangQTY: false,
-
     };
 </script>
-<table>
-    <tr><td style='background-color:tomato;' col></td></tr>
-</table>
 
+<style>
+    /* 優化表格顯示效能和樣式 */
+    .xp-prog table {
+        border-collapse: collapse;
+        width: 100%;
+        table-layout: auto;
+    }
+    
+    .xp-prog table td,
+    .xp-prog table th {
+        padding: 4px 6px;
+        text-align: left;
+        border: 1px solid #ddd;
+        word-wrap: break-word;
+        vertical-align: top;
+        line-height: 1.3;
+    }
+    
+    .xp-prog table tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+    
+    .xp-prog table tr:hover {
+        background-color: #f5f5f5;
+    }
+    
+    /* 固定表頭樣式 */
+    .xp-prog table tr:first-child {
+        background-color: #4CAF50;
+        color: white;
+        font-weight: bold;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    /* 優化長文字顯示 */
+    .xp-prog table td {
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+</style>
 
 <div class="xp-prog">
     @Html.Raw(ViewBag.HtmlOutput)

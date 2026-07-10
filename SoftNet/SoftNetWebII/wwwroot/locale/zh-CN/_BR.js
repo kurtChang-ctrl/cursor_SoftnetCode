@@ -2,9 +2,9 @@
 var _BR = {
 
     //=== moment.js convert these to UI format ===
-    MmUiDateFmt: 'YYYY/MM/DD',
-    MmUiDtFmt: 'YYYY/MM/DD HH:mm:ss',
-    MmUiDt2Fmt: 'YYYY/MM/DD HH:mm',     //no second
+    MmUiDateFmt: 'yyyy-MM-dd',
+    MmUiDtFmt: 'yyyy-MM-dd HH:mm:ss',
+    MmUiDt2Fmt: 'yyyy-MM-dd HH:mm',     //no second
 
     //row status
     StatusYes: '正常',

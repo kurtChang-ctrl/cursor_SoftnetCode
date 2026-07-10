@@ -113,7 +113,7 @@ namespace SoftNetWebII.Models
             List<DiaryEvent> result = new List<DiaryEvent>();
             using (DBADO db = new DBADO("1", _Fun.Config.Db))
             {
-                DataTable dt = db.DB_GetData($"select * from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where CalendarDate>='{start.ToString("yyyy/MM/dd HH:mm:ss")}' and CalendarDate<='{end.ToString("yyyy/MM/dd HH:mm:ss")}' order by NeedId,SimulationId,StationNO,CalendarDate");
+                DataTable dt = db.DB_GetData($"select * from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where CalendarDate>='{start.ToString("yyyy-MM-dd HH:mm:ss")}' and CalendarDate<='{end.ToString("yyyy-MM-dd HH:mm:ss")}' order by NeedId,SimulationId,StationNO,CalendarDate");
                 if (dt != null && dt.Rows.Count > 0)
                 {
                     bool run = true;
@@ -157,7 +157,7 @@ namespace SoftNetWebII.Models
             using (DBADO db = new DBADO("1", _Fun.Config.Db))
             {
                 /*
-                DataTable dt = db.DB_GetData($"select * from FullCalendarMVC_Demo.[dbo].[AppointmentDiary] where DateTimeScheduled>='{fromDate.ToString("yyyy/MM/dd HH:mm:ss")}' and DATEADD(minute,AppointmentLength,DateTimeScheduled)<='{toDate.ToString("yyyy/MM/dd HH:mm:ss")}'");
+                DataTable dt = db.DB_GetData($"select * from FullCalendarMVC_Demo.[dbo].[AppointmentDiary] where DateTimeScheduled>='{fromDate.ToString("yyyy-MM-dd HH:mm:ss")}' and DATEADD(minute,AppointmentLength,DateTimeScheduled)<='{toDate.ToString("yyyy-MM-dd HH:mm:ss")}'");
                 if (dt != null && dt.Rows.Count > 0)
                 {
                     foreach (DataRow dr in dt.Rows)
@@ -192,8 +192,8 @@ namespace SoftNetWebII.Models
             /*
             using (DBADO db = new DBADO("1", _Fun.Config.Db))
             {
-                string _s = $"select * from FullCalendarMVC_Demo.[dbo].[AppointmentDiary] where DateTimeScheduled>='{fromDate.ToString("yyyy/MM/dd HH:mm:ss")}' and DATEADD(minute,AppointmentLength,DateTimeScheduled)<='{toDate.ToString("yyyy/MM/dd HH:mm:ss")}'";
-                DataTable dt = db.DB_GetData($"select * from FullCalendarMVC_Demo.[dbo].[AppointmentDiary] where DateTimeScheduled>='{fromDate.ToString("yyyy/MM/dd HH:mm:ss")}' and DATEADD(minute,AppointmentLength,DateTimeScheduled)<='{toDate.ToString("yyyy/MM/dd HH:mm:ss")}'");
+                string _s = $"select * from FullCalendarMVC_Demo.[dbo].[AppointmentDiary] where DateTimeScheduled>='{fromDate.ToString("yyyy-MM-dd HH:mm:ss")}' and DATEADD(minute,AppointmentLength,DateTimeScheduled)<='{toDate.ToString("yyyy-MM-dd HH:mm:ss")}'";
+                DataTable dt = db.DB_GetData($"select * from FullCalendarMVC_Demo.[dbo].[AppointmentDiary] where DateTimeScheduled>='{fromDate.ToString("yyyy-MM-dd HH:mm:ss")}' and DATEADD(minute,AppointmentLength,DateTimeScheduled)<='{toDate.ToString("yyyy-MM-dd HH:mm:ss")}'");
                 if (dt != null && dt.Rows.Count > 0)
                 {
                     int i = 0;

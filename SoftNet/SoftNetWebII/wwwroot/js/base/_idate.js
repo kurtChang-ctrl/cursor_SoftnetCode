@@ -1,4 +1,4 @@
-﻿//for date input (bootstrap-datepicker)
+//for date input (bootstrap-datepicker)
 //_idt drive from _idate
 var _idate = $.extend({}, _ibase, {
 

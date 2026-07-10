@@ -8,11 +8,13 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Hosting.Internal;
 
+using Newtonsoft.Json.Linq;
 using SoftNetWebII.Models;
 using SoftNetWebII.Services;
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
@@ -22,6 +24,8 @@ namespace SoftNetWebII.Controllers
 {
     public class ConfigController : Controller
     {
+        private static string SqlSafe(string s) => (s ?? "").Replace("'", "''");
+
         public IActionResult Index()
         {
             var br = _Fun.GetBaseUser();
@@ -61,6 +65,24 @@ namespace SoftNetWebII.Controllers
                 {
                     _Fun.Is_Thread_For_Test = false;
                 }
+            }
+            using (DBADO db = new DBADO("1", _Fun.Config.Db))
+            {
+                var names = new List<string>();
+                DataTable dtCal = db.DB_GetData($@"SELECT CalendarName FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar]
+                    WHERE ServerId='{SqlSafe(_Fun.Config.ServerId)}' GROUP BY CalendarName ORDER BY CalendarName");
+                if (dtCal != null)
+                {
+                    foreach (DataRow dr in dtCal.Rows)
+                    {
+                        if (!dr.IsNull("CalendarName"))
+                        {
+                            string n = dr["CalendarName"].ToString().Trim();
+                            if (n.Length > 0) { names.Add(n); }
+                        }
+                    }
+                }
+                ViewBag.CalendarNames = names;
             }
             return View(keys);
         }
@@ -189,13 +211,13 @@ namespace SoftNetWebII.Controllers
                                 st = st.AddDays(1);
                                 if (st.DayOfWeek == DayOfWeek.Saturday)
                                 {
-                                    tmp_dt2 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where Holiday='{st.ToString("yyyy/MM/dd")}' and ServerId='02'");
+                                    tmp_dt2 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where Holiday='{st.ToString("yyyy-MM-dd")}' and ServerId='02'");
                                     if (tmp_dt2 == null)
                                     {
                                         db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[PP_HolidayCalendar] ([ServerId],[CalendarName],[Holiday],[Flag_Morning],[Flag_Afternoon],[Flag_Night],[Flag_Graveyard],[Shift_Morning],[Shift_Afternoon],[Shift_Night],[Shift_Graveyard]) VALUES 
-('02','2021行事曆','{st.ToString("yyyy/MM/dd")}','1','1','0','0','08:00,10:00,10:10,12:00','13:00,15:00,15:10,17:00','13:00,15:00,15:10,17:00','13:00,15:00,15:10,17:00')");
+('02','2021行事曆','{st.ToString("yyyy-MM-dd")}','1','1','0','0','08:00,10:00,10:10,12:00','13:00,15:00,15:10,17:00','13:00,15:00,15:10,17:00','13:00,15:00,15:10,17:00')");
                                         db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[PP_HolidayCalendar] ([ServerId],[CalendarName],[Holiday],[Flag_Morning],[Flag_Afternoon],[Flag_Night],[Flag_Graveyard],[Shift_Morning],[Shift_Afternoon],[Shift_Night],[Shift_Graveyard]) VALUES 
-('02','CNC加工24時行事曆','{st.ToString("yyyy/MM/dd")}','1','1','0','0','08:00,10:00,10:10,12:00','13:00,15:00,15:10,17:00','13:00,15:00,15:10,17:00','13:00,15:00,15:10,17:00')");
+('02','CNC加工24時行事曆','{st.ToString("yyyy-MM-dd")}','1','1','0','0','08:00,10:00,10:10,12:00','13:00,15:00,15:10,17:00','13:00,15:00,15:10,17:00','13:00,15:00,15:10,17:00')");
                                     }
                                 }
                             }
@@ -409,7 +431,7 @@ namespace SoftNetWebII.Controllers
                                             db.DB_SetData($"delete from SoftNetSYSDB.[dbo].[PP_ProductProcess] where ServerId='{_Fun.Config.ServerId}' and PP_Name='{dr_BOM["Apply_PP_Name"].ToString()}' and Apply_PartNO='{dr_BOM["Apply_PartNO"].ToString()}'");
                                             db.DB_SetData($"delete from SoftNetSYSDB.[dbo].[PP_ProductProcess_Item] where ServerId='{_Fun.Config.ServerId}' and PP_Name='{dr_BOM["Apply_PP_Name"].ToString()}' and Apply_PartNO='{dr_BOM["Apply_PartNO"].ToString()}'");
                                             db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[PP_ProductProcess] (ServerId,PP_Name,Apply_PartNO,CalendarName,UpdateTime,FactoryName,LineName) VALUES
-                                            ('{_Fun.Config.ServerId}','{dr_BOM["Apply_PP_Name"].ToString()}','{dr_BOM["Apply_PartNO"].ToString()}','{_Fun.Config.DefaultCalendarName}','{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}','{_Fun.Config.DefaultFactoryName}','{_Fun.Config.DefaultLineName}')");
+                                            ('{_Fun.Config.ServerId}','{dr_BOM["Apply_PP_Name"].ToString()}','{dr_BOM["Apply_PartNO"].ToString()}','{_Fun.Config.DefaultCalendarName}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}','{_Fun.Config.DefaultFactoryName}','{_Fun.Config.DefaultLineName}')");
                                             string indexSN_Merge = "0";
                                             string outPackType = "0";
                                             foreach (string id in log_BOM_All_id)
@@ -602,10 +624,166 @@ namespace SoftNetWebII.Controllers
                 case "e":
                     re = "生產工序表 Excel格式不正確";
                     break;
+                case "HC"://依日期區間、多選行事曆與使用者指定星期產生 PP_HolidayCalendar（欄位比照最後一筆）
+                    re = GenerateHolidayCalendar(arg ?? "");
+                    break;
 
             }
             return re;
         }
+
+        /// <summary>
+        /// arg JSON: { "start":"yyyy-MM-dd", "end":"yyyy-MM-dd", "calendars":["名稱1"], "weekdays":[1,2,3,4,5] }
+        /// weekdays: 1=星期一 … 7=星期日
+        /// </summary>
+        private string GenerateHolidayCalendar(string argJson)
+        {
+            if (string.IsNullOrWhiteSpace(argJson)) { return "請提供起始日、結束日、星期與行事曆名稱。"; }
+            JObject jo;
+            try { jo = JObject.Parse(argJson); }
+            catch { return "參數格式錯誤，無法解析 JSON。"; }
+
+            string startStr = jo["start"]?.ToString()?.Trim() ?? "";
+            string endStr = jo["end"]?.ToString()?.Trim() ?? "";
+            if (!DateTime.TryParse(startStr, out DateTime startDate) || !DateTime.TryParse(endStr, out DateTime endDate))
+            { return "起始日或結束日格式不正確。"; }
+            startDate = startDate.Date;
+            endDate = endDate.Date;
+            if (endDate < startDate) { return "結束日不可早於起始日。"; }
+            if ((endDate - startDate).TotalDays > 3660) { return "日期區間不可超過 10 年。"; }
+
+            var workWeekdays = ParseSelectedWeekdays(jo["weekdays"]);
+            if (workWeekdays.Count == 0) { return "請至少選擇一個星期（星期一～星期日）。"; }
+
+            var calendarNames = new List<string>();
+            if (jo["calendars"] is JArray arr)
+            {
+                foreach (var t in arr)
+                {
+                    string n = t?.ToString()?.Trim() ?? "";
+                    if (n.Length > 0 && !calendarNames.Contains(n, StringComparer.Ordinal)) { calendarNames.Add(n); }
+                }
+            }
+            if (calendarNames.Count == 0) { return "請至少選擇一個行事曆名稱。"; }
+
+            string serverId = _Fun.Config.ServerId;
+            int inserted = 0, skipped = 0, failed = 0;
+            var details = new List<string>();
+            string dowDesc = string.Join(",", workWeekdays.OrderBy(x => WeekdayNumFromDayOfWeek(x)).Select(DayOfWeekToZh));
+
+            using (DBADO db = new DBADO("1", _Fun.Config.Db))
+            {
+                foreach (string calName in calendarNames)
+                {
+                    string calSafe = SqlSafe(calName);
+                    DataRow template = db.DB_GetFirstDataByDataRow($@"SELECT TOP 1 * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar]
+                        WHERE ServerId='{SqlSafe(serverId)}' AND CalendarName=N'{calSafe}' ORDER BY Holiday DESC");
+                    if (template == null)
+                    {
+                        failed++;
+                        details.Add($"{calName}: 查無歷史資料，無法取得範本列。");
+                        continue;
+                    }
+
+                    string fM = BoolToBit(template["Flag_Morning"]);
+                    string fA = BoolToBit(template["Flag_Afternoon"]);
+                    string fN = BoolToBit(template["Flag_Night"]);
+                    string fG = BoolToBit(template["Flag_Graveyard"]);
+                    string sM = SqlSafe(template["Shift_Morning"]?.ToString() ?? "");
+                    string sA = SqlSafe(template["Shift_Afternoon"]?.ToString() ?? "");
+                    string sN = SqlSafe(template["Shift_Night"]?.ToString() ?? "");
+                    string sG = SqlSafe(template["Shift_Graveyard"]?.ToString() ?? "");
+
+                    int insCal = 0, skipCal = 0;
+                    for (DateTime d = startDate; d <= endDate; d = d.AddDays(1))
+                    {
+                        if (!workWeekdays.Contains(d.DayOfWeek)) { continue; }
+                        string dStr = d.ToString("yyyy-MM-dd");
+                        DataRow exists = db.DB_GetFirstDataByDataRow($@"SELECT Holiday FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar]
+                            WHERE ServerId='{SqlSafe(serverId)}' AND CalendarName=N'{calSafe}' AND Holiday='{dStr}'");
+                        if (exists != null) { skipCal++; continue; }
+
+                        string sqlIns = $@"INSERT INTO SoftNetSYSDB.[dbo].[PP_HolidayCalendar]
+                            ([ServerId],[CalendarName],[Holiday],[Flag_Morning],[Flag_Afternoon],[Flag_Night],[Flag_Graveyard],
+                            [Shift_Morning],[Shift_Afternoon],[Shift_Night],[Shift_Graveyard])
+                            VALUES ('{SqlSafe(serverId)}',N'{calSafe}','{dStr}','{fM}','{fA}','{fN}','{fG}',
+                            N'{sM}',N'{sA}',N'{sN}',N'{sG}')";
+                        if (db.DB_SetData(sqlIns)) { insCal++; }
+                        else { failed++; details.Add($"{calName} {dStr}: INSERT 失敗。"); }
+                    }
+                    inserted += insCal;
+                    skipped += skipCal;
+                    details.Add($"{calName}: 新增 {insCal}、略過已存在 {skipCal}");
+                }
+            }
+
+            string summary = $"完成 ServerId={serverId}（指定星期: {dowDesc}），新增 {inserted} 筆、略過 {skipped} 筆、失敗 {failed} 項。";
+            if (details.Count > 0) { summary += "<br />" + string.Join("<br />", details); }
+            return summary;
+        }
+
+        private static string BoolToBit(object v)
+        {
+            if (v == null || v == DBNull.Value) { return "0"; }
+            if (v is bool b) { return b ? "1" : "0"; }
+            string s = v.ToString().Trim();
+            if (s == "1" || s.Equals("true", StringComparison.OrdinalIgnoreCase)) { return "1"; }
+            return "0";
+        }
+
+        /// <summary>解析使用者勾選的星期：1=星期一 … 7=星期日。</summary>
+        private static HashSet<DayOfWeek> ParseSelectedWeekdays(JToken token)
+        {
+            var set = new HashSet<DayOfWeek>();
+            if (token is not JArray arr) { return set; }
+            foreach (var t in arr)
+            {
+                if (int.TryParse(t?.ToString(), out int n) && TryWeekdayNumToDayOfWeek(n, out DayOfWeek dow))
+                {
+                    set.Add(dow);
+                }
+            }
+            return set;
+        }
+
+        private static bool TryWeekdayNumToDayOfWeek(int n, out DayOfWeek dow)
+        {
+            switch (n)
+            {
+                case 1: dow = DayOfWeek.Monday; return true;
+                case 2: dow = DayOfWeek.Tuesday; return true;
+                case 3: dow = DayOfWeek.Wednesday; return true;
+                case 4: dow = DayOfWeek.Thursday; return true;
+                case 5: dow = DayOfWeek.Friday; return true;
+                case 6: dow = DayOfWeek.Saturday; return true;
+                case 7: dow = DayOfWeek.Sunday; return true;
+                default: dow = DayOfWeek.Monday; return false;
+            }
+        }
+
+        private static int WeekdayNumFromDayOfWeek(DayOfWeek d) => d switch
+        {
+            DayOfWeek.Monday => 1,
+            DayOfWeek.Tuesday => 2,
+            DayOfWeek.Wednesday => 3,
+            DayOfWeek.Thursday => 4,
+            DayOfWeek.Friday => 5,
+            DayOfWeek.Saturday => 6,
+            DayOfWeek.Sunday => 7,
+            _ => 0
+        };
+
+        private static string DayOfWeekToZh(DayOfWeek d) => d switch
+        {
+            DayOfWeek.Monday => "一",
+            DayOfWeek.Tuesday => "二",
+            DayOfWeek.Wednesday => "三",
+            DayOfWeek.Thursday => "四",
+            DayOfWeek.Friday => "五",
+            DayOfWeek.Saturday => "六",
+            DayOfWeek.Sunday => "日",
+            _ => d.ToString()
+        };
 
         [HttpPost]
         public async Task<JsonResult> ImportExcel_A(IFormFile file)

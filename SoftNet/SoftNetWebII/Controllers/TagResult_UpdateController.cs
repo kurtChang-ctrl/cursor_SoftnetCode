@@ -16,9 +16,9 @@ namespace SoftNetWebII.Controllers
             {
                 using (DBADO db = new DBADO("1", _Fun.Config.Db))
                 {
-                    db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[LabelStateLog] ([Id],[macID],[LOGDateTime],[ReceiveType],[INFO]) VALUES ('{_Str.NewId('L')}','{input.mac}','{now.ToString("yyyy/MM/dd HH:mm:ss.fff")}','接收發送失敗','{input.message}')");
+                    db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[LabelStateLog] ([Id],[macID],[LOGDateTime],[ReceiveType],[INFO]) VALUES ('{_Str.NewId('L')}','{input.mac}','{now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','接收發送失敗','{input.message}')");
                 }
-                System.Threading.Tasks.Task task = _Log.ErrorAsync($"TagResult_UpdateController.cs 標籤傳送失敗: macID={input.mac} message={input.message}", true);
+                System.Threading.Tasks.Task task = _Log.ErrorAsync($"TagResult_UpdateController.cs 標籤傳送失敗: macID={input.mac} message={input.message}", _Fun.Config.ElectronicTagsIsFailSendMail);
             }
             return StatusCode(200);
         }

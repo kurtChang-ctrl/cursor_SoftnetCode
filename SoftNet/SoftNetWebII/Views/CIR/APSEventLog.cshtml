@@ -63,15 +63,10 @@
     }; //class
 </script>
 
-@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "系統事件查詢" } })
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "系統事件最近7天明細" } })
 <div class="xp-prog">
     <div id="divRead">
-        <form id='formRead' class='xg-form'>
-            <div class="row">
-                @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "工站編號", Fid = "StationNO", Rows = (List<IdStrDto>)ViewBag.StationNOData, InRow = true })
-                @await Component.InvokeAsync("XgFindTbar", new XgFindTbarDto { HasReset = true, HasFind2 = false })
-            </div>
-        </form>
+
 
         <div class='xg-btns-box'>
             <label>更新倒數:</label><label id="intS"></label><label>秒</label>

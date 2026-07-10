@@ -1,4 +1,4 @@
-﻿using Base.Services;
+using Base.Services;
 using BaseWeb.Models;
 using BaseWeb.Services;
 using Microsoft.AspNetCore.Html;

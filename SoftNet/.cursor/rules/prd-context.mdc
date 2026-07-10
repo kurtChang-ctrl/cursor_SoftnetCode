@@ -1,0 +1,40 @@
+---
+description: 自動包含 SoftNet PRD 文件至 Cursor 上下文
+globs: 
+  - "docs/PRD/**/*.md"
+alwaysApply: true
+---
+
+# SoftNet PRD 文件自動上下文規則
+
+此規則會自動將 `docs/PRD/` 目錄下的所有 PRD 文件包含在 Cursor 的上下文中。
+
+## 包含的文件
+
+此規則會自動包含以下目錄中的所有 Markdown 文件：
+- `docs/PRD/` - 所有 PRD（Product Requirements Document）文件
+
+## 主要 PRD 文件
+
+### 核心 PRD 文件
+- `資料庫欄位說明書.md` - 完整的資料庫結構、欄位說明與業務邏輯、資料庫流程圖
+- `SoftNet_MES_PRD_整合版.md` - 完整的 MES 系統 PRD
+
+### 功能模組 PRD
+- `prd_主動干涉引擎（active_intervention_engine）.md` - 主動干涉引擎 PRD
+- `prd_基礎資料管理（BOM／物料／工站／製程／使用者）.md` - 基礎資料管理 PRD（BOM、物料、工站、製程、使用者、工廠、行事曆、廠商）
+- `prd_倉儲管理（庫存／領退料／批號＋主動干涉）.md` - 倉儲管理 PRD
+- `prd_排程管理（aps_主動干涉）.md` - 排程管理 PRD
+- `prd_製造管理（派工／報工／工站＋主動干涉）.md` - 製造管理 PRD
+- `prd_單據管理（自動產生／確認／簽核）.md` - 單據管理 PRD（包含自動產生邏輯）
+
+### 系統模組 PRD
+- `報表與效益分析_PRD.md` - 報表與效益分析 PRD
+
+### AI 整合相關
+- `MES_RAG_MCP_完整實作說明.md` - RAG MCP 完整實作說明
+
+
+
+
+

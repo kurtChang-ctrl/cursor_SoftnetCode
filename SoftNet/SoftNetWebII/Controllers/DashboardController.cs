@@ -1,4 +1,4 @@
-﻿using Base;
+using Base;
 using Base.Models;
 using Base.Services;
 using BaseApi.Controllers;
@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using SoftNetWebII.Services;
 using System.Collections.Generic;
 using System.Data;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace SoftNetWebII.Controllers
@@ -67,14 +68,16 @@ namespace SoftNetWebII.Controllers
                 DataTable dt = db.DB_GetData($"select * from SoftNetMainDB.[dbo].[Manufacture] where ServerId='{_Fun.Config.ServerId}' and StationNO like '%%'");
                 if (dt != null && dt.Rows.Count > 0)
                 {
-                    re = $"{dt.Rows.Count.ToString()},";
+                    var sb = new StringBuilder();
+                    sb.Append($"{dt.Rows.Count.ToString()},");
                     for (int i = 1; i <= dt.Rows.Count; i++)
                     {
                         DataRow dr = dt.Rows[i - 1];
-                        re += $"<div id='container{i.ToString()}'></div>";
-                        if ( i % 3 == 0 )
-                        { re += "<p />"; }
+                        sb.Append($"<div id='container{i.ToString()}'></div>");
+                        if (i % 3 == 0)
+                        { sb.Append("<p />"); }
                     }
+                    re = sb.ToString();
                 }
                 else
                 { re = "0,"; }

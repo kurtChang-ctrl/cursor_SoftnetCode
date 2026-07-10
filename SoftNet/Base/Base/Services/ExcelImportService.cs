@@ -359,7 +359,7 @@ namespace Base.Services
                                                             mBOMId = _Str.NewId('Z');
                                                             if (pp[(pp.Count - 1)][0] == "") { stationNO = pp[(pp.Count - 1)][2]; mFNO = ""; outPackType = "0"; } else { stationNO = _Fun.Config.OutPackStationName; mFNO = pp[(pp.Count - 1)][0]; outPackType = "1"; }
                                                             db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[BOM] ([Id],[ServerId],[PartNO],[Main_Item],[EffectiveDate],[ExpiryDate],[Version],[Apply_PP_Name],[Apply_StationNO],[IsEnd],[IndexSN],[Station_Custom_IndexSN],[StationNO_Custom_DisplayName],Station_DIS_Remark,OutPackType) VALUES
-                                                                ('{mBOMId}','{_Fun.Config.ServerId}','{mBOMPartNO}','1','{DateTime.Now.ToString("yyyy/MM/dd")}','{DateTime.Now.AddYears(10).ToString("yyyy/MM/dd")}','1.000','{mBOMPartNO}_加工製程','{stationNO.Split(',')[0]}','0',{pp.Count.ToString()},'','{pp[(pp.Count - 1)][3]}','{pp[(pp.Count - 1)][1]}','{pp[(pp.Count - 1)][4]}')");
+                                                                ('{mBOMId}','{_Fun.Config.ServerId}','{mBOMPartNO}','1','{DateTime.Now.ToString("yyyy-MM-dd")}','{DateTime.Now.AddYears(10).ToString("yyyy-MM-dd")}','1.000','{mBOMPartNO}_加工製程','{stationNO.Split(',')[0]}','0',{pp.Count.ToString()},'','{pp[(pp.Count - 1)][3]}','{pp[(pp.Count - 1)][1]}','{pp[(pp.Count - 1)][4]}')");
                                                             //if (bomII.Count > 0)
                                                             //{
                                                             db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[BOMII] (ServerId,Id,BOMId,sn,PartNO,BOMQTY,Class) VALUES
@@ -378,7 +378,7 @@ namespace Base.Services
                                                                 if (s[0] == "") { stationNO = s[2]; mFNO = ""; outPackType = "0"; } else { stationNO = _Fun.Config.OutPackStationName; mFNO = s[0]; outPackType = "1"; }
 
                                                                 db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[BOM] ([Id],[ServerId],[PartNO],[Main_Item],[EffectiveDate],[ExpiryDate],[Version],[Apply_PP_Name],[Apply_StationNO],[IsEnd],[IndexSN],[Station_Custom_IndexSN],[StationNO_Custom_DisplayName],Station_DIS_Remark,OutPackType) VALUES
-                                                                ('{mBOMId}','{_Fun.Config.ServerId}','{mBOMPartNO}','0','{DateTime.Now.ToString("yyyy/MM/dd")}','{DateTime.Now.AddYears(10).ToString("yyyy/MM/dd")}','','{mBOMPartNO}_加工製程','{stationNO.Split(',')[0]}','{isEnd}',{i.ToString()},'','{s[3]}','{s[1]}','{s[4]}')");
+                                                                ('{mBOMId}','{_Fun.Config.ServerId}','{mBOMPartNO}','0','{DateTime.Now.ToString("yyyy-MM-dd")}','{DateTime.Now.AddYears(10).ToString("yyyy-MM-dd")}','','{mBOMPartNO}_加工製程','{stationNO.Split(',')[0]}','{isEnd}',{i.ToString()},'','{s[3]}','{s[1]}','{s[4]}')");
                                                                 string partNO = mBOMPartNO;
                                                                 if (bomII.Count > 0)
                                                                 {
@@ -493,7 +493,7 @@ namespace Base.Services
                                                     mBOMId = _Str.NewId('Z');
                                                     if (pp[(pp.Count - 1)][0] == "") { stationNO = pp[(pp.Count - 1)][2]; mFNO = ""; outPackType = "0"; } else { stationNO = _Fun.Config.OutPackStationName; mFNO = pp[(pp.Count - 1)][0]; outPackType = "1"; }
                                                     db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[BOM] ([Id],[ServerId],[PartNO],[Main_Item],[EffectiveDate],[ExpiryDate],[Version],[Apply_PP_Name],[Apply_StationNO],[IsEnd],[IndexSN],[Station_Custom_IndexSN],[StationNO_Custom_DisplayName],Station_DIS_Remark,OutPackType) VALUES
-                                                                ('{mBOMId}','{_Fun.Config.ServerId}','{mBOMPartNO}','1','{DateTime.Now.ToString("yyyy/MM/dd")}','{DateTime.Now.AddYears(10).ToString("yyyy/MM/dd")}','1.000','{mBOMPartNO}_加工製程','{stationNO.Split(',')[0]}','0',{pp.Count.ToString()},'','{pp[(pp.Count - 1)][3]}','{pp[(pp.Count - 1)][1]}','{pp[(pp.Count - 1)][4]}')");
+                                                                ('{mBOMId}','{_Fun.Config.ServerId}','{mBOMPartNO}','1','{DateTime.Now.ToString("yyyy-MM-dd")}','{DateTime.Now.AddYears(10).ToString("yyyy-MM-dd")}','1.000','{mBOMPartNO}_加工製程','{stationNO.Split(',')[0]}','0',{pp.Count.ToString()},'','{pp[(pp.Count - 1)][3]}','{pp[(pp.Count - 1)][1]}','{pp[(pp.Count - 1)][4]}')");
                                                     //if (bomII.Count > 0)
                                                     //{
                                                     db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[BOMII] (ServerId,Id,BOMId,sn,PartNO,BOMQTY,Class) VALUES
@@ -512,7 +512,7 @@ namespace Base.Services
                                                         if (s[0] == "") { stationNO = s[2]; mFNO = ""; outPackType = "0"; } else { stationNO = _Fun.Config.OutPackStationName; mFNO = s[0]; outPackType = "1"; }
 
                                                         db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[BOM] ([Id],[ServerId],[PartNO],[Main_Item],[EffectiveDate],[ExpiryDate],[Version],[Apply_PP_Name],[Apply_StationNO],[IsEnd],[IndexSN],[Station_Custom_IndexSN],[StationNO_Custom_DisplayName],Station_DIS_Remark,OutPackType) VALUES
-                                                                ('{mBOMId}','{_Fun.Config.ServerId}','{mBOMPartNO}','0','{DateTime.Now.ToString("yyyy/MM/dd")}','{DateTime.Now.AddYears(10).ToString("yyyy/MM/dd")}','','{mBOMPartNO}_加工製程','{stationNO.Split(',')[0]}','{isEnd}',{i.ToString()},'','{s[3]}','{s[1]}','{s[4]}')");
+                                                                ('{mBOMId}','{_Fun.Config.ServerId}','{mBOMPartNO}','0','{DateTime.Now.ToString("yyyy-MM-dd")}','{DateTime.Now.AddYears(10).ToString("yyyy-MM-dd")}','','{mBOMPartNO}_加工製程','{stationNO.Split(',')[0]}','{isEnd}',{i.ToString()},'','{s[3]}','{s[1]}','{s[4]}')");
                                                         string partNO = mBOMPartNO;
                                                         if (bomII.Count > 0)
                                                         {
@@ -627,7 +627,7 @@ namespace Base.Services
                                                         if (qq == indexNO) { Main_Item = "1"; Version = "1.000"; } else { Main_Item = "0"; Version = ""; }
                                                         mBOMId = _Str.NewId('Z');
                                                         //db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[BOM] ([Id],[ServerId],[PartNO],[Main_Item],[EffectiveDate],[ExpiryDate],[Version],[Apply_PP_Name],[Apply_StationNO],[IsEnd],[IndexSN],[Station_Custom_IndexSN],[StationNO_Custom_DisplayName],Station_DIS_Remark,OutPackType) VALUES
-                                                        //        ('{mBOMId}','02','{mBOMPartNO}','{Main_Item}','{DateTime.Now.ToString("yyyy/MM/dd")}','{DateTime.Now.AddYears(10).ToString("yyyy/MM/dd")}','{Version}','{mBOMPartNO}_加工製程','{Apply_StationNO}','0',{qq.ToString()},'','第{qq.ToString()}次加工','','0')");
+                                                        //        ('{mBOMId}','02','{mBOMPartNO}','{Main_Item}','{DateTime.Now.ToString("yyyy-MM-dd")}','{DateTime.Now.AddYears(10).ToString("yyyy-MM-dd")}','{Version}','{mBOMPartNO}_加工製程','{Apply_StationNO}','0',{qq.ToString()},'','第{qq.ToString()}次加工','','0')");
                                                         //db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[BOMII] (ServerId,Id,BOMId,sn,PartNO,BOMQTY,Class) VALUES
                                                         //        ('{_Fun.Config.ServerId}','{_Str.NewId('Z')}','{mBOMId}',1,'{mBOMPartNO}',1,'4')");
 

@@ -192,7 +192,7 @@ namespace Base.Services
         //today string
         public static string TodayStr()
         {
-            //"yyyy/MM/dd"
+            //"yyyy-MM-dd"
             return DateTime.Now.ToString(BackDateFormat);
         }
  
@@ -319,7 +319,7 @@ namespace Base.Services
         /// <summary>
         /// cs datetime string to datetime
         /// </summary>
-        /// <param name="dt">yyyy/MM/dd HH:mm:ss</param>
+        /// <param name="dt">yyyy-MM-dd HH:mm:ss</param>
         /// <returns></returns>
         public static DateTime? CsToDt(string dt)
         {

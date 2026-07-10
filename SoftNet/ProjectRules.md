@@ -6,7 +6,7 @@
 
 ## 1) 專案架構與啟動
 - 主要 Web 專案：`SoftNetWebII`
-- 共用函式庫：`Base`（DBADO、Models、Services）、`SoftNetCommLib`
+- 共用函式庫：`Base`（DBADO、Models、Services）、`BaseApi`、`BaseWeb`
 - 啟動流程：`SoftNetWebII/Program.cs` → `SoftNetWebII/Startup.cs`
 - 長期背景任務：`SoftNetWebII/Services/RUNTimeServer.cs` 由 `services.AddHostedService<RUNTimeServer>()` 啟用
 
@@ -39,13 +39,14 @@
 - 開發環境覆寫：使用 `appsettings.Development.json` 或 `ASPNETCORE_ENVIRONMENT=Development`
 
 ## 4) 資料庫規範（DB）
+- 資料庫 (MSSQL Server 2025 Express 版)
 - 連線：使用 `Microsoft.Data.SqlClient`，透過 DI 註冊 `DbConnection/DbCommand`
-- 共用 DB 層：參考 `Base/DBADO.cs` 與 `SoftNetCommLib/DBADO.cs`；必要時同步維護兩處
+- 共用 DB 層：參考 `Base/DBADO.cs` 
 - 參數化查詢：禁止字串拼接 SQL；一律使用參數化方法
 - 既定表操作（強制規範）：
   - `APS_WarningData`：一律呼叫 `SFC_Common.InsertWarningData`
   - `APS_EventLog`：一律呼叫 `SFC_Common.InsertApsEventLog`
-  - `APS_Simulation_ErrorData`（ErrorType 15）：一律呼叫 `SFC_Common.InsertSimulationError`
+  - `APS_Simulation_ErrorData`：一律呼叫 `SFC_Common.InsertSimulationError`
 - Schema 變更（建議流程）：
   1. 先於測試環境驗證（含資料遷移腳本）
   2. 更新 Models/DTO 與 DBADO 相關方法
@@ -99,4 +100,3 @@
 
 ---
 
-如需更進階的指引（例如 `RUNTimeServer` 的 TCP/Socket 封包流程、`SFC_Common` 的 DB 呼叫最佳實務、或資料庫 schema 變更 SOP），請提出需求，我們可補充一頁快速參考。

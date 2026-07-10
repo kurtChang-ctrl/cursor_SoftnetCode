@@ -1,4 +1,4 @@
-﻿<script type="text/javascript">
+<script type="text/javascript">
     $(function () {
         IS_SYS_Clock = false;
         if (SYS_ClickBlock) { _fun.unBlock(); }
@@ -43,6 +43,50 @@
     };
 </script>
 
+<style>
+    /* 優化表格顯示效能和樣式 */
+    .xp-prog table {
+        border-collapse: collapse;
+        width: 100%;
+        table-layout: auto;
+    }
+    
+    .xp-prog table td,
+    .xp-prog table th {
+        padding: 4px 6px;
+        text-align: left;
+        border: 1px solid #ddd;
+        word-wrap: break-word;
+        vertical-align: top;
+        line-height: 1.3;
+    }
+    
+    .xp-prog table tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+    
+    .xp-prog table tr:hover {
+        background-color: #f5f5f5;
+    }
+    
+    /* 固定表頭樣式 */
+    .xp-prog table tr:first-child {
+        background-color: #4CAF50;
+        color: white;
+        font-weight: bold;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    /* 優化長文字顯示 */
+    .xp-prog table td {
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+</style>
+
 <div id="selectStationPage" class="xp-prog">
     <form action=@Url.Action("ALLLabelLog") method="post">
         <input type='hidden' name='SelectFun1' value="A" />
@@ -57,15 +101,11 @@
                 <td>顯示類型:<input type="radio" name="data2" value='1' />對工站<input type="radio" name="data2" value='2' />對倉庫<input type="radio" name="data2" value='3' />對儲位<input type="radio" name="data2" value='4' checked />只顯示失敗<input type="radio" name="data2" value='5' />對全部</td>
             </tr>
             <tr>
-                <td>顯示內容:<input type="radio" name="data3" value='1' checked />不顯示<input type="radio" name="data2" value='2' />顯示</td>
+                <td>顯示內容:<input type="radio" name="data3" value='1' checked />不顯示<input type="radio" name="data3" value='2' />顯示</td>
             </tr>
         </table>
     </form>
 </div>
-<table>
-    <tr><td style='background-color:tomato;' col></td></tr>
-</table>
-
 
 <div class="xp-prog">
     @Html.Raw(ViewBag.HtmlOutput)

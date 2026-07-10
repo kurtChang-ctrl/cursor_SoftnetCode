@@ -19,7 +19,7 @@ using DocumentFormat.OpenXml.Drawing.Charts;
 namespace Base.Services
 {
     //global function
-    #pragma warning disable CA2211 // 非常數欄位不應可見
+#pragma warning disable CA2211 // 非常數欄位不應可見
     public static class _Fun
     {
         public static bool Is_Thread_For_Test = false;//for測試RUNTimeServer code用, 目前無作用
@@ -48,6 +48,9 @@ namespace Base.Services
         //public static object Lock_Simulation_Flag = new object();
         public static bool Is_SNWebSocketService_OK = false;
         public static string RUNProcessSYSName = "";
+
+        // SQL Server 向量功能支援狀態（在系統啟動時測試）
+        public static bool SupportsSQLVector = false;
         #region constant
         //hidden input for CRSF
         //public const string HideKey = "_hideKey";
@@ -60,7 +63,7 @@ namespace Base.Services
         public const string ProgAuthStrs = "_ProgAuthStrs"; //program autu string list
 
         //c# datetime format, when js send to c#, will match to _fun.MmDtFmt
-        public const string CsDtFmt = "yyyy/MM/dd HH:mm:ss";
+        public const string CsDtFmt = "yyyy-MM-dd HH:mm:ss";
 
         //carrier
         public const string TextCarrier = "\r\n";     //for string
@@ -145,7 +148,7 @@ namespace Base.Services
         public static bool Has_Tag_httpClient = false;
         public static object Lock_Send_macID = new object();
         public static Dictionary<string, string> SendTAGDATA = new Dictionary<string, string>();
-        public static void Tag_Write(DBADO db,string macID,string actionType, string json)
+        public static void Tag_Write(DBADO db, string macID, string actionType, string json)
         {
             lock (Lock_Send_macID)
             {
@@ -155,11 +158,11 @@ namespace Base.Services
                     if (SendTAGDATA.ContainsKey(macID))
                     { SendTAGDATA[macID] = json; }
                     else { SendTAGDATA.Add(macID, json); }
-                    db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[LabelStateLog] ([Id],[macID],[LOGDateTime],[ActionType],[JSON]) VALUES ('{_Str.NewId('L')}','{macID}','{now.ToString("yyyy/MM/dd HH:mm:ss.fff")}','{actionType}','{json}')");
+                    db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[LabelStateLog] ([Id],[macID],[LOGDateTime],[ActionType],[JSON]) VALUES ('{_Str.NewId('L')}','{macID}','{now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{actionType}','{json}')");
                 }
                 catch (Exception ex)
                 {
-                    System.Threading.Tasks.Task task = _Log.ErrorAsync($"寫_sendTAGDATA標籤資料失敗 日期:{now.ToString("yyyy/MM/dd HH:mm:ss.fff")} Exception:{ex.Message} {ex.StackTrace}", true);
+                    System.Threading.Tasks.Task task = _Log.ErrorAsync($"寫_sendTAGDATA標籤資料失敗 日期:{now.ToString("yyyy-MM-dd HH:mm:ss.fff")} Exception:{ex.Message} {ex.StackTrace}", true);
                 }
             }
         }
@@ -171,6 +174,7 @@ namespace Base.Services
         {
 
             if (_Fun.Config.AdministratorEmail.Trim() == "" || _Fun.Config.MailSmtpServer.Trim() == "" || MailTos == null || MailTos.Length <= 0) { return; }
+            if (MailTos[0].Trim() == "") { return; }
             lock (Lock_Mail_Send)
             {
                 try
@@ -209,7 +213,7 @@ namespace Base.Services
                         }
                     }//End if (MailTos !=null)//防呆
                     if (mms.To.Count <= 0) { return; }
-                    if (Ccs != null && Ccs.Length>0) //防呆
+                    if (Ccs != null && Ccs.Length > 0) //防呆
                     {
                         for (int i = 0; i < Ccs.Length; i++)
                         {
@@ -279,7 +283,7 @@ namespace Base.Services
             }
         }
 
-        public static byte[] Craete2BarCode(string stationNO,int width,int height,string type)
+        public static byte[] Craete2BarCode(string stationNO, int width, int height, string type)
         {
             BarcodeWriterPixelData writer = new BarcodeWriterPixelData()
             {
@@ -450,7 +454,7 @@ namespace Base.Services
         /// <param name="dbType"></param>
         /// <param name="authType"></param>
         /// <returns>error msg if any</returns>
-        public static string Init(bool isDev, IServiceProvider diBox, DbTypeEnum dbType = DbTypeEnum.MSSql, 
+        public static string Init(bool isDev, IServiceProvider diBox, DbTypeEnum dbType = DbTypeEnum.MSSql,
             AuthTypeEnum authType = AuthTypeEnum.None)
         {
             //set instance variables
@@ -500,7 +504,7 @@ namespace Base.Services
 select {0} {1}
 offset {2} rows fetch next {3} rows only
 ";
-                    DeleteRowsSql = "delete {0} where {1} in ({2})";    
+                    DeleteRowsSql = "delete {0} where {1} in ({2})";
                     break;
 
                 case DbTypeEnum.MySql:
@@ -519,8 +523,8 @@ limit {2},{3}
 
                 case DbTypeEnum.Oracle:
                     #region
-                    DbDtFmt = "YYYY/MM/DD HH24:MI:SS";
-                    DbDateFmt = "YYYY/MM/DD";
+                    DbDtFmt = "yyyy-MM-dd HH24:MI:SS";
+                    DbDateFmt = "yyyy-MM-dd";
 
                     //for Oracle 12c after(same as mssql)
                     ReadPageSql = @"
@@ -625,5 +629,5 @@ Offset {2} Rows Fetch Next {3} Rows Only
         }
 
     } //class
-    #pragma warning restore CA2211 // 非常數欄位不應可見
+#pragma warning restore CA2211 // 非常數欄位不應可見
 }

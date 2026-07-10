@@ -6,10 +6,11 @@
 在開始對話時，請自動包含以下內容：
 - 專案根目錄：`C:\04_SoftNet\SoftNet`
 - 專案規範文件：`ProjectRules.md`
+- 資料庫文件：`C:\04_SoftNet\SoftNet\docs\PRD\資料庫欄位說明書.md`（包含完整的資料庫結構、欄位說明與業務邏輯）
 
 ## 專案結構
 - **主要 Web 專案**: `SoftNetWebII`
-- **共用函式庫**: `Base`（DBADO、Models、Services）、`SoftNetCommLib`
+- **共用函式庫**: `Base`（DBADO、Models、Services）、`BaseApi`、`BaseWeb`
 - **啟動流程**: `SoftNetWebII/Program.cs` → `SoftNetWebII/Startup.cs`
 
 ## 開發規範
@@ -18,10 +19,20 @@
 - 程式碼風格（PascalCase for classes/properties, camelCase for variables）
 - 背景服務與併發處理規範
 
+## PRD 文件自動包含
+
+所有 `docs/PRD/` 目錄下的 PRD 文件會透過 `.cursor/rules/prd-context.mdc` 自動包含在上下文中（`alwaysApply: true`），包括：
+- 資料庫欄位說明書
+- 各功能模組 PRD（主動干涉引擎、倉儲管理、排程管理、製造管理等）
+- 系統模組 PRD（使用者角色、單據簽核、報表分析等）
+- 技術文件與 AI 整合方案
+
 ## 常用指令
 在對話中可以使用：
 - `@folders "C:\04_SoftNet\SoftNet"` - 包含整個專案目錄
 - `@ProjectRules.md` - 附加專案規範文件
+- `@docs\PRD\資料庫欄位說明書.md` - 附加資料庫結構說明（查詢資料表結構、欄位用途時使用）
+- `@folders "C:\04_SoftNet\SoftNet\docs\PRD"` - 包含所有 PRD 文件
 - `@folders "C:\04_SoftNet\SoftNet\SoftNetWebII"` - 僅包含 Web 專案
 
 

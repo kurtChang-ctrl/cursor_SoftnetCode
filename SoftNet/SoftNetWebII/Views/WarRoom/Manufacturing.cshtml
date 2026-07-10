@@ -1,0 +1,461 @@
+@inject IHtmlLocalizer<SoftNetWebII.R0> R
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+        _me.init();
+        _me.updateDashboard(); // 立即更新一次
+        _me.updateInterval = setInterval(_me.updateDashboard, 300000); // 每5分鐘更新
+    });
+
+    var _me = {
+        hasStaionStatus: true,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+        updateTimer: null,
+
+        init: function () {
+            // 初始化
+        },
+
+        updateDashboard: function () {
+            _me.loadProductionOutput();
+            _me.loadWorkOrderStats();
+            _me.loadStationStatus();
+            _me.loadAlerts();
+            _me.loadMaterialRequirements();
+            // 更新下次更新時間
+            var now = new Date();
+            nextUpdateDate = new Date(now.getTime() + 300000); // 5分鐘後
+            var nextElement = document.getElementById('nextUpdateTime');
+            if (nextElement) {
+                nextElement.textContent = nextUpdateDate.toLocaleString('zh-TW');
+            }
+        },
+
+        loadProductionOutput: function () {
+            // 使用 getJson0 避免阻擋 UI
+            _ajax.getJson0('@Url.Action("GetProductionOutput", "WarRoom")', { dateType: 'today' }, function (data) {
+                if (data && data.SemiFinishedQty !== undefined) {
+                    $('#todaySemiFinished').text(data.SemiFinishedQty);
+                    $('#todayFinished').text(data.FinishedQty);
+                    $('#todayTotal').text(data.TotalQty);
+                } else {
+                    // 如果沒有資料，顯示預設值
+                    $('#todaySemiFinished').text('0');
+                    $('#todayFinished').text('0');
+                    $('#todayTotal').text('0');
+                }
+            }, function (error) {
+                console.error('載入產量資料失敗:', error);
+                $('#todaySemiFinished').text('-');
+                $('#todayFinished').text('-');
+                $('#todayTotal').text('-');
+            });
+        },
+
+        loadWorkOrderStats: function () {
+            // 使用 getJson0 避免阻擋 UI
+            _ajax.getJson0('@Url.Action("GetWorkOrderStats", "WarRoom")', {}, function (data) {
+                if (data) {
+                    $('#activeWorkOrders').text(data.ActiveWorkOrders !== undefined ? data.ActiveWorkOrders : '0');
+                    $('#completedWorkOrders').text(data.CompletedWorkOrders !== undefined ? data.CompletedWorkOrders : '0');
+                    var rate = data.AchievementRate !== undefined ? data.AchievementRate : 0;
+                    $('#achievementRate').text(rate.toFixed(1) + '%');
+                } else {
+                    $('#activeWorkOrders').text('0');
+                    $('#completedWorkOrders').text('0');
+                    $('#achievementRate').text('0%');
+                }
+            }, function (error) {
+                console.error('載入工單統計失敗:', error);
+                $('#activeWorkOrders').text('-');
+                $('#completedWorkOrders').text('-');
+                $('#achievementRate').text('-');
+            });
+        },
+
+        loadStationStatus: function () {
+            // 使用 getJson0 避免阻擋 UI
+            _ajax.getJson0('@Url.Action("GetStationStatus", "WarRoom")', {}, function (data) {
+                try {
+                    if (data && data.Stations && Array.isArray(data.Stations)) {
+                        var html = '<table class="table table-bordered table-striped" style="font-size: 0.9em;">';
+                        html += '<thead><tr>';
+                        html += '<th>工站編號</th>';
+                        html += '<th>目前工單編號</th>';
+                        html += '<th>製程名稱</th>';
+                        html += '<th>製程順序</th>';
+                        html += '<th>料號</th>';
+                        html += '<th>品名與規格</th>';
+                        html += '<th>狀態</th>';
+                        html += '<th>作業員</th>';
+                        html += '<th>實際CT</th>';
+                        html += '<th>目標CT</th>';
+                        html += '<th>已報工量</th>';
+                        html += '<th>不良率</th>';
+                        html += '</tr></thead><tbody>';
+
+                        if (data.Stations.length === 0) {
+                            html += '<tr><td colspan="12" class="text-center">無工站資料</td></tr>';
+                        } else {
+                            // 過濾掉沒有工單編號的工站
+                            var filteredStations = data.Stations.filter(function (station) {
+                                if (station.IsMultiWO && station.WorkOrders && Array.isArray(station.WorkOrders)) {
+                                    // 多工單：檢查是否有任何工單有工單編號
+                                    return station.WorkOrders.some(function (wo) {
+                                        return wo.OrderNO && wo.OrderNO.trim() !== '';
+                                    });
+                                } else {
+                                    // 單工單：檢查工單編號是否存在
+                                    return station.OrderNO && station.OrderNO.trim() !== '';
+                                }
+                            });
+
+                            if (filteredStations.length === 0) {
+                                html += '<tr><td colspan="12" class="text-center">無工站資料</td></tr>';
+                            } else {
+                                filteredStations.forEach(function (station) {
+                                    var stateIcon = '';
+                                    var stateText = '';
+                                    switch (station.State) {
+                                        case '1': stateIcon = '🟢'; stateText = '運行中'; break;
+                                        case '2': stateIcon = '🔴'; stateText = '停工'; break;
+                                        case '3': stateIcon = '⏸️'; stateText = '暫停'; break;
+                                        case '4': stateIcon = '⚪'; stateText = '閒置'; break;
+                                        default: stateIcon = '⚪'; stateText = '閒置'; break;
+                                    }
+
+                                    // 製程序號與客戶制訂製程順序名稱
+                                    var indexSNDisplay = (station.IndexSN || '') +
+                                        (station.StationNO_Custom_DisplayName ? ' / ' + station.StationNO_Custom_DisplayName : '');
+
+                                    // 品名與規格
+                                    var partNameSpec = (station.PartName || '') +
+                                        (station.Specification ? ' / ' + station.Specification : '');
+
+                                    // 格式化CT時間（秒轉為分:秒）
+                                    var formatCT = function (seconds) {
+                                        if (!seconds || seconds === 0) return '-';
+                                        var mins = Math.floor(seconds / 60);
+                                        var secs = Math.floor(seconds % 60);
+                                        return mins + ':' + (secs < 10 ? '0' : '') + secs;
+                                    };
+
+                                    // 檢查實際CT是否大於目標CT，返回樣式字串
+                                    var getCTStyle = function (actualCT, targetCT) {
+                                        if (!actualCT || actualCT === 0 || !targetCT || targetCT === 0) {
+                                            return '';
+                                        }
+                                        if (actualCT > targetCT) {
+                                            return ' style="background-color: yellow;"';
+                                        }
+                                        return '';
+                                    };
+
+                                    // 工站編號/工站名稱合併顯示
+                                    var stationDisplay = (station.StationNO || '') + ' / ' + (station.StationName || '');
+
+                                    // 如果是多工單，每筆工單顯示一行（只顯示有工單編號的工單）
+                                    if (station.IsMultiWO && station.WorkOrders && Array.isArray(station.WorkOrders) && station.WorkOrders.length > 0) {
+                                        // 過濾掉沒有工單編號的工單
+                                        var validWorkOrders = station.WorkOrders.filter(function (wo) {
+                                            return wo.OrderNO && wo.OrderNO.trim() !== '';
+                                        });
+
+                                        if (validWorkOrders.length === 0) {
+                                            return; // 跳過這個工站
+                                        }
+
+                                        validWorkOrders.forEach(function (wo, index) {
+                                            html += '<tr>';
+                                            if (index === 0) {
+                                                html += '<td rowspan="' + validWorkOrders.length + '">' + stationDisplay + '</td>';
+                                            }
+                                            html += '<td>' + (wo.OrderNO || '') + '</td>';
+                                            html += '<td>' + (wo.PP_Name || '') + '</td>';
+                                            html += '<td>' + ((wo.IndexSN || '') + (wo.StationNO_Custom_DisplayName ? ' / ' + wo.StationNO_Custom_DisplayName : '')) + '</td>';
+                                            html += '<td>' + (wo.PartNO || '') + '</td>';
+                                            html += '<td>' + ((wo.PartName || '') + (wo.Specification ? ' / ' + wo.Specification : '')) + '</td>';
+                                            html += '<td>' + stateIcon + ' ' + stateText + '</td>';
+                                            html += '<td>' + (station.OP_NO || '') + '</td>';
+                                            html += '<td' + getCTStyle(wo.AvarageCycleTime, wo.EfficientCycleTime) + '>' + formatCT(wo.AvarageCycleTime) + '</td>';
+                                            html += '<td>' + formatCT(wo.EfficientCycleTime) + '</td>';
+                                            html += '<td>' + (wo.TotalOutput || 0) + '</td>';
+                                            html += '<td>' + (wo.FailRate ? wo.FailRate.toFixed(2) + '%' : '0%') + '</td>';
+                                            html += '</tr>';
+                                        });
+                                    } else {
+                                        // 單工單（已在前端過濾，這裡確保有工單編號）
+                                        if (!station.OrderNO || station.OrderNO.trim() === '') {
+                                            return; // 跳過這個工站
+                                        }
+                                        html += '<tr>';
+                                        html += '<td>' + stationDisplay + '</td>';
+                                        html += '<td>' + (station.OrderNO || '') + '</td>';
+                                        html += '<td>' + (station.PP_Name || '') + '</td>';
+                                        html += '<td>' + indexSNDisplay + '</td>';
+                                        html += '<td>' + (station.PartNO || '') + '</td>';
+                                        html += '<td>' + partNameSpec + '</td>';
+                                        html += '<td>' + stateIcon + ' ' + stateText + '</td>';
+                                        html += '<td>' + (station.OP_NO || '') + '</td>';
+                                        html += '<td' + getCTStyle(station.AvarageCycleTime, station.EfficientCycleTime) + '>' + formatCT(station.AvarageCycleTime) + '</td>';
+                                        html += '<td>' + formatCT(station.EfficientCycleTime) + '</td>';
+                                        html += '<td>' + (station.TotalOutput || 0) + '</td>';
+                                        html += '<td>' + (station.FailRate ? station.FailRate.toFixed(2) + '%' : '0%') + '</td>';
+                                        html += '</tr>';
+                                    }
+                                });
+                            }
+                        }
+
+                        html += '</tbody></table>';
+                        $('#stationStatusTable').html(html);
+                    } else {
+                        $('#stationStatusTable').html('<p class="text-center text-warning">無工站狀態資料</p>');
+                    }
+                } catch (e) {
+                    console.error('處理工站狀態資料時發生錯誤:', e);
+                    $('#stationStatusTable').html('<p class="text-center text-danger">處理資料時發生錯誤</p>');
+                }
+            }, function (error) {
+                console.error('載入工站狀態失敗:', error);
+                $('#stationStatusTable').html('<p class="text-center text-danger">載入工站狀態時發生錯誤</p>');
+            });
+        },
+
+        loadAlerts: function () {
+            // 使用 getJson0 避免阻擋 UI
+            _ajax.getJson0('@Url.Action("GetActiveInterventionAlerts", "WarRoom")', { limit: 10 }, function (data) {
+                try {
+                    if (data && data.Alerts && Array.isArray(data.Alerts) && data.Alerts.length > 0) {
+                        var html = '<table class="table table-bordered table-striped" style="font-size: 0.9em;">';
+                        html += '<thead><tr>';
+                        html += '<th>時間</th>';
+                        html += '<th>工站</th>';
+                        html += '<th>生產料件</th>';
+                        html += '<th>單據名稱</th>';
+                        html += '<th>說明</th>';
+                        html += '</tr></thead><tbody>';
+
+                        data.Alerts.forEach(function (alert) {
+                            html += '<tr>';
+                            html += '<td>' + (alert.Time || '') + '</td>';
+                            html += '<td>' + (alert.StationNO || '') + '</td>';
+                            html += '<td>' + (alert.PartName || '') + '</td>';
+                            html += '<td>' + (alert.DOCNumberNO || '') + '</td>';
+                            html += '<td>' + (alert.Log || '') + '</td>';
+                            html += '</tr>';
+                        });
+
+                        html += '</tbody></table>';
+                        $('#alertsList').html(html);
+                    } else {
+                        $('#alertsList').html('<p class="text-center text-muted">目前無警示訊息</p>');
+                    }
+                } catch (e) {
+                    console.error('處理警示資料時發生錯誤:', e);
+                    $('#alertsList').html('<p class="text-center text-danger">處理資料時發生錯誤</p>');
+                }
+            }, function (error) {
+                console.error('載入警示資料失敗:', error);
+                $('#alertsList').html('<p class="text-center text-danger">載入警示資料時發生錯誤</p>');
+            });
+        },
+
+        loadMyWorkOrders: function (stationNO) {
+            _ajax.getJson0('@Url.Action("GetMyWorkOrders", "WarRoom")', { stationNO: stationNO }, function (data) {
+                if (data && data.WorkOrders && data.WorkOrders.length > 0) {
+                    var wo = data.WorkOrders[0];
+                    $('#myOrderNO').text(wo.OrderNO);
+                    $('#myPartNO').text(wo.PartNO);
+                    $('#myPartName').text(wo.PartName);
+                    $('#myPlanQty').text(wo.PlanQty);
+                    $('#myActualQty').text(wo.ActualQty);
+                    $('#myRemainingQty').text(wo.RemainingQty);
+                    $('#myProgress').text(wo.Progress + '%');
+                }
+            });
+        },
+
+        loadMaterialRequirements: function () {
+            _ajax.getJson0('@Url.Action("GetMaterialRequirements", "WarRoom")', {}, function (data) {
+                try {
+                    if (data && data.Materials && Array.isArray(data.Materials) && data.Materials.length > 0) {
+                        var html = '<table class="table table-bordered table-striped" style="font-size: 0.9em;">';
+                        html += '<thead><tr>';
+                        html += '<th>需求時間</th>';
+                        html += '<th>工站編號</th>';
+                        html += '<th>單據編號</th>';
+                        html += '<th>料號與品名與規格</th>';
+                        html += '<th>數量</th>';
+                        html += '<th>單位</th>';
+                        html += '<th>倉庫碼</th>';
+                        html += '<th>儲位碼</th>';
+                        html += '<th>備註</th>';
+                        html += '</tr></thead><tbody>';
+
+                        data.Materials.forEach(function (mat) {
+                            var partNameSpec = (mat.PartNO || '') + 
+                                (mat.PartName ? ' / ' + mat.PartName : '') + 
+                                (mat.Specification ? ' / ' + mat.Specification : '');
+                            
+                            html += '<tr>';
+                            html += '<td>' + (mat.NeedDate || '') + '</td>';
+                            html += '<td>' + (mat.StationNO || '') + '</td>';
+                            html += '<td>' + (mat.DOCNumberNO || '') + '</td>';
+                            html += '<td>' + partNameSpec + '</td>';
+                            html += '<td>' + (mat.QTY || 0) + '</td>';
+                            html += '<td>' + (mat.Unit || '') + '</td>';
+                            html += '<td>' + (mat.StoreNO || '') + '</td>';
+                            html += '<td>' + (mat.StoreSpacesNO || '') + '</td>';
+                            html += '<td>' + (mat.Remark || '') + '</td>';
+                            html += '</tr>';
+                        });
+
+                        html += '</tbody></table>';
+                        $('#materialRequirementsTable').html(html);
+                    } else {
+                        $('#materialRequirementsTable').html('<p class="text-center text-muted">目前無物料需求資料</p>');
+                    }
+                } catch (e) {
+                    console.error('處理物料需求資料時發生錯誤:', e);
+                    $('#materialRequirementsTable').html('<p class="text-center text-danger">處理資料時發生錯誤</p>');
+                }
+            }, function (error) {
+                console.error('載入物料需求資料失敗:', error);
+                $('#materialRequirementsTable').html('<p class="text-center text-danger">載入物料需求資料時發生錯誤</p>');
+            });
+        }
+    };
+</script>
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "製造現場戰情室" } })
+
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col-12 text-end">
+            <small>更新時間: <span id="updateTime"></span> | 自動刷新: 5分鐘 | 下次更新時間: <span id="nextUpdateTime"></span></small>
+        </div>
+    </div>
+
+    <!-- 今日生產概況 -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5>進行中工單</h5>
+                    <h2 id="activeWorkOrders">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5>今日產量</h5>
+                    <h4>半成品: <span id="todaySemiFinished">-</span> PCS</h4>
+                    <h4>成品: <span id="todayFinished">-</span> PCS</h4>
+                    <h2>總計: <span id="todayTotal">-</span> PCS</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5>已完成工單</h5>
+                    <h2 id="completedWorkOrders">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h5>達成率</h5>
+                    <h2 id="achievementRate">-</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 工站即時狀態 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5>🏭 工站即時狀態</h5>
+                    <small>
+                        圖例: 🟢運行中 🟡待料 🔴異常 ⚪閒置 ⏸️暫停
+                    </small>
+                </div>
+                <div class="card-body">
+                    <div id="stationStatusTable">
+                        <p class="text-center">載入中...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 即時警示 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>⚠️ 4小時內即時警示 (異常與主動干涉)</h5>
+                </div>
+                <div class="card-body" id="alertsList">
+                    <p class="text-center">載入中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 物料需求狀態 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>📦 4小時內物料需求狀態</h5>
+                </div>
+                <div class="card-body" id="materialRequirementsTable">
+                    <p class="text-center">載入中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 更新時間顯示
+    var nextUpdateDate = null;
+    function updateTimeDisplay() {
+        var element = document.getElementById('updateTime');
+        if (element) {
+            var now = new Date();
+            element.textContent = now.toLocaleString('zh-TW');
+
+            // 計算下次更新時間（5分鐘後）
+            if (!nextUpdateDate || now >= nextUpdateDate) {
+                nextUpdateDate = new Date(now.getTime() + 300000); // 5分鐘 = 300000毫秒
+            }
+
+            var nextElement = document.getElementById('nextUpdateTime');
+            if (nextElement && nextUpdateDate) {
+                nextElement.textContent = nextUpdateDate.toLocaleString('zh-TW');
+            }
+        }
+    }
+    // 確保 DOM 載入後才執行
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+            updateTimeDisplay();
+            setInterval(updateTimeDisplay, 1000);
+        });
+    } else {
+        updateTimeDisplay();
+        setInterval(updateTimeDisplay, 1000);
+    }
+</script>

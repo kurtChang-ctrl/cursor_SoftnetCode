@@ -2,9 +2,9 @@
 var _BR = {
 
     //=== moment.js convert these to UI format ===
-    MmUiDateFmt: 'YYYY/MM/DD',          //match bootstrap-datepicker.js format property
-    MmUiDtFmt: 'YYYY/MM/DD HH:mm:ss',   //datetime 
-    MmUiDt2Fmt: 'YYYY/MM/DD HH:mm',     //datetime no second
+    MmUiDateFmt: 'yyyy-MM-dd',          //match bootstrap-datepicker.js format property
+    MmUiDtFmt: 'yyyy-MM-dd HH:mm:ss',   //datetime 
+    MmUiDt2Fmt: 'yyyy-MM-dd HH:mm',     //datetime no second
 
     //row status
     StatusYes: '正常',

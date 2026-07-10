@@ -1,0 +1,430 @@
+@inject IHtmlLocalizer<SoftNetWebII.R0> R
+
+<script type="text/javascript">
+    $(function () {
+        IS_SYS_Clock = false;
+        if (SYS_ClickBlock) { _fun.unBlock(); }
+        SYS_ClickBlock = false;
+        _me.init();
+        _me.updateDashboard();
+        setInterval(_me.updateDashboard, 180000); // 每3分鐘更新
+    });
+
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false,
+        currentGranularity: 'month',
+        currentMonths: 6,
+
+        init: function () {
+            $('#granularitySelect').on('change', function () {
+                _me.currentGranularity = $(this).val();
+                _me.loadTrends();
+            });
+        },
+
+        updateDashboard: function () {
+            _me.loadCoreKPIs();
+            _me.loadTrends();
+            _me.loadProgressAnalysis();
+            _me.loadCostBenefitAnalysis();
+            _me.loadTargetAchievement();
+            _me.loadInterventionCount();
+        },
+
+        loadCoreKPIs: function () {
+            _ajax.getJson('@Url.Action("GetCoreKPIs", "WarRoom")', { period: 'month' }, function (data) {
+                if (data) {
+                    $('#totalOutput').text(data.TotalOutput.toLocaleString());
+                    $('#semiFinishedOutput').text(data.SemiFinishedOutput.toLocaleString());
+                    $('#finishedOutput').text(data.FinishedOutput.toLocaleString());
+                    $('#todayOutput').text(data.TodayOutput.toLocaleString());
+                    $('#planAchievementRate').text(data.PlanAchievementRate + '%');
+                    $('#capacityUtilization').text(data.CapacityUtilization + '%');
+                    $('#yieldRate').text(data.YieldRate + '%');
+                    $('#deliveryAchievementRate').text(data.DeliveryAchievementRate + '%');
+                    $('#oee').text(data.OEE + '%');
+                }
+            });
+        },
+
+        loadTrends: function () {
+            _me.loadProductionTrend();
+            _me.loadCapacityUtilizationTrend();
+        },
+
+        loadProductionTrend: function () {
+            _ajax.getJson('@Url.Action("GetProductionTrend", "WarRoom")', { 
+                granularity: _me.currentGranularity, 
+                months: _me.currentMonths 
+            }, function (data) {
+                if (data && data.Trends) {
+                    // 這裡可以整合圖表庫（如 Chart.js）繪製趨勢圖
+                    var html = '<div class="table-responsive">';
+                    html += '<table class="table table-bordered table-striped">';
+                    html += '<thead><tr><th>期間</th><th>半成品</th><th>成品</th><th>總計</th></tr></thead><tbody>';
+                    
+                    data.Trends.forEach(function (trend) {
+                        html += '<tr>';
+                        html += '<td>' + trend.Period + '</td>';
+                        html += '<td>' + trend.SemiFinishedQty.toLocaleString() + '</td>';
+                        html += '<td>' + trend.FinishedQty.toLocaleString() + '</td>';
+                        html += '<td>' + trend.TotalQty.toLocaleString() + '</td>';
+                        html += '</tr>';
+                    });
+                    
+                    html += '</tbody></table></div>';
+                    $('#productionTrendTable').html(html);
+                }
+            });
+        },
+
+        loadCapacityUtilizationTrend: function () {
+            _ajax.getJson('@Url.Action("GetCapacityUtilizationTrend", "WarRoom")', { 
+                granularity: _me.currentGranularity, 
+                months: _me.currentMonths 
+            }, function (data) {
+                if (data && data.Trends) {
+                    var html = '<div class="table-responsive">';
+                    html += '<table class="table table-bordered table-striped">';
+                    html += '<thead><tr><th>期間</th><th>計畫時間(秒)</th><th>實際時間(秒)</th><th>利用率</th></tr></thead><tbody>';
+                    
+                    data.Trends.forEach(function (trend) {
+                        var rateClass = trend.UtilizationRate >= 90 ? 'text-danger' : 
+                                       trend.UtilizationRate >= 70 ? 'text-warning' : 'text-success';
+                        
+                        html += '<tr>';
+                        html += '<td>' + trend.Period + '</td>';
+                        html += '<td>' + trend.PlannedSeconds.toLocaleString() + '</td>';
+                        html += '<td>' + trend.ActualSeconds.toLocaleString() + '</td>';
+                        html += '<td class="' + rateClass + '">' + trend.UtilizationRate + '%</td>';
+                        html += '</tr>';
+                    });
+                    
+                    html += '</tbody></table></div>';
+                    $('#capacityUtilizationTrendTable').html(html);
+                }
+            });
+        },
+
+        loadProgressAnalysis: function () {
+            _ajax.getJson('@Url.Action("GetProgressAnalysis", "WarRoom")', { period: 'month' }, function (data) {
+                if (data) {
+                    var html = '<h6>✅ 進步項目 (相較上月)</h6>';
+                    html += '<ul>';
+                    data.Improvements.forEach(function (item) {
+                        var trendIcon = item.Trend === '上升' ? '↑' : '↓';
+                        html += '<li>' + item.Item + ': ' + item.Current + '% ' + trendIcon + ' ' + item.Change + '%</li>';
+                    });
+                    html += '</ul>';
+                    
+                    html += '<h6 class="mt-3">⚠️ 需關注項目</h6>';
+                    html += '<ul>';
+                    data.Concerns.forEach(function (item) {
+                        var trendIcon = item.Trend === '上升' ? '↑' : '↓';
+                        html += '<li>' + item.Item + ': ' + item.Current + '% ' + trendIcon + ' ' + item.Change + '%';
+                        if (item.Note) html += ' (' + item.Note + ')';
+                        html += '</li>';
+                    });
+                    html += '</ul>';
+                    
+                    $('#progressAnalysis').html(html);
+                }
+            });
+        },
+
+        loadCostBenefitAnalysis: function () {
+            _ajax.getJson('@Url.Action("GetCostBenefitAnalysis", "WarRoom")', { period: 'month' }, function (data) {
+                if (data) {
+                    $('#totalOutput').text(data.TotalOutput.toLocaleString());
+                    $('#unitCost').text('$' + data.UnitCost.toFixed(2));
+                    $('#totalCost').text('$' + data.TotalCost.toLocaleString());
+                    $('#efficiencyImprovement').text(data.EfficiencyImprovement + '%');
+                }
+            });
+        },
+
+        loadTargetAchievement: function () {
+            _ajax.getJson('@Url.Action("GetTargetAchievement", "WarRoom")', { period: 'month' }, function (data) {
+                if (data && data.KPIs) {
+                    var html = '<table class="table table-bordered table-striped">';
+                    html += '<thead><tr><th>KPI項目</th><th>目標值</th><th>實際值</th><th>達成率</th><th>狀態</th></tr></thead><tbody>';
+                    
+                    data.KPIs.forEach(function (kpi) {
+                        var statusIcon = kpi.Status === '未達' ? '🔴' : '🟡';
+                        var statusClass = kpi.Status === '未達' ? 'text-danger' : 'text-warning';
+                        
+                        html += '<tr>';
+                        html += '<td>' + kpi.Item + '</td>';
+                        html += '<td>' + kpi.Target + (kpi.Item.includes('率') || kpi.Item.includes('OEE') ? '%' : '') + '</td>';
+                        html += '<td>' + kpi.Actual + (kpi.Item.includes('率') || kpi.Item.includes('OEE') ? '%' : '') + '</td>';
+                        html += '<td>' + kpi.AchievementRate + '%</td>';
+                        html += '<td class="' + statusClass + '">' + statusIcon + ' ' + kpi.Status + '</td>';
+                        html += '</tr>';
+                    });
+                    
+                    html += '</tbody></table>';
+                    $('#targetAchievementTable').html(html);
+                }
+            });
+        },
+
+        loadInterventionCount: function () {
+            _ajax.getJson('@Url.Action("GetInterventionCount", "WarRoom")', { days: 30 }, function (data) {
+                if (data) {
+                    $('#interventionCount30').text(data.TotalCount);
+                    $('#interventionCount30').attr('onclick', '_me.showInterventionDetail(30)');
+                }
+            });
+        },
+
+        showInterventionDetail: function (days) {
+            _ajax.getJson('@Url.Action("GetInterventionDetail", "WarRoom")', { days: days }, function (data) {
+                if (data && data.Details) {
+                    var html = '<table class="table table-bordered table-striped">';
+                    html += '<thead><tr><th>日期</th><th>規則類型</th><th>工站</th><th>單據編號</th><th>料號</th><th>警告內容</th></tr></thead><tbody>';
+                    
+                    data.Details.forEach(function (detail) {
+                        html += '<tr>';
+                        html += '<td>' + detail.EventDate + '</td>';
+                        html += '<td>' + detail.ErrorType + '</td>';
+                        html += '<td>' + (detail.StationNO || '-') + '</td>';
+                        html += '<td>' + (detail.DOCNumberNO || '-') + '</td>';
+                        html += '<td>' + (detail.PartNO || '-') + '</td>';
+                        html += '<td>' + (detail.Remark || '-') + '</td>';
+                        html += '</tr>';
+                    });
+                    
+                    html += '</tbody></table>';
+                    
+                    // 使用 Bootstrap Modal 顯示
+                    $('#interventionDetailModal .modal-body').html(html);
+                    $('#interventionDetailModal').modal('show');
+                }
+            });
+        }
+    };
+</script>
+
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "高階管理戰情室" } })
+
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col-12 text-end">
+            <small>更新時間: <span id="updateTime"></span> | 自動刷新: 3分鐘</small>
+        </div>
+    </div>
+
+    <!-- 核心KPI總覽 -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5>總產量 (本月)</h5>
+                    <h2 id="totalOutput">-</h2>
+                    <small>半成品: <span id="semiFinishedOutput">-</span> | 成品: <span id="finishedOutput">-</span></small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5>計畫達成率</h5>
+                    <h2 id="planAchievementRate">-</h2>
+                    <small>↑ 3.1%</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5>產能利用率</h5>
+                    <h2 id="capacityUtilization">-</h2>
+                    <small>↑ 2.5%</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h5>良率</h5>
+                    <h2 id="yieldRate">-</h2>
+                    <small>↑ 0.8%</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5>交期達成率</h5>
+                    <h2 id="deliveryAchievementRate">-</h2>
+                    <small>↑ 2.3%</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5>OEE</h5>
+                    <h2 id="oee">-</h2>
+                    <small>↑ 1.5%</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5>異常事件</h5>
+                    <h2>15</h2>
+                    <small>↓ 20%</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5>主動干涉次數</h5>
+                    <h2><a href="javascript:void(0)" id="interventionCount30" style="color: inherit; text-decoration: none;">-</a></h2>
+                    <small>前30天 (可點選看明細)</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 生產效能趨勢分析 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>📈 生產效能趨勢分析 (近 6 個月)</h5>
+                    <div class="float-end">
+                        <select id="granularitySelect" class="form-select form-select-sm d-inline-block" style="width: auto;">
+                            <option value="month">月</option>
+                            <option value="week">週</option>
+                            <option value="day">日</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body" id="productionTrendTable">
+                    <p class="text-center">載入中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 產能利用率趨勢 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>📊 產能利用率趨勢 (近 6 個月)</h5>
+                </div>
+                <div class="card-body" id="capacityUtilizationTrendTable">
+                    <p class="text-center">載入中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 進步/退步分析 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>🏆 進步/退步分析</h5>
+                </div>
+                <div class="card-body" id="progressAnalysis">
+                    <p class="text-center">載入中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 成本效益分析 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>💰 成本效益分析 (本月)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <h6>總產量</h6>
+                            <h4 id="totalOutput2">-</h4>
+                        </div>
+                        <div class="col-md-3">
+                            <h6>單位成本</h6>
+                            <h4 id="unitCost">-</h4>
+                        </div>
+                        <div class="col-md-3">
+                            <h6>總成本</h6>
+                            <h4 id="totalCost">-</h4>
+                        </div>
+                        <div class="col-md-3">
+                            <h6>效率提升</h6>
+                            <h4 id="efficiencyImprovement">-</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 目標達成狀況 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>🎯 目標達成狀況</h5>
+                </div>
+                <div class="card-body" id="targetAchievementTable">
+                    <p class="text-center">載入中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 主動干涉明細 Modal -->
+<div class="modal fade" id="interventionDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">主動干涉明細 (前30天)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="interventionDetailContent">
+                <p class="text-center">載入中...</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 更新時間顯示
+    function updateTimeDisplay() {
+        var element = document.getElementById('updateTime');
+        if (element) {
+            element.textContent = new Date().toLocaleString('zh-TW');
+        }
+    }
+    // 確保 DOM 載入後才執行
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            updateTimeDisplay();
+            setInterval(updateTimeDisplay, 1000);
+        });
+    } else {
+        updateTimeDisplay();
+        setInterval(updateTimeDisplay, 1000);
+    }
+</script>

@@ -1,10 +1,11 @@
-﻿using Base.Services;
+using Base.Services;
 using Microsoft.AspNetCore.Mvc;
 
 using SoftNetWebII.Models;
 using System.Collections.Generic;
 using System.Data;
 using System;
+using System.Text;
 using DocumentFormat.OpenXml.Office2010.Excel;
 using DocumentFormat.OpenXml.Office2010.ExcelAc;
 using DocumentFormat.OpenXml.Wordprocessing;
@@ -55,11 +56,11 @@ namespace SoftNetWebII.Controllers
                         key.SelectBOMId = "";
                         key.COMType = "9";
                         DataRow tmp_Mbom = db.DB_GetFirstDataByDataRow($"select * from SoftNetMainDB.[dbo].[BOM] where ServerId='{_Fun.Config.ServerId}' and Id='{key.MBOMId}'");
-                        if (tmp_Mbom != null) 
+                        if (tmp_Mbom != null)
                         {
                             tmp = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetMainDB.[dbo].[Material] where ServerId='{_Fun.Config.ServerId}' and PartNO='{tmp_Mbom["Apply_PartNO"].ToString()}'");
                             key.SClass = tmp["Class"].ToString();
-                            key.SApply_PartNO = tmp_Mbom["Apply_PartNO"].ToString(); 
+                            key.SApply_PartNO = tmp_Mbom["Apply_PartNO"].ToString();
                         }
                         else
                         {
@@ -218,7 +219,7 @@ namespace SoftNetWebII.Controllers
                                     key.MBOMId = _Str.NewId('Z');
                                     key.SApply_PartNO = key.SPartNO;
                                     db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[BOM] ([Id],[ServerId],[Apply_PartNO],PartNO,[Main_Item],[EffectiveDate],[ExpiryDate],[Version],[Apply_PP_Name],[Apply_StationNO],[IsEnd],[IndexSN],[Station_Custom_IndexSN],[StationNO_Custom_DisplayName],UpdateTime,IsChackQTY,IsChackIsOK,OutPackType,Station_DIS_Remark,StationNO_Merge,MFNO,IsShare_PP_Name) VALUES
-                                            ('{key.MBOMId}','{_Fun.Config.ServerId}','{key.SApply_PartNO}','{key.SPartNO}','1','{DateTime.Now.ToString("yyyy/MM/dd")}','{DateTime.Now.AddYears(10).ToString("yyyy/MM/dd")}','1.0000','{key.SPP_Name}','{key.SApply_StationNO}','0',1,'','{key.SStationNO_Custom_DisplayName}','{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.fff")}','{key.SIsChackQTY.ToString()}','{key.SIsChackIsOK.ToString()}','{outPackType}','{key.SStation_DIS_Remark}',{stationNO_Merge},'{mFNO}','0')");
+                                            ('{key.MBOMId}','{_Fun.Config.ServerId}','{key.SApply_PartNO}','{key.SPartNO}','1','{DateTime.Now.ToString("yyyy-MM-dd")}','{DateTime.Now.AddYears(10).ToString("yyyy-MM-dd")}','1.0000','{key.SPP_Name}','{key.SApply_StationNO}','0',1,'','{key.SStationNO_Custom_DisplayName}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{key.SIsChackQTY.ToString()}','{key.SIsChackIsOK.ToString()}','{outPackType}','{key.SStation_DIS_Remark}',{stationNO_Merge},'{mFNO}','0')");
                                     db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[BOMII] (ServerId,[Id],[BOMId],[sn],[PartNO],[BOMQTY],[Class],[AttritionRate]) VALUES
                                             ('{_Fun.Config.ServerId}','{_Str.NewId('Z')}','{key.MBOMId}',1,'{key.SPartNO}',{key.SBOMQTY},'{dr_Material["Class"].ToString()}',0)");
                                     #endregion
@@ -318,11 +319,11 @@ namespace SoftNetWebII.Controllers
                                             tmp = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_NeedData] where ServerId='{_Fun.Config.ServerId}' and Apply_PP_Name='{tmp_MBOM["Apply_PP_Name"].ToString()}' and PartNO='{tmp_MBOM["PartNO"].ToString()}' and (State='1' or State='2' or State='6')");
                                             if (tmp != null)
                                             {
-                                                if (type1 == "2" && type2 == "D") 
+                                                if (type1 == "2" && type2 == "D")
                                                 { key.ERRMsg = $"料號:{tmp_MBOM["PartNO"].ToString()} 製程:{tmp_MBOM["Apply_PP_Name"].ToString()} 已有在模擬中或生產中, 目前無法異動BOM的結構, 請至干涉修改."; }
                                             }
                                             #endregion
-                                            if (key.ERRMsg=="")
+                                            if (key.ERRMsg == "")
                                             {
                                                 if (type2 == "B")
                                                 {
@@ -407,7 +408,7 @@ namespace SoftNetWebII.Controllers
                                                                 if (key.ERRMsg == "")
                                                                 {
                                                                     string id = _Str.NewId('Z');
-                                                                    string updateTimeKeyID = DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss");
+                                                                    string updateTimeKeyID = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
 
                                                                     //###???若有分支,以下code會有問題
                                                                     #region 先異動所有階的 IndexSN, 與新增
@@ -422,7 +423,7 @@ namespace SoftNetWebII.Controllers
                                                                             {
                                                                                 db.DB_SetData($"update SoftNetMainDB.[dbo].[BOM] set IndexSN={contrlIndexNO.ToString()} where Id='{dr["Id"].ToString()}'"); contrlIndexNO -= 1;
                                                                                 db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[BOM] ([Id],[ServerId],[Apply_PartNO],PartNO,[Main_Item],[EffectiveDate],[ExpiryDate],[Version],[Apply_PP_Name],[Apply_StationNO],[IsEnd],[IndexSN],[Station_Custom_IndexSN],[StationNO_Custom_DisplayName],UpdateTime,IsChackQTY,IsChackIsOK,OutPackType,Station_DIS_Remark,StationNO_Merge,MFNO,IsShare_PP_Name) VALUES
-                                                                            ('{id}','{_Fun.Config.ServerId}','{key.SApply_PartNO}','{key.SPartNO}','0','{DateTime.Now.ToString("yyyy/MM/dd")}','{DateTime.Now.AddYears(10).ToString("yyyy/MM/dd")}','','{key.SPP_Name}','{key.SApply_StationNO}','0',{contrlIndexNO.ToString()},'','{key.SStationNO_Custom_DisplayName}','{updateTimeKeyID}','{key.SIsChackQTY.ToString()}','{key.SIsChackIsOK.ToString()}','{outPackType}','{key.SStation_DIS_Remark}',{indexSN_Merge},'{key.MFNO}','0')");
+                                                                            ('{id}','{_Fun.Config.ServerId}','{key.SApply_PartNO}','{key.SPartNO}','0','{DateTime.Now.ToString("yyyy-MM-dd")}','{DateTime.Now.AddYears(10).ToString("yyyy-MM-dd")}','','{key.SPP_Name}','{key.SApply_StationNO}','0',{contrlIndexNO.ToString()},'','{key.SStationNO_Custom_DisplayName}','{updateTimeKeyID}','{key.SIsChackQTY.ToString()}','{key.SIsChackIsOK.ToString()}','{outPackType}','{key.SStation_DIS_Remark}',{indexSN_Merge},'{key.MFNO}','0')");
                                                                                 contrlIndexNO -= 1;
                                                                             }
                                                                             else { db.DB_SetData($"update SoftNetMainDB.[dbo].[BOM] set IndexSN={contrlIndexNO.ToString()} where Id='{dr["Id"].ToString()}'"); contrlIndexNO -= 1; }
@@ -573,7 +574,7 @@ namespace SoftNetWebII.Controllers
                                                         if (key.ERRMsg == "")
                                                         {
                                                             if (db.DB_SetData($@"update SoftNetMainDB.[dbo].[BOM] set MFNO='{key.MFNO}',StationNO_Merge={indexSN_Merge},OutPackType='{outPackType}',PartNO='{key.SPartNO}',StationNO_Custom_DisplayName='{key.SStationNO_Custom_DisplayName}',
-                                                        Station_DIS_Remark='{key.SStation_DIS_Remark}',Apply_StationNO='{key.SApply_StationNO}',IsChackQTY='{key.SIsChackQTY}',IsChackIsOK='{key.SIsChackIsOK}',UpdateTime='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}' where Id='{key.BOMId}'"))
+                                                        Station_DIS_Remark='{key.SStation_DIS_Remark}',Apply_StationNO='{key.SApply_StationNO}',IsChackQTY='{key.SIsChackQTY}',IsChackIsOK='{key.SIsChackIsOK}',UpdateTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}' where Id='{key.BOMId}'"))
                                                             {
                                                                 if (key.SApply_StationNO != dr_selectBOM["Apply_StationNO"].ToString() || key.SPartNO != dr_selectBOM["PartNO"].ToString()) { db.DB_SetData($"update SoftNetMainDB.[dbo].[BOM] set IsConfirm='0' where ServerId='{_Fun.Config.ServerId}' and Id='{key.MBOMId}'"); }
                                                             }
@@ -737,7 +738,7 @@ namespace SoftNetWebII.Controllers
                                     db.DB_SetData($"delete from SoftNetSYSDB.[dbo].[PP_ProductProcess] where ServerId='{_Fun.Config.ServerId}' and PP_Name='{dr_BOM["Apply_PP_Name"].ToString()}' and Apply_PartNO='{dr_BOM["Apply_PartNO"].ToString()}'");
                                     db.DB_SetData($"delete from SoftNetSYSDB.[dbo].[PP_ProductProcess_Item] where ServerId='{_Fun.Config.ServerId}' and PP_Name='{dr_BOM["Apply_PP_Name"].ToString()}' and Apply_PartNO='{dr_BOM["Apply_PartNO"].ToString()}'");
                                     db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[PP_ProductProcess] (ServerId,PP_Name,Apply_PartNO,CalendarName,UpdateTime,FactoryName,LineName) VALUES
-                                            ('{_Fun.Config.ServerId}','{dr_BOM["Apply_PP_Name"].ToString()}','{dr_BOM["Apply_PartNO"].ToString()}','{_Fun.Config.DefaultCalendarName}','{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}','{_Fun.Config.DefaultFactoryName}','{_Fun.Config.DefaultLineName}')");
+                                            ('{_Fun.Config.ServerId}','{dr_BOM["Apply_PP_Name"].ToString()}','{dr_BOM["Apply_PartNO"].ToString()}','{_Fun.Config.DefaultCalendarName}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}','{_Fun.Config.DefaultFactoryName}','{_Fun.Config.DefaultLineName}')");
                                     string indexSN_Merge = "0";
                                     string outPackType = "0";
                                     foreach (string id in log_BOM_All_id)
@@ -840,11 +841,12 @@ namespace SoftNetWebII.Controllers
                     {
                         item = s.Split('\x01');
                         var t01 = key.NeedIdList.Where(x => x.Split('\x01')[1] == item[0]).ToList();
-                        if (t01!=null && t01.Count>0)
+                        if (t01 != null && t01.Count > 0)
                         {
                             item[3] = "已有BOM";
-                        } else 
-                        { 
+                        }
+                        else
+                        {
                             item[3] = "無";
                         }
                         copyBOM = $"{copyBOM}<option value='{item[0]}'>[{item[3]}]品名:{item[1]}&emsp;{item[2]} </option>";
@@ -873,7 +875,8 @@ namespace SoftNetWebII.Controllers
             DataRow dr_tmp = null;
             DataTable dr_MII = null;
             DataRow dr_Material = null;
-            if (sn != sn2) { re = $"{re}<ul>"; sn = sn2; }
+            var sb = new StringBuilder(re);
+            if (sn != sn2) { sb.Append("<ul>"); sn = sn2; }
             foreach (DataRow dr1 in dr_M.Rows)
             {
                 dr_Material = db.DB_GetFirstDataByDataRow($"select * from SoftNetMainDB.[dbo].[Material] where ServerId='{_Fun.Config.ServerId}' and PartNO='{dr1["PartNO"].ToString()}'");
@@ -883,11 +886,14 @@ namespace SoftNetWebII.Controllers
                     string pp_Name_Display = $"[{dr_tmp["StationNO_Custom_DisplayName"].ToString()}]";
                     string indexNO = dr_tmp["IndexSN"].ToString();
                     if (indexNO == "0") { indexNO = "未發行"; }
-                    re = $"{re}   <li><button type='submit' style='border: 2px blue none;' onclick='_me.onCreateBOM(\"2,{mBOMId},{pp_Name},{dr_tmp["Id"].ToString()}\")'>{dr1["PartNO"].ToString()}[{dr_Material["PartName"].ToString()}][{dr_Material["Specification"].ToString()}][{indexNO}][{dr_tmp["Apply_StationNO"].ToString()}]{pp_Name_Display}</button>";
+                    sb.Append($"   <li><button type='submit' style='border: 2px blue none;' onclick='_me.onCreateBOM(\"2,{mBOMId},{pp_Name},{dr_tmp["Id"].ToString()}\")'>{dr1["PartNO"].ToString()}[{dr_Material["PartName"].ToString()}][{dr_Material["Specification"].ToString()}][{indexNO}][{dr_tmp["Apply_StationNO"].ToString()}]{pp_Name_Display}</button>");
                     dr_MII = db.DB_GetData($"select * from SoftNetMainDB.[dbo].[BOMII] where BOMId='{dr_tmp["Id"].ToString()}' order by sn");
                     if (dr_MII != null && dr_MII.Rows.Count > 0)
                     {
-                        RecursiveBOM2(db, needId, sn2, (sn2 + 1), dr_MII, (indexSN - 1), pp_Name, apply_PartNO, mBOMId, ref re);
+                        string tempRe = sb.ToString();
+                        RecursiveBOM2(db, needId, sn2, (sn2 + 1), dr_MII, (indexSN - 1), pp_Name, apply_PartNO, mBOMId, ref tempRe);
+                        sb.Clear();
+                        sb.Append(tempRe);
                     }
                 }
                 else
@@ -897,11 +903,12 @@ namespace SoftNetWebII.Controllers
                     {
                         if (dr1["PartNO"].ToString() == dr_tmp["PartNO"].ToString()) { continue; }
                     }
-                    re = $"{re}   <li><button type='submit' onclick='_me.onCreateBOM(\"3,{mBOMId},{pp_Name},{dr1["Id"].ToString()}\")'>用料:{dr1["PartNO"].ToString()}[{dr_Material["PartName"].ToString()}]</button>";
+                    sb.Append($"   <li><button type='submit' onclick='_me.onCreateBOM(\"3,{mBOMId},{pp_Name},{dr1["Id"].ToString()}\")'>用料:{dr1["PartNO"].ToString()}[{dr_Material["PartName"].ToString()}]</button>");
                 }
-                re = $"{re}</li>";
+                sb.Append("</li>");
             }
-            re = $"{re}</ul>";
+            sb.Append("</ul>");
+            re = sb.ToString();
         }
 
 
@@ -974,8 +981,8 @@ namespace SoftNetWebII.Controllers
                 newId = newBOMId;
                 string stationNO_Merge = bom.IsNull("StationNO_Merge") ? "NULL" : $"'{bom["StationNO_Merge"].ToString()}'";
                 sql = $@"INSERT INTO SoftNetMainDB.[dbo].[BOM] ([Id],[ServerId],[Apply_PartNO],PartNO,[Main_Item],[EffectiveDate],[ExpiryDate],[Version],[Apply_PP_Name],[Apply_StationNO],[IsEnd],[IndexSN],[Station_Custom_IndexSN],[StationNO_Custom_DisplayName],UpdateTime,IsChackQTY,IsChackIsOK,OutPackType,Station_DIS_Remark,StationNO_Merge,MFNO,IsShare_PP_Name) VALUES
-                                                    ('{newBOMId}','{_Fun.Config.ServerId}','{new_apply_PartNO}','{new_apply_PartNO}','1','{DateTime.Now.ToString("yyyy/MM/dd")}','{DateTime.Now.AddYears(10).ToString("yyyy/MM/dd")}','1.0000','{new_PP_Name}','{bom["Apply_StationNO"].ToString()}','0',
-                                                    {bom["IndexSN"].ToString()},'{bom["Station_Custom_IndexSN"].ToString()}','{bom["StationNO_Custom_DisplayName"].ToString()}','{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.fff")}','{bom["IsChackQTY"].ToString()}','{bom["IsChackIsOK"].ToString()}','{bom["OutPackType"].ToString()}','{bom["Station_DIS_Remark"].ToString()}',{stationNO_Merge},'{bom["MFNO"].ToString()}','{bom["IsShare_PP_Name"].ToString()}')";
+                                                    ('{newBOMId}','{_Fun.Config.ServerId}','{new_apply_PartNO}','{new_apply_PartNO}','1','{DateTime.Now.ToString("yyyy-MM-dd")}','{DateTime.Now.AddYears(10).ToString("yyyy-MM-dd")}','1.0000','{new_PP_Name}','{bom["Apply_StationNO"].ToString()}','0',
+                                                    {bom["IndexSN"].ToString()},'{bom["Station_Custom_IndexSN"].ToString()}','{bom["StationNO_Custom_DisplayName"].ToString()}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{bom["IsChackQTY"].ToString()}','{bom["IsChackIsOK"].ToString()}','{bom["OutPackType"].ToString()}','{bom["Station_DIS_Remark"].ToString()}',{stationNO_Merge},'{bom["MFNO"].ToString()}','{bom["IsShare_PP_Name"].ToString()}')";
             }
             else
             {
@@ -983,8 +990,8 @@ namespace SoftNetWebII.Controllers
                 if (old_partNO == bom["PartNO"].ToString()) { partNNO = new_partNO; } else { partNNO = bom["PartNO"].ToString(); }
                 string stationNO_Merge = bom.IsNull("StationNO_Merge") ? "NULL" : $"'{bom["StationNO_Merge"].ToString()}'";
                 sql = $@"INSERT INTO SoftNetMainDB.[dbo].[BOM] ([Id],[ServerId],[Apply_PartNO],PartNO,[Main_Item],[EffectiveDate],[ExpiryDate],[Version],[Apply_PP_Name],[Apply_StationNO],[IsEnd],[IndexSN],[Station_Custom_IndexSN],[StationNO_Custom_DisplayName],UpdateTime,IsChackQTY,IsChackIsOK,OutPackType,Station_DIS_Remark,StationNO_Merge,MFNO,IsShare_PP_Name) VALUES
-                                                    ('{newId}','{_Fun.Config.ServerId}','{new_apply_PartNO}','{partNNO}','0','{DateTime.Now.ToString("yyyy/MM/dd")}','{DateTime.Now.AddYears(10).ToString("yyyy/MM/dd")}','','{new_PP_Name}','{bom["Apply_StationNO"].ToString()}','0',
-                                                    {bom["IndexSN"].ToString()},'{bom["Station_Custom_IndexSN"].ToString()}','{bom["StationNO_Custom_DisplayName"].ToString()}','{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.fff")}','{bom["IsChackQTY"].ToString()}','{bom["IsChackIsOK"].ToString()}','{bom["OutPackType"].ToString()}','{bom["Station_DIS_Remark"].ToString()}',{stationNO_Merge},'{bom["MFNO"].ToString()}','{bom["IsShare_PP_Name"].ToString()}')";
+                                                    ('{newId}','{_Fun.Config.ServerId}','{new_apply_PartNO}','{partNNO}','0','{DateTime.Now.ToString("yyyy-MM-dd")}','{DateTime.Now.AddYears(10).ToString("yyyy-MM-dd")}','','{new_PP_Name}','{bom["Apply_StationNO"].ToString()}','0',
+                                                    {bom["IndexSN"].ToString()},'{bom["Station_Custom_IndexSN"].ToString()}','{bom["StationNO_Custom_DisplayName"].ToString()}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{bom["IsChackQTY"].ToString()}','{bom["IsChackIsOK"].ToString()}','{bom["OutPackType"].ToString()}','{bom["Station_DIS_Remark"].ToString()}',{stationNO_Merge},'{bom["MFNO"].ToString()}','{bom["IsShare_PP_Name"].ToString()}')";
             }
             db.DB_SetData(sql);
 
@@ -1000,7 +1007,7 @@ namespace SoftNetWebII.Controllers
             {
                 bom = db.DB_GetFirstDataByDataRow($"select * from SoftNetMainDB.[dbo].[BOM] where  Apply_PP_Name='{old_PP_Name}' and Apply_PartNO='{old_Apply_PartNO}' and IndexSN={(old_IndexSN - 1).ToString()}");
                 if (bom != null)
-                { Copy_BOM(db, bom, new_PP_Name, new_apply_PartNO, new_partNO, old_partNO,ref newBOMId); }
+                { Copy_BOM(db, bom, new_PP_Name, new_apply_PartNO, new_partNO, old_partNO, ref newBOMId); }
             }
         }
 

@@ -2,9 +2,9 @@
 var _BR = {
 
     //=== moment.js convert these to UI format ===
-    MmUiDateFmt: 'YYYY/MM/DD',
-    MmUiDtFmt: 'YYYY/MM/DD HH:mm:ss',
-    MmUiDt2Fmt: 'YYYY/MM/DD HH:mm',     //no second
+    MmUiDateFmt: 'yyyy-MM-dd',
+    MmUiDtFmt: 'yyyy-MM-dd HH:mm:ss',
+    MmUiDt2Fmt: 'yyyy-MM-dd HH:mm',     //no second
 
     //row status
     StatusYes: '正常',
@@ -67,7 +67,7 @@ var _BR = {
 		today: "今天",
 		monthsTitle: "选择月份",
 		clear: "清除",
-		format: "yyyy/mm/dd",
+		format: "yyyy-MM-dd",
 		titleFormat: "yyyy年mm月",
 		weekStart: 1
 	};

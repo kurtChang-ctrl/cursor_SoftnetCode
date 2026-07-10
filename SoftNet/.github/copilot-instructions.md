@@ -3,7 +3,7 @@
 目的：快速讓 AI 編碼助理立刻上手本 repo、理解主要架構、開發流程與專案慣例。
 
 1) 大致架構
-- 本解包含多個 project：`SoftNetWebII`（主要的 ASP.NET Core WebApp）、`Base`（共用函式庫、DBADO、Models、Services）、`SoftNetCommLib`（共用 commlib）。
+- 本解包含多個 project：`SoftNetWebII`（主要的 ASP.NET Core WebApp）、`Base`（共用函式庫、DBADO、Models、Services）。
 - Web 啟動點：`SoftNetWebII/Program.cs` -> `SoftNetWebII/Startup.cs`（註冊服務、HostedService）。
 - 長期背景工作：`SoftNetWebII/Services/RUNTimeServer.cs` 為 `BackgroundService`，以 `services.AddHostedService<RUNTimeServer>()` 啟用，負責 TCP/Socket 與排程工作。
 
@@ -37,7 +37,7 @@
 6) 參考檔案（請優先閱讀）
 - 啟動與配置：[SoftNetWebII/Program.cs](SoftNetWebII/Program.cs) 、[SoftNetWebII/Startup.cs](SoftNetWebII/Startup.cs) 、[SoftNetWebII/SoftNetWebII.csproj](SoftNetWebII/SoftNetWebII.csproj)
 - 長期任務範例：[SoftNetWebII/Services/RUNTimeServer.cs](SoftNetWebII/Services/RUNTimeServer.cs)
-- 共用函式庫與 DB：`Base/DBADO.cs`、`SoftNetCommLib/DBADO.cs`、`Base/Services`（查找服務實作）
+- 共用函式庫與 DB：`Base/DBADO.cs`、`Base/Services`（查找服務實作）
 - 運行紀錄：`SoftNetWebII/_log/`（觀察 socket/sql 日誌）
 
 7) 其他注意事項

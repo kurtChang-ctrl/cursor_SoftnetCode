@@ -1,4 +1,4 @@
-﻿using Base;
+using Base;
 using Base.Models;
 using Base.Services;
 using BaseApi.Controllers;
@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Net.WebSockets;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace SoftNetWebII.Controllers
@@ -49,12 +50,12 @@ namespace SoftNetWebII.Controllers
         public ActionResult MailAutoAction(string id)
         {
             string re = "";
-            if (id!=null && id!="")
+            if (id != null && id != "")
             {
                 using (DBADO db = new DBADO("1", _Fun.Config.Db))
                 {
                     DataRow tmp = null;
-                    string sendTime = DateTime.Now.AddMinutes(15).ToString("MM/dd/yyyy HH:mm:ss.fff"); //DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff"); ;
+                    string sendTime = DateTime.Now.AddMinutes(15).ToString("yyyy-MM-dd HH:mm:ss.fff"); //DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"); ;
                     foreach (string s in id.Split(';'))
                     {
                         if (s != "")
@@ -99,7 +100,7 @@ namespace SoftNetWebII.Controllers
                     //###???未完成
 
                 }
-                
+
             }
             meg = "此功能程式尚未寫好.";
             return meg;
@@ -156,7 +157,7 @@ namespace SoftNetWebII.Controllers
                     DataRow dr = db.DB_GetFirstDataByDataRow($"SELECT * from SoftNetSYSDB.[dbo].[APS_WorkingPaper] where Id='{key}'");
                     if (dr != null)
                     {
-                        if ((c_MFNO!="" || c_Price!="") && dr["DOCNumberNO"].ToString() != "")
+                        if ((c_MFNO != "" || c_Price != "") && dr["DOCNumberNO"].ToString() != "")
                         {
                             switch (dr["WorkType"].ToString())
                             {
@@ -168,9 +169,9 @@ namespace SoftNetWebII.Controllers
                                         string wr = "";
                                         if (c_Price != "") { c_Price = $"Price='{c_Price}'"; }
                                         if (c_MFNO != "") { c_MFNO = $"MFNO='{c_MFNO}'"; }
-                                        if (c_MFNO != "" || c_Price != "") 
+                                        if (c_MFNO != "" || c_Price != "")
                                         {
-                                            wr = $"{(c_Price==""?"": c_Price)}";
+                                            wr = $"{(c_Price == "" ? "" : c_Price)}";
                                             if (wr == "") { wr = $"{(c_MFNO == "" ? "" : c_MFNO)}"; }
                                             else { wr = $"{wr}{(c_MFNO == "" ? "" : $",{c_MFNO}")}"; }
                                         }

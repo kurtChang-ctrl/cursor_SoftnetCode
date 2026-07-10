@@ -215,7 +215,7 @@ namespace Base.Services
             var fids = "";
             var values = "";
             var userId = _Fun.UserId();   //get userId from child class
-            if (userId == null || userId=="") { error = $"網頁逾時, 請重新登入網頁"; goto lab_error; }
+            if (userId == null || userId == "") { error = $"網頁逾時, 請重新登入網頁"; goto lab_error; }
             foreach (var field in inputRow)
             {
                 //skip under line field
@@ -241,7 +241,7 @@ namespace Base.Services
                 var value = (inputRow[fid].ToString() == "" && edit.EmptyToNulls.Contains(fid))
                     ? null
                     : inputRow[fid].ToString();
-                if (fid == "ServerId" && (value == null || value.Trim() == "")){ value = _Fun.Config.ServerId; }
+                if (fid == "ServerId" && (value == null || value.Trim() == "")) { value = _Fun.Config.ServerId; }
                 //add keys & values
                 fids += fid + ",";
                 values += "@" + fid + ",";
@@ -296,14 +296,15 @@ namespace Base.Services
             if (!string.IsNullOrEmpty(error))
                 await _Log.ErrorAsync(error);
             return false;
-                
+
         }
 
         //update one row, recursive!!
         //return error msg if any
         private async Task<bool> UpdateRowAsync(EditDto edit, JObject inputRow, Db db)
         {
-            if (_Fun.UserId() == null || _Fun.UserId() == "") {
+            if (_Fun.UserId() == null || _Fun.UserId() == "")
+            {
                 await _Log.ErrorAsync($"網頁逾時, 請重新登入網頁");
                 return false;
             }
@@ -433,7 +434,7 @@ namespace Base.Services
         /// <param name="edit"></param>
         /// <param name="json"></param>
         /// <returns>error msg if any</returns>
-        private string ValidJson(int editLevel, EditDto edit, JObject json,char type)
+        private string ValidJson(int editLevel, EditDto edit, JObject json, char type)
         {
             if (json == null)
                 return "";
@@ -446,27 +447,27 @@ namespace Base.Services
                 //prepare edit validate variables
                 SetValidVar(edit);
 
-                foreach(var row in rows)
+                foreach (var row in rows)
                 {
                     if (row == null)
                         continue;
-                    error = ValidRow(edit, row as JObject,type);
+                    error = ValidRow(edit, row as JObject, type);
                     if (!_Str.IsEmpty(error))
                         return error;
                 }
             }
 
             //validate this
-            error = ValidRow(edit, json,type);
+            error = ValidRow(edit, json, type);
             if (!_Str.IsEmpty(error))
                 return error;
 
             //validate childs (recursive)
             var childLen = GetEditChildLen(edit);
-            for(var i=0; i<childLen; i++)
+            for (var i = 0; i < childLen; i++)
             {
                 var json2 = GetChildJson(json, i);
-                error = ValidJson(editLevel + 1, edit.Childs[i], json2,type);
+                error = ValidJson(editLevel + 1, edit.Childs[i], json2, type);
                 if (!_Str.IsEmpty(error))
                     return error;
             }
@@ -477,7 +478,7 @@ namespace Base.Services
 
         //validate one  row
         //return error msg if any
-        private string ValidRow(EditDto edit, JObject row,char type)
+        private string ValidRow(EditDto edit, JObject row, char type)
         {
             if (_Json.IsEmptyBySkipUnderLine(row))
                 return "";
@@ -621,7 +622,7 @@ namespace Base.Services
         public async Task<ResultDto> CreateAsync(JObject json,
             FnSetNewKeyJson fnSetNewKey = null, FnAfterSaveAsync fnAfterSave = null)
         {
-            return await SaveJsonAsync(json, fnSetNewKey, fnAfterSave,'C');
+            return await SaveJsonAsync(json, fnSetNewKey, fnAfterSave, 'C');
         }
 
         /// <summary>
@@ -649,7 +650,7 @@ namespace Base.Services
                     return _Model.GetBrError(errorBr);
             }
 
-            return await SaveJsonAsync(json, fnSetNewKey, fnAfterSave,'E');
+            return await SaveJsonAsync(json, fnSetNewKey, fnAfterSave, 'E');
         }
 
         /// <summary>
@@ -660,12 +661,12 @@ namespace Base.Services
         /// <param name="fnSetNewKeyJson">custom function for set newKeyJson</param>
         /// <param name="fnAfterSaveAsync"></param>
         /// <returns></returns>
-        private async Task<ResultDto> SaveJsonAsync(JObject inputJson, 
-            FnSetNewKeyJson fnSetNewKeyJson = null, FnAfterSaveAsync fnAfterSaveAsync = null,char type = 'E')
+        private async Task<ResultDto> SaveJsonAsync(JObject inputJson,
+            FnSetNewKeyJson fnSetNewKeyJson = null, FnAfterSaveAsync fnAfterSaveAsync = null, char type = 'E')
         {
             var log = false;
             Db db = null;
-            string error="";
+            string error = "";
             var trans = IsTrans(_editDto);
             try
             {
@@ -746,7 +747,7 @@ namespace Base.Services
             }
 
             if (log)
-                await _Log.ErrorAsync($"CrudEdit.cs SaveJsonAsync() failed: {error}",true);
+                await _Log.ErrorAsync($"CrudEdit.cs SaveJsonAsync() failed: {error}", true);
             return _Model.GetError(error);
         }
 
@@ -760,7 +761,7 @@ namespace Base.Services
         /// <param name="inputJson">JObject for level0, JArray for level1/2</param>
         /// <param name="db"></param>
         /// <returns></returns>
-        private async Task<bool> SaveJson2Async(string levelStr, List<string> upDeletes, 
+        private async Task<bool> SaveJson2Async(string levelStr, List<string> upDeletes,
             JObject inputJson, EditDto edit, Db db)
         {
             var hasInput = (inputJson != null);
@@ -787,7 +788,7 @@ namespace Base.Services
 
                 //if no Fkey, use deleted key for child's upKey
                 //if (!hasFkey)
-                    //deletes = _List.Concat(deletes, await GetKeysByUpKeysAsync(edit, upDeletes, db));
+                //deletes = _List.Concat(deletes, await GetKeysByUpKeysAsync(edit, upDeletes, db));
 
                 if (!await DeleteRowsByKeysAsync(edit, deletes, db))
                     return false;
@@ -850,7 +851,7 @@ namespace Base.Services
         }
 
         //return error msg if any
-        public string SetNewKeyJson(JObject inputJson, EditDto edit,char type)
+        public string SetNewKeyJson(JObject inputJson, EditDto edit, char type)
         {
             return SetNewKeyJson2("0", null, inputJson, edit, type);
         }
@@ -863,7 +864,7 @@ namespace Base.Services
         /// <param name="edit"></param>
         /// <param name="inputJson">JObject for level0, JArray for level1/2</param>
         /// <returns>error msg if any</returns>
-        private string SetNewKeyJson2(string levelStr, JObject upNewKey, JObject inputJson, EditDto edit,char type)
+        private string SetNewKeyJson2(string levelStr, JObject upNewKey, JObject inputJson, EditDto edit, char type)
         {
             if (inputJson == null)
                 return "";
@@ -889,10 +890,10 @@ namespace Base.Services
                     var inputRow = inputRow0 as JObject;
 
                     //IsKeyValueNUM檢查
-                    if (kid != "Id" && !edit.IsKeyValueNUM && inputRow[kid] != null )
+                    if (kid != "Id" && !edit.IsKeyValueNUM && inputRow[kid] != null)
                     {
                         decimal decimalValue;
-                        if (inputRow[kid].ToString().Trim()!="" && decimal.TryParse(inputRow[kid].ToString(), out decimalValue))
+                        if (inputRow[kid].ToString().Trim() != "" && decimal.TryParse(inputRow[kid].ToString(), out decimalValue))
                         {
                             error = $"{edit.PkeyFid} 不能是數值.";
                             goto lab_error;
@@ -975,10 +976,10 @@ namespace Base.Services
                             { inputRow[IsNew] = "1"; }//string
 
                             //set upKeyData for child 
-                            
+
                         }
 
-                        
+
                     }//if row has fields
                 }//for rows
             }//if has rows
@@ -1100,7 +1101,8 @@ namespace Base.Services
                     await db.CommitAsync();
                 await db.DisposeAsync();
                 return new ResultDto();
-            }catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                 error = $"程式異常,請將下列原因告知系統管理者, 原因:{ex.Message}";
             }
@@ -1151,7 +1153,7 @@ namespace Base.Services
                     }
                 }
                 sql = $"delete from {edit.Table} where ";
-                for (int i=0;i< dataValue.Length;i++)
+                for (int i = 0; i < dataValue.Length; i++)
                 {
                     if (i == 0)
                     { sql = $"{sql} {edit.PkeyFids[i]} in ({dataValue[i]})"; }
@@ -1171,7 +1173,7 @@ namespace Base.Services
             }
             //update db
             var count = await db.ExecSqlAsync(sql, _sqlArgs);
-            if (count!=0 && edit.HasFlowSign)
+            if (count != 0 && edit.HasFlowSign)
             {
                 //刪簽核XpFlowSign
                 using (DBADO db2 = new DBADO("1", _Fun.Config.Db))

@@ -12,7 +12,7 @@
 		today: "今天",
 		monthsTitle: "选择月份",
 		clear: "清除",
-		format: "yyyy/mm/dd",
+		format: "yyyy-MM-dd",
 		titleFormat: "yyyy年mm月",
 		weekStart: 1
 	};

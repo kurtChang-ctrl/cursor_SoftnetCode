@@ -92,7 +92,7 @@ namespace SoftNetWebII.Controllers
 
                         string ids = _Str.NewId('X');
                         sql = @$"INSERT INTO SoftNetSYSDB.[dbo].[APS_NeedData] (UpdateTime,[ServerId],[Id],[NeedType],[NeedSource],[NeedDate],CalendarName,[PartNO],[NeedQTY],[BOMId],[Apply_PP_Name],[BufferTime],[ChangeQTY],KeyA,FactoryName) 
-                                 VALUES ('{DateTime.Now.AddMinutes(isARGs10_offset).ToString("yyyy-MM-dd HH:mm:ss")}','{_Fun.Config.ServerId}','{ids}','5','電視拆解','{DateTime.Now.AddDays(3).ToString("yyyy/MM/dd HH:mm:ss")}','2021行事曆','{keys.StationNO}',{keys.QTY.ToString()},'Z001A4PB1C2Q','電視拆解製程',8,0,'0,1,0,0,0,0,1,1,0,1,1,0,1,0,0,0,0,0,0,0','{_Fun.Config.DefaultFactoryName}')";
+                                 VALUES ('{DateTime.Now.AddMinutes(isARGs10_offset).ToString("yyyy-MM-dd HH:mm:ss")}','{_Fun.Config.ServerId}','{ids}','5','電視拆解','{DateTime.Now.AddDays(3).ToString("yyyy-MM-dd HH:mm:ss")}','2021行事曆','{keys.StationNO}',{keys.QTY.ToString()},'Z001A4PB1C2Q','電視拆解製程',8,0,'0,1,0,0,0,0,1,1,0,1,1,0,1,0,0,0,0,0,0,0','{_Fun.Config.DefaultFactoryName}')";
                         db.DB_SetData(sql);
 
 

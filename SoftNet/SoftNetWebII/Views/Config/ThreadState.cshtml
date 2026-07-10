@@ -1,5 +1,8 @@
 ﻿@using Base
 @model SystemConfigObj
+@{
+    var calendarNames = ViewBag.CalendarNames as List<string> ?? new List<string>();
+}
 
 
 <script type="text/javascript">
@@ -17,6 +20,39 @@
         qqww: function () {
             //$("input[name=Send_RUNTimeServer_Thread_State]").val("Thread_ForceClose");
 
+        },
+        onGenerateHoliday: function () {
+            var sel = $('#holidayCalNames');
+            var calendars = sel.val();
+            if (!calendars || calendars.length === 0) {
+                _tool.msg('請至少選擇一個行事曆名稱');
+                return;
+            }
+            var weekdays = $('#holidayWeekdays').val();
+            if (!weekdays || weekdays.length === 0) {
+                _tool.msg('請至少選擇一個星期');
+                return;
+            }
+            var start = $('#holidayDtStart').val();
+            var end = $('#holidayDtEnd').val();
+            if (!start || !end) {
+                _tool.msg('請輸入起始日與結束日');
+                return;
+            }
+            var wdNums = [];
+            for (var i = 0; i < weekdays.length; i++) {
+                wdNums.push(parseInt(weekdays[i], 10));
+            }
+            var data = {
+                ipport: (typeof _crud !== 'undefined' && _crud.LocalIPPort) ? _crud.LocalIPPort : '',
+                type: 'HC',
+                arg: JSON.stringify({ start: start, end: end, calendars: calendars, weekdays: wdNums })
+            };
+            _ajax.getStr('SetCommand', data, function (msg) {
+                if (!_str.isEmpty(msg)) {
+                    _tool.msg(msg);
+                }
+            });
         },
     };
 
@@ -71,4 +107,46 @@
             }
         }
 </form>
+</div>
+
+<hr />
+<div class="panel panel-default" style="max-width:720px;">
+    <div class="panel-heading"><strong>產生 PP_HolidayCalendar 行事曆資料</strong></div>
+    <div class="panel-body">
+        <p class="text-muted">依目前 ServerId（@_Fun.Config.ServerId）、您選擇的<strong>星期</strong>與日期區間產生資料；班別欄位比照各行事曆最後一筆。已存在同日資料將略過。</p>
+        <div class="form-group">
+            <label>行事曆名稱（可多選，Ctrl+點選）</label>
+            <select id="holidayCalNames" class="form-control" multiple="multiple" size="@(Math.Max(4, Math.Min(12, calendarNames.Count)))" style="min-height:120px;">
+                @foreach (string name in calendarNames)
+                {
+                    <option value="@name">@name</option>
+                }
+            </select>
+            @if (calendarNames.Count == 0)
+            {
+                <p class="text-warning">尚無行事曆名稱資料，請先在 PP_HolidayCalendar 建立至少一筆範本。</p>
+            }
+        </div>
+        <div class="form-group">
+            <label>要產生的星期（可多選，Ctrl+點選；1=星期一 … 7=星期日）</label>
+            <select id="holidayWeekdays" class="form-control" multiple="multiple" size="7" style="min-height:140px; max-width:280px;">
+                <option value="1" selected="selected">星期一</option>
+                <option value="2" selected="selected">星期二</option>
+                <option value="3" selected="selected">星期三</option>
+                <option value="4" selected="selected">星期四</option>
+                <option value="5" selected="selected">星期五</option>
+                <option value="6">星期六</option>
+                <option value="7">星期日</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>起始日期</label>
+            <input type="date" id="holidayDtStart" class="form-control" style="max-width:220px;" />
+        </div>
+        <div class="form-group">
+            <label>結束日期</label>
+            <input type="date" id="holidayDtEnd" class="form-control" style="max-width:220px;" />
+        </div>
+        <button type="button" class="btn xg-btn" onclick="_me.onGenerateHoliday()">產生行事曆資料</button>
+    </div>
 </div>

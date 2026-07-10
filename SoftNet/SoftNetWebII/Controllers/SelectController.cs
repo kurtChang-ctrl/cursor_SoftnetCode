@@ -114,14 +114,14 @@ namespace SoftNetWebII.Controllers
             using (DBADO db = new DBADO("1", _Fun.Config.Db))
             {
                 List<string> date_list = new List<string>();
-                string sql = $"SELECT top 30 * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where Holiday<'{DateTime.Now.ToString("yyyy/MM/dd")}' and ServerId='{_Fun.Config.ServerId}' and CalendarName='{_Fun.Config.DefaultCalendarName}' order by Holiday desc";
+                string sql = $"SELECT top 30 * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where Holiday<'{DateTime.Now.ToString("yyyy-MM-dd")}' and ServerId='{_Fun.Config.ServerId}' and CalendarName='{_Fun.Config.DefaultCalendarName}' order by Holiday desc";
                 DataTable dtdata = db.DB_GetData(sql);
                 if (dtdata != null && dtdata.Rows.Count > 0)
                 {
 
                     foreach (DataRow d in dtdata.Rows)
                     {
-                        date_list.Add(Convert.ToDateTime(d["Holiday"]).ToString("yyyy/MM/dd"));
+                        date_list.Add(Convert.ToDateTime(d["Holiday"]).ToString("yyyy-MM-dd"));
                         station_list.Add("");
                     }
                 }
@@ -228,7 +228,7 @@ namespace SoftNetWebII.Controllers
 
                             #region 取得實際工作時間 totTTime
                             //###??? 有跨日按start的問題
-                            tmp_dt3 = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(100), LOGDateTime, 111)='{date_list[i]}' and (OperateType like '%開工%' or OperateType like '%停工%' or OperateType like '%關站%') order by LOGDateTime");
+                            tmp_dt3 = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(10), LOGDateTime, 111)='{date_list[i]}' and (OperateType like '%開工%' or OperateType like '%停工%' or OperateType like '%關站%') order by LOGDateTime");
                             if (tmp_dt3 != null && tmp_dt3.Rows.Count > 0)
                             {
                                 char run = '0';
@@ -303,7 +303,7 @@ namespace SoftNetWebII.Controllers
                             #endregion
 
                             #region 取得 最大負荷總工時 totTTime2
-                            tmp_dt3 = db.DB_GetData($"select * from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(100), CalendarDate, 111)='{date_list[i]}'");
+                            tmp_dt3 = db.DB_GetData($"select * from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(10), CalendarDate, 111)='{date_list[i]}'");
                             if (tmp_dt3 != null && tmp_dt3.Rows.Count > 0)
                             {
                                 char run = '0';
@@ -316,7 +316,7 @@ namespace SoftNetWebII.Controllers
 
                             #region 取得週 aaa生產能量=有效CT/實際CT bbb可提升率=最佳CT/實際CT
                             rmp_dr2 = db.DB_GetFirstDataByDataRow($@"select (sum((EditFinishedQty+EditFailedQty)*CycleTime)/sum((EditFinishedQty+EditFailedQty))) as ACT,(sum((EditFinishedQty+EditFailedQty)*ECT)/sum((EditFinishedQty+EditFailedQty))) as BCT,(sum((EditFinishedQty+EditFailedQty)*LowerCT)/sum((EditFinishedQty+EditFailedQty))) as CCT from SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] 
-                                                                        where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(100), LOGDateTimeID, 111)='{date_list[i]}' and CycleTime!=0 and ECT!=0 and LowerCT!=0 and (LowerCT*0.5)< CycleTime");
+                                                                        where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(10), LOGDateTimeID, 111)='{date_list[i]}' and CycleTime!=0 and ECT!=0 and LowerCT!=0 and (LowerCT*0.5)< CycleTime");
                             if (rmp_dr2 != null)
                             {
                                 if (station_list[i].IndexOf($"{dr["StationNO"].ToString()},") < 0) { station_list[i] = $"{station_list[i]}{dr["StationNO"].ToString()},"; }

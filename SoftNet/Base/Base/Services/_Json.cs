@@ -391,10 +391,10 @@ namespace Base.Services
                 {
                     switch (fid)
                     {
-                        case "_Now":    //現在時間 (yyyy/MM/dd HH:mm:ss)
+                        case "_Now":    //現在時間 (yyyy-MM-dd HH:mm:ss)
                             value = _Date.NowStr();
                             break;
-                        case "_Today":  //今天日期 (yyyy/MM/dd)
+                        case "_Today":  //今天日期 (yyyy-MM-dd)
                             value = _Date.TodayStr();
                             break;
                         case "_Year":   //西元年度

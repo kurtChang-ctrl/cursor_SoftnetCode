@@ -16,6 +16,7 @@ using System;
 using System.Data.Common;
 using Microsoft.Data.SqlClient;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace SoftNetWebII
 {
@@ -60,6 +61,18 @@ namespace SoftNetWebII
             //6.appSettings "FunConfig" section -> _Fun.Config
             var config = new ConfigDto();
             Configuration.GetSection("FunConfig").Bind(config);
+            // AIReportDDay：支援單一 "Sunday" 或多天 "Monday,Wednesday"（逗號分隔），明確從字串解析以正確綁定到 DaysOfWeek
+            var aiReportDDayStr = Configuration.GetSection("FunConfig")["AIReportDDay"]?.Trim();
+            if (!string.IsNullOrEmpty(aiReportDDayStr))
+            {
+                DaysOfWeek combined = DaysOfWeek.None;
+                foreach (var part in aiReportDDayStr.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    if (Enum.TryParse<DaysOfWeek>(part.Trim(), true, out var day))
+                        combined |= day;
+                }
+                config.AIReportDDay = combined;
+            }
             _Fun.Config = config;
             _Fun.RUNProcessSYSName = System.Diagnostics.Process.GetCurrentProcess().ProcessName;
 
@@ -71,7 +84,11 @@ namespace SoftNetWebII
             //20240314取消  services.AddSingleton(typeof(SocketClientService), new SocketClientService()); // 建立Socket Client 5431主動與RMS Service連線  交換工站狀態
             services.AddSingleton(typeof(SNWebSocketService), new SNWebSocketService()); // 建立WebSocket Server 開通 _Fun.Config.WesocketPort port
             services.AddSingleton(typeof(SFC_Common), new SFC_Common("1", _Fun.Config.Db)); // 建立WebSocket Server 開通 _Fun.Config.WesocketPort port
-            //services.AddSingleton(typeof(RUNTimeServer), new RUNTimeServer()); // 建立定時,定期工作 Service , 目前定60秒輪巡, 雷同TMService
+                                                                                            //services.AddSingleton(typeof(RUNTimeServer), new RUNTimeServer()); // 建立定時,定期工作 Service , 目前定60秒輪巡, 雷同TMService
+
+            // 註冊 RagVectorStoreService 為 Singleton，並在啟動時初始化
+            var ragVectorStoreService = new RagVectorStoreService();
+            services.AddSingleton(typeof(RagVectorStoreService), ragVectorStoreService);
 
 
             //8.session (memory cache)
@@ -90,12 +107,42 @@ namespace SoftNetWebII
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
             //1.initial & set locale  只會被run一次
-            _Fun.Init(env.IsDevelopment(), app.ApplicationServices, DbTypeEnum.MSSql,AuthTypeEnum.Data);
+            _Fun.Init(env.IsDevelopment(), app.ApplicationServices, DbTypeEnum.MSSql, AuthTypeEnum.Data);
 
             //2.set locale, call async method here !!
             _Locale.SetCulture(_Fun.Config.Locale);
 
-            //3.exception handle
+            //3. SQL Server 向量功能：依設定 UseSQLVector 決定是否測試並啟用
+            try
+            {
+                if (!_Fun.Config.UseSQLVector)
+                {
+                    _Fun.SupportsSQLVector = false;
+                    _Log.InfoAsync("系統啟動：UseSQLVector=false，不使用 SQL Server 原生 vector").Wait();
+                }
+                else
+                {
+                    var ragVectorStoreService = app.ApplicationServices.GetRequiredService<RagVectorStoreService>();
+                    var testTask = ragVectorStoreService.TestSQLVectorSupportAsync();
+                    if (testTask.Wait(TimeSpan.FromSeconds(30)))
+                    {
+                        var supportsSQLVector = testTask.Result;
+                        _Log.InfoAsync($"系統啟動：SQL Server 向量功能支援狀態 = {supportsSQLVector}").Wait();
+                    }
+                    else
+                    {
+                        _Fun.SupportsSQLVector = false;
+                        _Log.ErrorAsync("系統啟動：SQL Server 向量功能測試逾 30 秒未完成，設為 false", false).Wait();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _Fun.SupportsSQLVector = false;
+                _Log.ErrorAsync($"系統啟動：SQL Server 向量功能錯誤: {ex.Message}，設為 false", false).Wait();
+            }
+
+            //4.exception handle
             if (env.IsDevelopment())
             {
                 DeveloperExceptionPageOptions devEx = new DeveloperExceptionPageOptions

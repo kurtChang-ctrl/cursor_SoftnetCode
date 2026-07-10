@@ -1,9 +1,10 @@
-﻿using Base;
+using Base;
 using Base.Services;
 using Microsoft.AspNetCore.Mvc;
 
 using System;
 using System.Data;
+using System.Text;
 
 namespace SoftNetWebII.Controllers
 {
@@ -191,7 +192,7 @@ namespace SoftNetWebII.Controllers
             using (DBADO db = new DBADO("1", _Fun.Config.Db))
             {
                 DataTable dt = db.DB_GetData($"SELECT * from SoftNetSYSDB.[dbo].[PP_Station] where ServerId='{_Fun.Config.ServerId}' and StationNO!='{_Fun.Config.OutPackStationName}' order by StationNO");
-                if (dt != null && dt.Rows.Count>0)
+                if (dt != null && dt.Rows.Count > 0)
                 {
                     int i = 1;
                     string re = "";
@@ -233,7 +234,7 @@ namespace SoftNetWebII.Controllers
                             }
                         }
                         if (value <= 0) { value = 0.01f; }
-                        if (value >100) { value = 100; }
+                        if (value > 100) { value = 100; }
                         #endregion
 
                         if (stNO == "") { stNO = $"{dr["StationNO"].ToString()},{value.ToString("0.00")}"; }

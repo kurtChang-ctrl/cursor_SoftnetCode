@@ -264,7 +264,7 @@ namespace SoftNetWebII.Controllers
                         if (mathType == "站")
                         {
                             //###???要計算合併站的問題
-                            dr_WorkTimeNote = db.DB_GetFirstDataByDataRow($"select sum(Time1_C) as TOT from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where CONVERT(varchar(100), CalendarDate, 23)='{intime.ToString("yyyy-MM-dd")}' and StationNO='{staionNO}'");
+                            dr_WorkTimeNote = db.DB_GetFirstDataByDataRow($"select sum(Time1_C) as TOT from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where CONVERT(varchar(10), CalendarDate, 23)='{intime.ToString("yyyy-MM-dd")}' and StationNO='{staionNO}'");
                             if (dr_WorkTimeNote != null && dr_WorkTimeNote["TOT"].ToString() != "")
                             {
                                 #region 已有其他排程, 與其他合計
@@ -331,7 +331,7 @@ namespace SoftNetWebII.Controllers
                     {
                         if (mathType == "站")
                         {
-                            dr_WorkTimeNote = db.DB_GetFirstDataByDataRow($"select sum(Time2_C) as TOT from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where StationNO='{staionNO}' and CONVERT(varchar(100), CalendarDate, 23)='{intime.ToString("yyyy-MM-dd")}'");
+                            dr_WorkTimeNote = db.DB_GetFirstDataByDataRow($"select sum(Time2_C) as TOT from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where StationNO='{staionNO}' and CONVERT(varchar(10), CalendarDate, 23)='{intime.ToString("yyyy-MM-dd")}'");
                             if (dr_WorkTimeNote != null && dr_WorkTimeNote["TOT"].ToString() != "")
                             {
                                 #region 已有其他排程, 與其他合計
@@ -399,11 +399,11 @@ namespace SoftNetWebII.Controllers
                     {
                         if (mathType == "站")
                         {
-                            dr_WorkTimeNote = db.DB_GetFirstDataByDataRow($"select sum(Time3_C) as TOT from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where StationNO='{staionNO}' and CONVERT(varchar(100), CalendarDate, 23)='{intime.ToString("yyyy-MM-dd")}'");
+                            dr_WorkTimeNote = db.DB_GetFirstDataByDataRow($"select sum(Time3_C) as TOT from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where StationNO='{staionNO}' and CONVERT(varchar(10), CalendarDate, 23)='{intime.ToString("yyyy-MM-dd")}'");
                             if (dr_WorkTimeNote != null && dr_WorkTimeNote["TOT"].ToString() != "")
                             {
                                 #region 已有其他排程, 與其他合計
-                                dr_WorkTimeNote = db.DB_GetFirstDataByDataRow($"select sum(Time3_C) as TOT from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where StationNO='{staionNO}' and CONVERT(varchar(100), CalendarDate, 23)='{intime.ToString("yyyy-MM-dd")}'");
+                                dr_WorkTimeNote = db.DB_GetFirstDataByDataRow($"select sum(Time3_C) as TOT from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where StationNO='{staionNO}' and CONVERT(varchar(10), CalendarDate, 23)='{intime.ToString("yyyy-MM-dd")}'");
                                 if (times >= (typeTotalTime - int.Parse(dr_WorkTimeNote["TOT"].ToString())))
                                 {
                                     times -= (typeTotalTime - int.Parse(dr_WorkTimeNote["TOT"].ToString()));
@@ -469,11 +469,11 @@ namespace SoftNetWebII.Controllers
                     {
                         if (mathType == "站")
                         {
-                            dr_WorkTimeNote = db.DB_GetFirstDataByDataRow($"select sum(Time4_C) as TOT from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where StationNO='{staionNO}' and CONVERT(varchar(100), CalendarDate, 23)='{intime.ToString("yyyy-MM-dd")}'");
+                            dr_WorkTimeNote = db.DB_GetFirstDataByDataRow($"select sum(Time4_C) as TOT from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where StationNO='{staionNO}' and CONVERT(varchar(10), CalendarDate, 23)='{intime.ToString("yyyy-MM-dd")}'");
                             if (dr_WorkTimeNote != null && dr_WorkTimeNote["TOT"].ToString() != "")
                             {
                                 #region 已有其他排程, 與其他合計
-                                dr_WorkTimeNote = db.DB_GetFirstDataByDataRow($"select sum(Time4_C) as TOT from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where StationNO='{staionNO}' and CONVERT(varchar(100), CalendarDate, 23)='{intime.ToString("yyyy-MM-dd")}'");
+                                dr_WorkTimeNote = db.DB_GetFirstDataByDataRow($"select sum(Time4_C) as TOT from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where StationNO='{staionNO}' and CONVERT(varchar(10), CalendarDate, 23)='{intime.ToString("yyyy-MM-dd")}'");
                                 if (times >= (typeTotalTime - int.Parse(dr_WorkTimeNote["TOT"].ToString())))
                                 {
                                     times -= (typeTotalTime - int.Parse(dr_WorkTimeNote["TOT"].ToString()));

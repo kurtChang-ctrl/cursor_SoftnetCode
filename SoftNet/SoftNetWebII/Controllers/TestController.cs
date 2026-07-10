@@ -50,12 +50,12 @@ namespace SoftNetWebII.Controllers
                 {
                     if (sTime.DayOfWeek != DayOfWeek.Saturday && sTime.DayOfWeek != DayOfWeek.Sunday)
                     {
-                        dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT *  FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where ServerId='{_Fun.Config.ServerId}' and Holiday='{sTime.ToString("yyyy/MM/dd")}' and CalendarName='2021行事曆'");
+                        dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT *  FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where ServerId='{_Fun.Config.ServerId}' and Holiday='{sTime.ToString("yyyy-MM-dd")}' and CalendarName='2021行事曆'");
                         if (dr_tmp==null)
                         {
-                            re = $"{re}<br />{sTime.ToString("yyyy/MM/dd")}";
+                            re = $"{re}<br />{sTime.ToString("yyyy-MM-dd")}";
                             db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[PP_HolidayCalendar] ([ServerId],[CalendarName],[Holiday],[Flag_Morning],[Flag_Afternoon],[Flag_Night],[Flag_Graveyard],[Shift_Morning],[Shift_Afternoon],[Shift_Night],[Shift_Graveyard]) 
-                                            VALUES ('{_Fun.Config.ServerId}','2021行事曆','{sTime.ToString("yyyy/MM/dd")}','1','1','0','0','08:00,10:00,10:10,12:00','13:00,15:00,15:10,17:00','17:30,19:30,19:40,21:00','23:30,02:30,02:40,06:00')");
+                                            VALUES ('{_Fun.Config.ServerId}','2021行事曆','{sTime.ToString("yyyy-MM-dd")}','1','1','0','0','08:00,10:00,10:10,12:00','13:00,15:00,15:10,17:00','17:30,19:30,19:40,21:00','23:30,02:30,02:40,06:00')");
                         }
                     }
                     sTime = sTime.AddDays(1);

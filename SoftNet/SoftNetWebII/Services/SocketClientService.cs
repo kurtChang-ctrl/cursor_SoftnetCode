@@ -463,7 +463,7 @@ namespace SoftNetWebII.Services
                                 #endregion
                                 if (db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[Manufacture] set State='{cmd[2]}',OrderNO='{cmd[1]}',OP_NO='{cmd[3]}',Master_PP_Name='{cmd[4]}',PP_Name='{cmd[5]}',IndexSN={cmd[6]},Station_Custom_IndexSN='{cmd[7]}',SimulationId='{simulationId}' where ServerId='{_Fun.Config.ServerId}' and StationNO='{cmd[0]}'"))
                                 {
-                                    //db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[Manufacture_Log] ([Id],[logDate],[StationNO],[State],[OrderNO],[PartNO]) VALUES ('{_Str.NewId('C')}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','{cmd[0]}','{cmd[2]}','{cmd[1]}','{partNO}')");
+                                    //db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[Manufacture_Log] ([Id],[logDate],[StationNO],[State],[OrderNO],[PartNO]) VALUES ('{_Str.NewId('C')}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{cmd[0]}','{cmd[2]}','{cmd[1]}','{partNO}')");
                                     string type = "";
                                     switch (cmd[2])
                                     {
@@ -476,7 +476,7 @@ namespace SoftNetWebII.Services
                                             type = "智慧關站"; break;
                                     }
                                     DataRow dr_SimulationId = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_Simulation] where SimulationId='{simulationId}'");
-                                    db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[NeedId],[SimulationId],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,IndexSN) VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{dr_SimulationId["NeedId"].ToString()}','{dr_SimulationId["SimulationId"].ToString()}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','LabelWork','{type}','{cmd[5]} {cmd[3]}','{cmd[0]}','','{cmd[1]}',{cmd[6]})");//###??? dr_M["PartNO"].ToString() 暫時放空
+                                    db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[NeedId],[SimulationId],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,IndexSN) VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{dr_SimulationId["NeedId"].ToString()}','{dr_SimulationId["SimulationId"].ToString()}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','LabelWork','{type}','{cmd[5]} {cmd[3]}','{cmd[0]}','','{cmd[1]}',{cmd[6]})");//###??? dr_M["PartNO"].ToString() 暫時放空
 
                                     //通知webSocket send
                                     if (_Fun.DiBox != null)

@@ -1,4 +1,4 @@
-﻿@model APSViewData
+@model APSViewData
 @{
     string _isCkeck_SelectFun2_A1 = "";
     string _isCkeck_SelectFun2_A2 = "";
@@ -22,8 +22,8 @@
     });
     var _me = {
         hasStaionStatus: false,
-        hasSimulatioStatus:true,
-        STView2Work_PageReload:false,
+        hasSimulatioStatus: true,
+        STView2Work_PageReload: false,
         hasStaionChangQTY: false,
         onChangStateShow: function (errType, simulationId, actionType) {
             //switch (errType) {
@@ -31,13 +31,13 @@
             //    case "02": return '<div>模擬中</div>'
             //    case "03": return '<div>完成模擬</div>'
             //}
-            if (actionType == "") 
-            { 
+            if (actionType == "") {
                 var tag = document.getElementById(simulationId);
                 if (tag != null && tag != undefined) {
-                    document.getElementById(simulationId).className = "labelRed"; }
+                    document.getElementById(simulationId).className = "labelRed";
+                }
             }
-            else { 
+            else {
                 var tag = document.getElementById(simulationId);
                 if (tag != null && tag != undefined) {
                     document.getElementById(simulationId).className = "label";
@@ -153,7 +153,9 @@
                             else { _isCkeck_SelectFun2_A3 = "checked"; }
                         }
                         else { _isCkeck_SelectFun2_A3 = "checked"; }
-                        <td>料件類型:<input type="radio" name="SelectFun2" value="A1" @_isCkeck_SelectFun2_A1>半成品<input type="radio" name="SelectFun2" value="A2" @_isCkeck_SelectFun2_A2>成品<input type="radio" name="SelectFun2" value="A3" @_isCkeck_SelectFun2_A3>全部</td>
+                        <td>料件類型:<input type="radio" name="SelectFun2" value="A1" @_isCkeck_SelectFun2_A1>半成品<input type="radio"
+                                name="SelectFun2" value="A2" @_isCkeck_SelectFun2_A2>成品<input type="radio" name="SelectFun2"
+                                value="A3" @_isCkeck_SelectFun2_A3>全部</td>
                     </tr>
                     <tr>
                         @if (Model.SelectFun3 != null && Model.SelectFun3 != "")
@@ -166,13 +168,18 @@
                             else { _isCkeck_SelectFun3_B6 = "checked"; }
                         }
                         else { _isCkeck_SelectFun3_B6 = "checked"; }
-                        <td>建立時間:<input type="radio" name="SelectFun3" value="B1" @_isCkeck_SelectFun3_B1>1個月內<input type="radio" name="SelectFun3" value="B2" @_isCkeck_SelectFun3_B2>2個月內<input type="radio" name="SelectFun3" value="B3" @_isCkeck_SelectFun3_B3>3個月內<input type="radio" name="SelectFun3" value="B4" @_isCkeck_SelectFun3_B4>6個月內<input type="radio" name="SelectFun3" value="B5" @_isCkeck_SelectFun3_B5>1年內<input type="radio" name="SelectFun3" value="B6" @_isCkeck_SelectFun3_B6>全部</td>
+                        <td>建立時間:<input type="radio" name="SelectFun3" value="B1" @_isCkeck_SelectFun3_B1>1個月內<input
+                                type="radio" name="SelectFun3" value="B2" @_isCkeck_SelectFun3_B2>2個月內<input type="radio"
+                                name="SelectFun3" value="B3" @_isCkeck_SelectFun3_B3>3個月內<input type="radio" name="SelectFun3"
+                                value="B4" @_isCkeck_SelectFun3_B4>6個月內<input type="radio" name="SelectFun3" value="B5"
+                                @_isCkeck_SelectFun3_B5>1年內<input type="radio" name="SelectFun3" value="B6"
+                                @_isCkeck_SelectFun3_B6>全部</td>
                     </tr>
                     <!--
-                    <tr>
-                        <td>顯示類型:<input type="radio" name="SelectFun4" value="C1">僅顯示異常<input type="radio" name="SelectFun4" value="C2">僅顯示異常<input type="radio" name="SelectFun4" value="C3" checked="checked">全部</td>
-                    </tr>
-                    -->
+                                    <tr>
+                                        <td>顯示類型:<input type="radio" name="SelectFun4" value="C1">僅顯示異常<input type="radio" name="SelectFun4" value="C2">僅顯示異常<input type="radio" name="SelectFun4" value="C3" checked="checked">全部</td>
+                                    </tr>
+                                    -->
                 </table>
             </form>
         }
@@ -186,7 +193,9 @@
         if (Model.ERRMsg != "")
         {
             <dir>
-                <p><font color="red" size="5">錯誤訊息:<strong>@Model.ERRMsg</strong></font></p>
+                <p>
+                    <font color="red" size="5">錯誤訊息:<strong>@Model.ERRMsg</strong></font>
+                </p>
             </dir>
         }
     }
@@ -195,31 +204,35 @@
 @if (ViewBag.HtmlOutput != null && ViewBag.HtmlOutput != "")
 {
 
-        <div id="divDisplayTree" class="panel-body">
-            <div class="col-md-8 xg-input" id="divSignRows">@Html.Raw(ViewBag.HtmlOutput)</div>
-        </div>
+    <div id="divDisplayTree" class="panel-body">
+        <div class="xg-input" id="divSignRows" style="width: 100%;">@Html.Raw(ViewBag.HtmlOutput)</div>
+    </div>
 
 }
 
 <div id="divChangQTY" class="panel-body">
-    <p><input id='chang_Is_Simulation' class="input_arg" type="checkbox"><label for="cbox1">是否重新計算異動數量後的排程入庫時間 (PS:系統將自行決定適合的時間)</label></p>
+    <p><input id='chang_Is_Simulation' class="input_arg" type="checkbox"><label for="cbox1">是否重新計算異動數量後的排程入庫時間
+            (PS:系統將自行決定適合的時間)</label></p>
     <div>
-        <input type='hidden' id='chang_NeedID'  value="" />
-        <label for="cbox1">需求原數量:</label><input type='text' name='chang_NeedQTY' readonly value="" />&emsp;&emsp;<label for="cbox1">修正數量</label><input type='text' id="chang_NeedQTY" name='chang_NeedQTY' value="" />
+        <input type='hidden' id='chang_NeedID' value="" />
+        <label for="cbox1">需求原數量:</label><input type='text' name='chang_NeedQTY' readonly value="" />&emsp;&emsp;<label
+            for="cbox1">修正數量</label><input type='text' id="chang_NeedQTY" name='chang_NeedQTY' value="" />
     </div>
     <div>
-        <label for="cbox1">原補安全量:</label><input type='text' name='chang_SafeQTY' readonly value="" />&emsp;&emsp;<label for="cbox1">修正數量</label><input type='text' id="chang_SafeQTY" name='chang_SafeQTY' value="" />
+        <label for="cbox1">原補安全量:</label><input type='text' name='chang_SafeQTY' readonly value="" />&emsp;&emsp;<label
+            for="cbox1">修正數量</label><input type='text' id="chang_SafeQTY" name='chang_SafeQTY' value="" />
     </div>
 
-    <div >
-            <!-- <button type='button' class='btn xg-btn-size btn-secondary' onclick='_me.onToRead()'>回上一頁<i class='ico-back'></i></button>-->
-        <p><button class='btn btn-primary btn-sm btn-margin' style='width:400px;height:50px;font-size:30px' onclick='_me.SetchangNeedQTY()'>數量變更</button></p>
+    <div>
+        <!-- <button type='button' class='btn xg-btn-size btn-secondary' onclick='_me.onToRead()'>回上一頁<i class='ico-back'></i></button>-->
+        <p><button class='btn btn-primary btn-sm btn-margin' style='width:400px;height:50px;font-size:30px'
+                onclick='_me.SetchangNeedQTY()'>數量變更</button></p>
     </div>
 
 </div>
 
 <div id="divDisplayChangQTYResult" class="panel-body">
-    <textarea id="mytext" rows="6" cols="40" ></textarea>
+    <textarea id="mytext" rows="6" cols="40"></textarea>
 </div>
 
 
@@ -229,8 +242,9 @@
 
 
 <style>
-
-    *, *:before, *:after {
+    *,
+    *:before,
+    *:after {
         -webkit-box-sizing: border-box;
         -moz-box-sizing: border-box;
         box-sizing: border-box;
@@ -249,6 +263,35 @@
 
     #wrapper {
         position: relative;
+        overflow-x: auto;
+        overflow-y: visible;
+        max-width: 100%;
+        width: 100%;
+        min-width: 100%;
+    }
+
+    /* 確保 wrapper 內的內容可以水平排列 */
+    #wrapper>.entry,
+    #wrapper>button {
+        white-space: normal;
+    }
+
+    /* 根節點按鈕樣式 */
+    #wrapper>button {
+        display: inline-block;
+        min-width: 180px;
+        max-width: 250px;
+        width: auto;
+        padding: 8px 10px;
+        line-height: 1.4;
+        text-align: center;
+        border: 2px solid #eee9dc;
+        border-radius: 5px;
+        margin-right: 5px;
+        white-space: normal;
+        word-wrap: break-word;
+        box-sizing: border-box;
+        vertical-align: top;
     }
 
     .shadowbox {
@@ -256,6 +299,35 @@
         box-shadow: 8px 8px 5px #444;
         padding: 8px 12px;
         background-image: linear-gradient(180deg, #fff, #ddd 40%, #ccc);
+        overflow: visible;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* 確保 fieldset 內容不會超出，並填滿寬度 */
+    fieldset {
+        overflow: visible !important;
+        max-width: 100%;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* 確保 divSignRows 填滿寬度 */
+    #divSignRows {
+        width: 100% !important;
+        max-width: 100%;
+    }
+
+    /* 確保 divDisplayTree 填滿寬度 */
+    #divDisplayTree {
+        width: 100% !important;
+        max-width: 100%;
+    }
+
+    /* 確保 details 內容不會超出 */
+    details {
+        overflow: visible !important;
+        max-width: 100%;
     }
 
     .branch {
@@ -263,102 +335,114 @@
         margin-left: 250px;
     }
 
-        .branch:before {
-            content: "";
-            width: 50px;
-            border-top: 2px solid #eee9dc;
-            position: absolute;
-            left: -100px;
-            top: 50%;
-            margin-top: 1px;
-        }
+    .branch:before {
+        content: "";
+        width: 50px;
+        border-top: 2px solid #eee9dc;
+        position: absolute;
+        left: -100px;
+        top: 50%;
+        margin-top: 1px;
+    }
 
     .entry {
         position: relative;
-        min-height: 60px;
+        display: inline-block;
+        min-height: 80px;
+        margin-bottom: 0;
+        text-align: center;
+        vertical-align: top;
+        margin-right: 5px;
     }
 
-        .entry:before {
-            content: "";
-            height: 100%;
-            border-left: 2px solid #eee9dc;
-            position: absolute;
-            left: -50px;
-        }
+    .entry:before {
+        content: "";
+        height: 100%;
+        border-left: 2px solid #eee9dc;
+        position: absolute;
+        left: -50px;
+    }
 
-        .entry:after {
-            content: "";
-            width: 50px;
-            border-top: 2px solid #eee9dc;
-            position: absolute;
-            left: -50px;
-            top: 50%;
-            margin-top: 1px;
-        }
+    .entry:after {
+        content: "";
+        width: 50px;
+        border-top: 2px solid #eee9dc;
+        position: absolute;
+        left: -50px;
+        top: 50%;
+        margin-top: 1px;
+    }
 
-        .entry:first-child:before {
-            width: 10px;
-            height: 50%;
-            top: 50%;
-            margin-top: 2px;
-            border-radius: 10px 0 0 0;
-        }
+    .entry:first-child:before {
+        width: 10px;
+        height: 50%;
+        top: 50%;
+        margin-top: 2px;
+        border-radius: 10px 0 0 0;
+    }
 
-        .entry:first-child:after {
-            height: 10px;
-            border-radius: 10px 0 0 0;
-        }
+    .entry:first-child:after {
+        height: 10px;
+        border-radius: 10px 0 0 0;
+    }
 
-        .entry:last-child:before {
-            width: 10px;
-            height: 50%;
-            border-radius: 0 0 0 10px;
-        }
+    .entry:last-child:before {
+        width: 10px;
+        height: 50%;
+        border-radius: 0 0 0 10px;
+    }
 
-        .entry:last-child:after {
-            height: 10px;
-            border-top: none;
-            border-bottom: 2px solid #eee9dc;
-            border-radius: 0 0 0 10px;
-            margin-top: -9px;
-        }
+    .entry:last-child:after {
+        height: 10px;
+        border-top: none;
+        border-bottom: 2px solid #eee9dc;
+        border-radius: 0 0 0 10px;
+        margin-top: -9px;
+    }
 
-        .entry.sole:before {
-            display: none;
-        }
+    .entry.sole:before {
+        display: none;
+    }
 
-        .entry.sole:after {
-            width: 50px;
-            height: 0;
-            margin-top: 1px;
-            border-radius: 0;
-        }
+    .entry.sole:after {
+        width: 50px;
+        height: 0;
+        margin-top: 1px;
+        border-radius: 0;
+    }
 
+    /* 按鈕樣式 - 修正為相對定位，允許水平排列 */
     .label {
         display: block;
-        min-width: 150px;
-        padding: 5px 10px;
-        line-height: 20px;
+        min-width: 180px;
+        max-width: 250px;
+        width: auto;
+        padding: 8px 10px;
+        line-height: 1.4;
         text-align: center;
         border: 2px solid #eee9dc;
         border-radius: 5px;
-        position: absolute;
-        left: 0;
-        top: 50%;
-        margin-top: -15px;
+        position: relative;
+        margin-right: 2px;
+        white-space: normal;
+        word-wrap: break-word;
+        box-sizing: border-box;
     }
 
     .labelRed {
         display: block;
-        min-width: 150px;
-        padding: 5px 10px;
-        line-height: 20px;
+        min-width: 180px;
+        max-width: 250px;
+        width: auto;
+        padding: 8px 10px;
+        line-height: 1.4;
         text-align: center;
         border: 2px solid red;
         border-radius: 5px;
-        position: absolute;
-        left: 0;
-        top: 50%;
-        margin-top: -15px;
+        position: relative;
+        margin-right: 2px;
+        white-space: normal;
+        word-wrap: break-word;
+        box-sizing: border-box;
     }
 </style>

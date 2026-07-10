@@ -1,0 +1,321 @@
+@{
+    ViewData["Title"] = "RAG AI 智能問答";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h2>🤖 RAG AI 智能問答</h2>
+            <p class="text-muted">使用 RAG (Retrieval-Augmented Generation) 技術，結合 SQL 檢索和向量搜尋，提供智能問答服務</p>
+        </div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>問答設定</h5>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label for="questionInput">請輸入您的問題：</label>
+                        <textarea id="questionInput" class="form-control" rows="3" 
+                                  placeholder="例如：分析最近一週 ST001 工站的生產效率，或：P001 料號目前的庫存狀況如何？"></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-md-4">
+                            <label for="providerSelect">AI 模型：</label>
+                            <select id="providerSelect" class="form-control">
+                                <option value="gemini">Gemini 2.5 Flash</option>
+                                <option value="openai">OpenAI GPT-4o-mini</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label for="vectorSearchCheck">
+                                <input type="checkbox" id="vectorSearchCheck" checked> 啟用向量搜尋
+                            </label>
+                            <small class="form-text text-muted">結合語義搜尋提升準確度</small>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <button id="askBtn" class="btn btn-primary btn-block" onclick="askQuestion()">
+                                <i class="fas fa-question-circle"></i> 開始問答
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-3" id="loadingSection" style="display: none;">
+        <div class="col-12">
+            <div class="alert alert-info text-center">
+                <i class="fas fa-spinner fa-spin"></i> 正在分析中，請稍候...
+                <div class="mt-2">
+                    <small>檢索相關資料 → 組裝上下文 → 生成回答</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-3" id="resultSection" style="display: none;">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5><i class="fas fa-comments"></i> AI 回答</h5>
+                    <div>
+                        <small id="responseInfo" class="text-white-50"></small>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="answerContent" class="answer-content"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-3" id="retrievedDataSection" style="display: none;">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-database"></i> 檢索到的相關資料</h5>
+                    <small class="text-muted" id="retrievedDataCount"></small>
+                </div>
+                <div class="card-body">
+                    <div id="retrievedDataList" class="retrieved-data-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-3" id="errorSection" style="display: none;">
+        <div class="col-12">
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle"></i> <span id="errorMessage"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 查詢歷史 -->
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-history"></i> 查詢歷史</h5>
+                </div>
+                <div class="card-body">
+                    <div id="historySection">
+                        <button class="btn btn-sm btn-outline-primary" onclick="loadHistory()">
+                            <i class="fas fa-sync"></i> 載入歷史記錄
+                        </button>
+                        <div id="historyList" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .answer-content {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        line-height: 1.8;
+        font-size: 14px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        border-left: 4px solid #4285f4;
+    }
+
+    .retrieved-data-list {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .retrieved-data-item {
+        padding: 10px;
+        margin-bottom: 10px;
+        background-color: #f8f9fa;
+        border-left: 3px solid #28a745;
+        border-radius: 3px;
+        font-size: 12px;
+    }
+
+    .retrieved-data-item .data-type {
+        display: inline-block;
+        padding: 2px 8px;
+        background-color: #28a745;
+        color: white;
+        border-radius: 3px;
+        font-size: 11px;
+        margin-right: 8px;
+    }
+
+    .retrieved-data-item .relevance-score {
+        float: right;
+        color: #6c757d;
+        font-size: 11px;
+    }
+
+    .history-item {
+        padding: 8px;
+        margin-bottom: 5px;
+        background-color: #f8f9fa;
+        border-radius: 3px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+    .history-item:hover {
+        background-color: #e9ecef;
+    }
+
+    .history-item .question {
+        font-weight: bold;
+        color: #495057;
+    }
+
+    .history-item .meta {
+        font-size: 11px;
+        color: #6c757d;
+        margin-top: 4px;
+    }
+</style>
+
+<script>
+    function askQuestion() {
+        var question = $('#questionInput').val().trim();
+        if (!question) {
+            alert('請輸入問題');
+            return;
+        }
+
+        var provider = $('#providerSelect').val();
+        var enableVectorSearch = $('#vectorSearchCheck').is(':checked');
+
+        // 顯示載入狀態
+        $('#loadingSection').show();
+        $('#resultSection').hide();
+        $('#retrievedDataSection').hide();
+        $('#errorSection').hide();
+        $('#askBtn').prop('disabled', true);
+
+        var data = {
+            question: question,
+            provider: provider,
+            enableVectorSearch: enableVectorSearch
+        };
+
+        _ajax.getJson('@Url.Action("Ask", "RagAI")', data,
+            function(result) {
+                $('#loadingSection').hide();
+                $('#askBtn').prop('disabled', false);
+
+                if (result.success) {
+                    // 顯示回答（保留換行和格式）
+                    var answer = result.answer || '';
+                    // 轉義 HTML 標籤，但保留換行
+                    answer = answer.replace(/&/g, '&amp;')
+                                   .replace(/</g, '&lt;')
+                                   .replace(/>/g, '&gt;')
+                                   .replace(/\n/g, '<br>');
+                    $('#answerContent').html(answer);
+                    $('#resultSection').show();
+
+                    // 顯示回應資訊
+                    var info = `使用 ${result.provider.toUpperCase()} 模型，檢索到 ${result.retrievedDataCount} 筆相關資料，回應時間 ${result.responseTime}ms`;
+                    $('#responseInfo').text(info);
+
+                    // 顯示檢索到的資料
+                    if (result.retrievedData && result.retrievedData.length > 0) {
+                        displayRetrievedData(result.retrievedData);
+                        $('#retrievedDataCount').text(`共 ${result.retrievedDataCount} 筆，顯示前 ${result.retrievedData.length} 筆`);
+                        $('#retrievedDataSection').show();
+                    }
+                } else {
+                    showError(result.error || '發生未知錯誤');
+                }
+            },
+            function(error) {
+                $('#loadingSection').hide();
+                $('#askBtn').prop('disabled', false);
+                showError(error.message || '請求失敗，請稍後再試');
+            }
+        );
+    }
+
+    function displayRetrievedData(data) {
+        var html = '';
+        data.forEach(function(item, index) {
+            html += '<div class="retrieved-data-item">';
+            html += '<span class="data-type">' + getDataTypeName(item.dataType) + '</span>';
+            html += '<span class="relevance-score">相關度: ' + (item.relevanceScore * 100).toFixed(1) + '%</span>';
+            html += '<div>' + item.text + '</div>';
+            html += '</div>';
+        });
+        $('#retrievedDataList').html(html);
+    }
+
+    function getDataTypeName(dataType) {
+        var names = {
+            'Production': '生產',
+            'Inventory': '庫存',
+            'WorkOrder': '工單',
+            'Material': '物料',
+            'Exception': '異常',
+            'Intervention': '干涉',
+            'APS': '排程'
+        };
+        return names[dataType] || dataType;
+    }
+
+    function showError(message) {
+        $('#errorMessage').text(message);
+        $('#errorSection').show();
+    }
+
+    function loadHistory() {
+        _ajax.getJson('@Url.Action("GetQueryHistory", "RagAI")', { page: 1, pageSize: 10 },
+            function(result) {
+                if (result.success && result.records) {
+                    var html = '';
+                    result.records.forEach(function(record) {
+                        html += '<div class="history-item" onclick="loadQuestion(\'' + 
+                                record.question.replace(/'/g, "\\'") + '\')">';
+                        html += '<div class="question">' + record.question + '</div>';
+                        html += '<div class="meta">';
+                        html += record.provider.toUpperCase() + ' | ';
+                        html += '檢索 ' + record.retrievedDataCount + ' 筆 | ';
+                        html += record.responseTime + 'ms | ';
+                        html += new Date(record.createTime).toLocaleString('zh-TW');
+                        html += '</div>';
+                        html += '</div>';
+                    });
+                    $('#historyList').html(html || '<p class="text-muted">尚無查詢記錄</p>');
+                }
+            },
+            function(error) {
+                $('#historyList').html('<p class="text-danger">載入失敗: ' + error.message + '</p>');
+            }
+        );
+    }
+
+    function loadQuestion(question) {
+        $('#questionInput').val(question);
+        askQuestion();
+    }
+
+    // Enter 鍵觸發問答（Ctrl+Enter）
+    $('#questionInput').on('keydown', function(e) {
+        if (e.ctrlKey && e.key === 'Enter') {
+            askQuestion();
+        }
+    });
+
+    // 頁面載入時自動載入歷史記錄
+    $(document).ready(function() {
+        loadHistory();
+    });
+</script>

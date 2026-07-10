@@ -66,7 +66,7 @@ namespace SoftNetWebII.Controllers
                 string report = "";
                 if (keys.StationNO != null && keys.StationNO.Trim() != "")
                 {
-                    DataTable dt_tmp = db.DB_GetData($"SELECT * FROM SoftNetLogDB.[dbo].[SFC_StationProjectDetail_log] where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and  LOGDateTime>='{DateTime.Now.AddDays(-14).ToString("MM/dd/yyyy HH:mm:ss.fff")}'  order by LOGDateTime,OP_NO desc");
+                    DataTable dt_tmp = db.DB_GetData($"SELECT * FROM SoftNetLogDB.[dbo].[SFC_StationProjectDetail_log] where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and  LOGDateTime>='{DateTime.Now.AddDays(-14).ToString("yyyy-MM-dd HH:mm:ss.fff")}'  order by LOGDateTime,OP_NO desc");
                     if (dt_tmp != null && dt_tmp.Rows.Count > 0)
                     {
                         string opName = "";
@@ -78,7 +78,7 @@ namespace SoftNetWebII.Controllers
                             if (tmp != null) { opName = $"{tmp["UserNO"].ToString()} {tmp["Name"].ToString()}"; } else { opName = ""; }
                             tmp = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetMainDB.[dbo].[Material] where ServerId='{_Fun.Config.ServerId}' and PartNO='{d["PartNO"].ToString()}'");
                             if (tmp != null) { partName = $"{tmp["PartName"].ToString()} {tmp["Specification"].ToString()}"; } else { partName = ""; }
-                            report = $"{report}<tr><td>{Convert.ToDateTime(d["LOGDateTime"]).ToString("yyyy/MM/dd HH:mm:ss")}</td><td>{d["PP_Name"].ToString()}</td><td>{opName}</td><td>{d["PartNO"].ToString()}</td><td>{partName}</td><td>{d["OKQTY"].ToString()}</td><td>{d["FailQTY"].ToString()}</td><td>{d["CycleTime"].ToString()}</td></tr>";
+                            report = $"{report}<tr><td>{Convert.ToDateTime(d["LOGDateTime"]).ToString("yyyy-MM-dd HH:mm:ss")}</td><td>{d["PP_Name"].ToString()}</td><td>{opName}</td><td>{d["PartNO"].ToString()}</td><td>{partName}</td><td>{d["OKQTY"].ToString()}</td><td>{d["FailQTY"].ToString()}</td><td>{d["CycleTime"].ToString()}</td></tr>";
                         }
                     }
                     report = $"{report}</tbody></table></div>";
@@ -223,9 +223,9 @@ namespace SoftNetWebII.Controllers
                                         if (dr_MII.IsNull("RemarkTimeS") || (!dr_MII.IsNull("RemarkTimeS") && !dr_MII.IsNull("RemarkTimeE")))
                                         {
                                             if (dr_MII.IsNull("StartTime")) { tmp = $",StartTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}'"; }
-                                            db.DB_SetData($"update [dbo].[ManufactureII] set RemarkTimeE=NULL,RemarkTimeS='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}'{tmp} where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and Id='{id}'");
+                                            db.DB_SetData($"update [dbo].[ManufactureII] set RemarkTimeE=NULL,RemarkTimeS='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}'{tmp} where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and Id='{id}'");
                                             keys.MES_String = "完成工站啟動生產.";
-                                            db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,OP_NO,IndexSN) VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','STView2','學習模式開工','{dr_MII["PP_Name"].ToString()} ','{keys.StationNO}','{dr_MII["PartNO"].ToString()}','','{br.UserNO}',{dr_MII["PartNO"].ToString()})");//###???dr_M["OrderNO"].ToString()暫時放空
+                                            db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,OP_NO,IndexSN) VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','STView2','學習模式開工','{dr_MII["PP_Name"].ToString()} ','{keys.StationNO}','{dr_MII["PartNO"].ToString()}','','{br.UserNO}',{dr_MII["PartNO"].ToString()})");//###???dr_M["OrderNO"].ToString()暫時放空
                                             DataTable tmp_dt = db.DB_GetData($"select * FROM SoftNetLogDB.[dbo].[SFC_StationProjectDetail] where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and PP_Name='{dr_MII["PP_Name"].ToString()}' and OrderNO='{dr_MII["OrderNO"].ToString()}' and PartNO='{dr_MII["PartNO"].ToString()}' and IndexSN={dr_MII["IndexSN"].ToString()} and EndTime is NULL");
                                             if (tmp_dt != null && tmp_dt.Rows.Count>0)
                                             {
@@ -234,8 +234,8 @@ namespace SoftNetWebII.Controllers
                                                 foreach (DataRow d2 in tmp_dt.Rows)
                                                 {
                                                     tmp_s = "";
-                                                    if (d2.IsNull("StartTime")) { tmp_s = $"{tmp_s},StartTime='{Convert.ToDateTime(dr_MII["StartTime"]).ToString("MM/dd/yyyy HH:mm:ss.fff")}'"; }
-                                                    if (d2.IsNull("RemarkTimeS")) { tmp_s = $"{tmp_s},RemarkTimeS='{Convert.ToDateTime(dr_MII["RemarkTimeS"]).ToString("MM/dd/yyyy HH:mm:ss.fff")}'"; }
+                                                    if (d2.IsNull("StartTime")) { tmp_s = $"{tmp_s},StartTime='{Convert.ToDateTime(dr_MII["StartTime"]).ToString("yyyy-MM-dd HH:mm:ss.fff")}'"; }
+                                                    if (d2.IsNull("RemarkTimeS")) { tmp_s = $"{tmp_s},RemarkTimeS='{Convert.ToDateTime(dr_MII["RemarkTimeS"]).ToString("yyyy-MM-dd HH:mm:ss.fff")}'"; }
                                                     db.DB_SetData($"update SoftNetLogDB.[dbo].[SFC_StationProjectDetail] set RemarkTimeE=NULL{tmp_s}  where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and PP_Name='{dr_MII["PP_Name"].ToString()}' and OrderNO='{dr_MII["OrderNO"].ToString()}' and PartNO='{dr_MII["PartNO"].ToString()}' and IndexSN={dr_MII["IndexSN"].ToString()} and EndTime is NULL");
                                                 }
                                             }
@@ -310,9 +310,9 @@ namespace SoftNetWebII.Controllers
                                         {
                                             if (dr_MII.IsNull("RemarkTimeE"))
                                             {
-                                                db.DB_SetData($"update [dbo].[ManufactureII] set RemarkTimeE='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and Id='{id}'");
+                                                db.DB_SetData($"update [dbo].[ManufactureII] set RemarkTimeE='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and Id='{id}'");
                                                 keys.MES_String = "已停止工站生產作業.";
-                                                db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,OP_NO,IndexSN) VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','STView2','學習模式停工','{dr_MII["PP_Name"].ToString()} ','{keys.StationNO}','{dr_MII["PartNO"].ToString()}','','{br.UserNO}',{dr_MII["IndexSN"].ToString()})");//###???{dr_MII["OrderNO"].ToString()} 暫時放空
+                                                db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,OP_NO,IndexSN) VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','STView2','學習模式停工','{dr_MII["PP_Name"].ToString()} ','{keys.StationNO}','{dr_MII["PartNO"].ToString()}','','{br.UserNO}',{dr_MII["IndexSN"].ToString()})");//###???{dr_MII["OrderNO"].ToString()} 暫時放空
                                                 DataTable tmp_dt = db.DB_GetData($"select * FROM SoftNetLogDB.[dbo].[SFC_StationProjectDetail] where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and PP_Name='{dr_MII["PP_Name"].ToString()}' and OrderNO='{dr_MII["OrderNO"].ToString()}' and PartNO='{dr_MII["PartNO"].ToString()}' and IndexSN={dr_MII["IndexSN"].ToString()} and EndTime is NULL");
                                                 if (tmp_dt != null && tmp_dt.Rows.Count > 0)
                                                 {
@@ -321,9 +321,9 @@ namespace SoftNetWebII.Controllers
                                                     foreach (DataRow d2 in tmp_dt.Rows)
                                                     {
                                                         tmp_s = "";
-                                                        if (d2.IsNull("StartTime")) { tmp_s = $"{tmp_s},StartTime='{Convert.ToDateTime(dr_MII["StartTime"]).ToString("MM/dd/yyyy HH:mm:ss.fff")}'"; }
-                                                        if (d2.IsNull("RemarkTimeS")) { tmp_s = $"{tmp_s},RemarkTimeS='{Convert.ToDateTime(dr_MII["RemarkTimeS"]).ToString("MM/dd/yyyy HH:mm:ss.fff")}'"; }
-                                                        db.DB_SetData($"update SoftNetLogDB.[dbo].[SFC_StationProjectDetail] set RemarkTimeE='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}'{tmp_s}  where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and PP_Name='{dr_MII["PP_Name"].ToString()}' and OrderNO='{dr_MII["OrderNO"].ToString()}' and PartNO='{dr_MII["PartNO"].ToString()}' and IndexSN={dr_MII["IndexSN"].ToString()} and EndTime is NULL");
+                                                        if (d2.IsNull("StartTime")) { tmp_s = $"{tmp_s},StartTime='{Convert.ToDateTime(dr_MII["StartTime"]).ToString("yyyy-MM-dd HH:mm:ss.fff")}'"; }
+                                                        if (d2.IsNull("RemarkTimeS")) { tmp_s = $"{tmp_s},RemarkTimeS='{Convert.ToDateTime(dr_MII["RemarkTimeS"]).ToString("yyyy-MM-dd HH:mm:ss.fff")}'"; }
+                                                        db.DB_SetData($"update SoftNetLogDB.[dbo].[SFC_StationProjectDetail] set RemarkTimeE='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}'{tmp_s}  where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and PP_Name='{dr_MII["PP_Name"].ToString()}' and OrderNO='{dr_MII["OrderNO"].ToString()}' and PartNO='{dr_MII["PartNO"].ToString()}' and IndexSN={dr_MII["IndexSN"].ToString()} and EndTime is NULL");
                                                     }
                                                 }
                                             }
@@ -416,11 +416,11 @@ namespace SoftNetWebII.Controllers
                                             }
                                             if (avgReportTime > 0)
                                             {
-                                                dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT TOP 1 * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and IndexSN={beforeIndexSN} and PartNO='{beforePartNO}' and LOGDateTime<='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}' and OperateType like '%開工%' order by LOGDateTime desc");
+                                                dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT TOP 1 * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and IndexSN={beforeIndexSN} and PartNO='{beforePartNO}' and LOGDateTime<='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}' and OperateType like '%開工%' order by LOGDateTime desc");
                                                 if (dr_tmp != null)
                                                 {
                                                     DateTime tmp_edate = Convert.ToDateTime(dr_tmp["LOGDateTime"]);
-                                                    dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT TOP 1 * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and IndexSN={beforeIndexSN} and PartNO='{beforePartNO}' and LOGDateTime>'{tmp_edate.ToString("yyyy/MM/dd HH:mm:ss")}' and OperateType like '%報工%'");
+                                                    dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT TOP 1 * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and IndexSN={beforeIndexSN} and PartNO='{beforePartNO}' and LOGDateTime>'{tmp_edate.ToString("yyyy-MM-dd HH:mm:ss")}' and OperateType like '%報工%'");
                                                     if (dr_tmp == null)
                                                     {
                                                         if ((_SFC_Common.TimeCompute2Seconds(tmp_edate, DateTime.Now)) >= avgReportTime)
@@ -433,16 +433,16 @@ namespace SoftNetWebII.Controllers
                                             #endregion
 
                                             tmp = "";
-                                            if (dr_MII.IsNull("StartTime")) { tmp = $",StartTime='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}'"; }
-                                            if (dr_MII.IsNull("RemarkTimeS")) { tmp = $"{tmp},RemarkTimeS='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}'"; }
-                                            if (dr_MII.IsNull("RemarkTimeE")) { tmp = $"{tmp},RemarkTimeE='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}'"; }
-                                            db.DB_SetData($"update [dbo].[ManufactureII] set EndTime='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}' {tmp} where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and Id='{id}'");
+                                            if (dr_MII.IsNull("StartTime")) { tmp = $",StartTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}'"; }
+                                            if (dr_MII.IsNull("RemarkTimeS")) { tmp = $"{tmp},RemarkTimeS='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}'"; }
+                                            if (dr_MII.IsNull("RemarkTimeE")) { tmp = $"{tmp},RemarkTimeE='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}'"; }
+                                            db.DB_SetData($"update [dbo].[ManufactureII] set EndTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}' {tmp} where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and Id='{id}'");
 
                                             dr = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetLogDB.[dbo].[SFC_StationProjectDetail] where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and PP_Name='{dr_MII["PP_Name"].ToString()}' and OrderNO='{dr_MII["OrderNO"].ToString()}' and PartNO='{dr_MII["PartNO"].ToString()}' and IndexSN={dr_MII["IndexSN"].ToString()} and EndTime is NULL");
                                             if (dr != null)
-                                            { db.DB_SetData($"UPDATE SoftNetLogDB.[dbo].[SFC_StationProjectDetail] SET EndTime='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}',RemarkTimeE='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and Id='{dr["Id"].ToString()}' and StationNO='{keys.StationNO}'"); }
+                                            { db.DB_SetData($"UPDATE SoftNetLogDB.[dbo].[SFC_StationProjectDetail] SET EndTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}',RemarkTimeE='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and Id='{dr["Id"].ToString()}' and StationNO='{keys.StationNO}'"); }
                                             keys.MES_String = "已關閉本次生產作業, 可進入工站設定, 設定下次生產";
-                                            db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,OP_NO,IndexSN) VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','STView2','學習模式關站','{dr_MII["PP_Name"].ToString()} ','{keys.StationNO}','{dr_MII["PartNO"].ToString()}','','{br.UserNO}',{dr_MII["PartNO"].ToString()})");//###???{dr_MII["OrderNO"].ToString()} 暫時放空
+                                            db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,OP_NO,IndexSN) VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','STView2','學習模式關站','{dr_MII["PP_Name"].ToString()} ','{keys.StationNO}','{dr_MII["PartNO"].ToString()}','','{br.UserNO}',{dr_MII["PartNO"].ToString()})");//###???{dr_MII["OrderNO"].ToString()} 暫時放空
                                             
                                             DataTable tmp_dt = db.DB_GetData($"select * FROM SoftNetLogDB.[dbo].[SFC_StationProjectDetail] where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and PP_Name='{dr_MII["PP_Name"].ToString()}' and OrderNO='{dr_MII["OrderNO"].ToString()}' and PartNO='{dr_MII["PartNO"].ToString()}' and IndexSN={dr_MII["IndexSN"].ToString()} and EndTime is NULL");
                                             if (tmp_dt != null && tmp_dt.Rows.Count > 0)
@@ -453,10 +453,10 @@ namespace SoftNetWebII.Controllers
                                                     string tmp_s = "";
                                                     foreach (DataRow d2 in tmp_dt.Rows)
                                                     {
-                                                        if (d2.IsNull("StartTime")) { tmp_s = $"{tmp_s},StartTime='{Convert.ToDateTime(dr_MII["StartTime"]).ToString("MM/dd/yyyy HH:mm:ss.fff")}'"; }
-                                                        if (d2.IsNull("RemarkTimeS")) { tmp_s = $"{tmp_s},RemarkTimeS='{Convert.ToDateTime(dr_MII["RemarkTimeS"]).ToString("MM/dd/yyyy HH:mm:ss.fff")}'"; }
-                                                        if (d2.IsNull("RemarkTimeE")) { tmp_s = $"{tmp_s},RemarkTimeE='{Convert.ToDateTime(dr_MII["RemarkTimeE"]).ToString("MM/dd/yyyy HH:mm:ss.fff")}'"; }
-                                                        db.DB_SetData($"update SoftNetLogDB.[dbo].[SFC_StationProjectDetail] set EndTime='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}'{tmp_s}  where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and PP_Name='{dr_MII["PP_Name"].ToString()}' and OrderNO='{dr_MII["OrderNO"].ToString()}' and PartNO='{dr_MII["PartNO"].ToString()}' and IndexSN={dr_MII["IndexSN"].ToString()} and EndTime is NULL");
+                                                        if (d2.IsNull("StartTime")) { tmp_s = $"{tmp_s},StartTime='{Convert.ToDateTime(dr_MII["StartTime"]).ToString("yyyy-MM-dd HH:mm:ss.fff")}'"; }
+                                                        if (d2.IsNull("RemarkTimeS")) { tmp_s = $"{tmp_s},RemarkTimeS='{Convert.ToDateTime(dr_MII["RemarkTimeS"]).ToString("yyyy-MM-dd HH:mm:ss.fff")}'"; }
+                                                        if (d2.IsNull("RemarkTimeE")) { tmp_s = $"{tmp_s},RemarkTimeE='{Convert.ToDateTime(dr_MII["RemarkTimeE"]).ToString("yyyy-MM-dd HH:mm:ss.fff")}'"; }
+                                                        db.DB_SetData($"update SoftNetLogDB.[dbo].[SFC_StationProjectDetail] set EndTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}'{tmp_s}  where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and PP_Name='{dr_MII["PP_Name"].ToString()}' and OrderNO='{dr_MII["OrderNO"].ToString()}' and PartNO='{dr_MII["PartNO"].ToString()}' and IndexSN={dr_MII["IndexSN"].ToString()} and EndTime is NULL");
                                                     }
                                                 }
                                             }
@@ -602,7 +602,7 @@ namespace SoftNetWebII.Controllers
                                     keys.SI_IndexSN = "";
                                     keys.SI_OrderNO = "";
                                     keys.SI_PartNO = "";
-                                    db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,OP_NO) VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','STView2','新增項目','{keys.SI_PP_Name} ','{keys.StationNO}','{keys.SI_PartNO}','{keys.SI_OrderNO}','{br.UserNO}')");
+                                    db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,OP_NO) VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','STView2','新增項目','{keys.SI_PP_Name} ','{keys.StationNO}','{keys.SI_PartNO}','{keys.SI_OrderNO}','{br.UserNO}')");
 
                                 }
                                 break;
@@ -629,7 +629,7 @@ namespace SoftNetWebII.Controllers
                                         if (dr == null)
                                         {
                                             db.DB_SetData(@$"INSERT INTO SoftNetLogDB.[dbo].[SFC_StationProjectDetail] (ServerId,Id,StationNO,Master_PP_Name,PP_Name,OP_NO,IndexSN,OrderNO,PartNO,RMSName,StartTime) VALUES 
-                                                ('{_Fun.Config.ServerId}','{_Str.NewId('A')}','{keys.StationNO}','{dr_MII["Master_PP_Name"].ToString()}','{dr_MII["PP_Name"].ToString()}','{keys.SI_Slect_OPNOs}',{dr_MII["IndexSN"].ToString()},'{dr_MII["OrderNO"].ToString()}','{dr_MII["PartNO"].ToString()}','{dr_PP_Station["RMSName"].ToString()}','{Convert.ToDateTime(dr_MII["StartTime"]).ToString("MM/dd/yyyy HH:mm:ss.fff")}')");
+                                                ('{_Fun.Config.ServerId}','{_Str.NewId('A')}','{keys.StationNO}','{dr_MII["Master_PP_Name"].ToString()}','{dr_MII["PP_Name"].ToString()}','{keys.SI_Slect_OPNOs}',{dr_MII["IndexSN"].ToString()},'{dr_MII["OrderNO"].ToString()}','{dr_MII["PartNO"].ToString()}','{dr_PP_Station["RMSName"].ToString()}','{Convert.ToDateTime(dr_MII["StartTime"]).ToString("yyyy-MM-dd HH:mm:ss.fff")}')");
                                             dr = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetLogDB.[dbo].[SFC_StationProjectDetail] where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and PP_Name='{dr_MII["PP_Name"].ToString()}' and OP_NO='{keys.SI_Slect_OPNOs}' and OrderNO='{dr_MII["OrderNO"].ToString()}' and PartNO='{dr_MII["PartNO"].ToString()}' and IndexSN={dr_MII["IndexSN"].ToString()} and EndTime is NULL");
                                         }
                                         if (dr == null)
@@ -663,7 +663,7 @@ namespace SoftNetWebII.Controllers
                                             if (dr_SFC_StationProjectDetail != null && !dr_SFC_StationProjectDetail.IsNull("CCT") && dr_SFC_StationProjectDetail["CCT"].ToString().Trim() == "" && int.Parse(dr_SFC_StationProjectDetail["CCT"].ToString()) > 2)
                                             {
                                                 float tmp = float.Parse(dr_SFC_StationProjectDetail["CCT"].ToString()) * 0.85f;
-                                                if (ct_log >= (decimal)tmp) { remark = $",RemarkTimeS='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}'"; }
+                                                if (ct_log >= (decimal)tmp) { remark = $",RemarkTimeS='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}'"; }
                                             }
                                             
                                             if (keys.Remark != null && keys.Remark.Trim() != "") { remark = $",Remark='{keys.Remark.Trim()}'"; }
@@ -720,9 +720,9 @@ namespace SoftNetWebII.Controllers
                                             DateTime tmp_date = DateTime.Now;
                                             DateTime tmp_startdate = DateTime.Now;
                                             int reportTime = 0;
-                                            DataRow d2 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where ServerId='{_Fun.Config.ServerId}' and CalendarName='{dr_PP_Station["CalendarName"].ToString()}' and Holiday='{tmp_date.AddDays(-1).ToString("MM/dd/yyyy")}'");
+                                            DataRow d2 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where ServerId='{_Fun.Config.ServerId}' and CalendarName='{dr_PP_Station["CalendarName"].ToString()}' and Holiday='{tmp_date.AddDays(-1).ToString("yyyy-MM-dd")}'");
                                             if (d2 == null)
-                                            { d2 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where ServerId='{_Fun.Config.ServerId}' and CalendarName='{dr_PP_Station["CalendarName"].ToString()}' and Holiday='{tmp_date.ToString("MM/dd/yyyy")}'"); }
+                                            { d2 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where ServerId='{_Fun.Config.ServerId}' and CalendarName='{dr_PP_Station["CalendarName"].ToString()}' and Holiday='{tmp_date.ToString("yyyy-MM-dd")}'"); }
                                             if (d2 != null)
                                             {
                                                 bool isRUN = true;
@@ -737,20 +737,20 @@ namespace SoftNetWebII.Controllers
                                                     { isRUN = false; tmp_date = tmp_date.AddDays(-1); }
                                                 }
                                                 if (isRUN)
-                                                { d2 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where ServerId='{_Fun.Config.ServerId}' and CalendarName='{dr_PP_Station["CalendarName"].ToString()}' and Holiday='{tmp_date.ToString("MM/dd/yyyy")}'"); }
+                                                { d2 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where ServerId='{_Fun.Config.ServerId}' and CalendarName='{dr_PP_Station["CalendarName"].ToString()}' and Holiday='{tmp_date.ToString("yyyy-MM-dd")}'"); }
                                                 if (d2 != null)
                                                 {
                                                     tmp_startdate = Convert.ToDateTime(d2["Holiday"]);
                                                     tmp_startdate = new DateTime(tmp_startdate.Year, tmp_startdate.Month, tmp_startdate.Day, int.Parse(d2["Shift_Morning"].ToString().Trim().Split(',')[0].Split(':')[0]), int.Parse(d2["Shift_Morning"].ToString().Trim().Split(',')[0].Split(':')[1]), 0);
                                                 }
                                                 //計算上一次與現在時間差
-                                                d2 = db.DB_GetFirstDataByDataRow($"SELECT LOGDateTime FROM SoftNetLogDB.[dbo].[SFC_StationProjectDetail_Log] where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and CONVERT(varchar(100),LOGDateTime, 23)='{tmp_startdate.ToString("yyyy-MM-dd")}' order by LOGDateTime,LOGDateTimeID desc");
+                                                d2 = db.DB_GetFirstDataByDataRow($"SELECT LOGDateTime FROM SoftNetLogDB.[dbo].[SFC_StationProjectDetail_Log] where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and CONVERT(varchar(10),LOGDateTime, 23)='{tmp_startdate.ToString("yyyy-MM-dd")}' order by LOGDateTime,LOGDateTimeID desc");
                                                 if (d2 != null)
                                                 { reportTime = _SFC_Common.TimeCompute2Seconds_BY_Calendar(db, dr_PP_Station["CalendarName"].ToString(), Convert.ToDateTime(d2["LOGDateTimeID"]), DateTime.Now); }
                                                 if (reportTime < 0) { reportTime = 0; }
                                             }
                                             db.DB_SetData($@"INSERT INTO SoftNetLogDB.[dbo].[SFC_StationProjectDetail_Log] (ServerId,[LOGDateTime],[Id],[StationNO],[OP_NO],[OKQTY],[FailQTY],[CycleTime],[WaitTime],PP_Name,IndexSN,PartNO,OrderNO,EfficientCycleTime,Custom_SD_LowerLimit,ReportTime) VALUES (
-                                                                '{_Fun.Config.ServerId}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','{dr["Id"].ToString()}','{keys.StationNO}','{keys.SI_Slect_OPNOs}',{keys.SI_OKQTY.ToString()},{keys.SI_FailQTY.ToString()},{ct_log},0,'{dr["PP_Name"].ToString()}',{dr["IndexSN"].ToString()},'{dr["PartNO"].ToString()}','{dr["OrderNO"].ToString()}',{efficientCycleTime},{custom_SD_LowerLimit},{reportTime})");
+                                                                '{_Fun.Config.ServerId}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{dr["Id"].ToString()}','{keys.StationNO}','{keys.SI_Slect_OPNOs}',{keys.SI_OKQTY.ToString()},{keys.SI_FailQTY.ToString()},{ct_log},0,'{dr["PP_Name"].ToString()}',{dr["IndexSN"].ToString()},'{dr["PartNO"].ToString()}','{dr["OrderNO"].ToString()}',{efficientCycleTime},{custom_SD_LowerLimit},{reportTime})");
                                             #endregion
 
                                             keys.SI_FailQTY = 0;
@@ -762,7 +762,7 @@ namespace SoftNetWebII.Controllers
                                             keys.SI_OrderNO = "";
                                             keys.SI_PartNO = "";
                                             keys.MES_String = "完成報工作業.";
-                                            db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,OP_NO) VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','STView2','多工站報工','{dr_MII["PP_Name"].ToString()} {keys.SI_Slect_OPNOs}','{keys.StationNO}','{dr_MII["PartNO"].ToString()}','{dr_MII["OrderNO"].ToString()}','{br.UserNO}')");
+                                            db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,OP_NO) VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','STView2','多工站報工','{dr_MII["PP_Name"].ToString()} {keys.SI_Slect_OPNOs}','{keys.StationNO}','{dr_MII["PartNO"].ToString()}','{dr_MII["OrderNO"].ToString()}','{br.UserNO}')");
                                             keys.SI_OPNO = "";
                                             keys.SI_Slect_OPNOs = "";
                                         }

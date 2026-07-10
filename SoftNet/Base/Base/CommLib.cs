@@ -53,6 +53,8 @@ namespace Base
         public string BOOLonToggleMenu { get; set; } = "";
 
         public List<string[]> HasWO_List { get; set; }
+        /// <summary>APS_NeedData.State='P'（暫停需求）之工單列，欄位索引與 HasWO_List 相同。</summary>
+        public List<string[]> HasWO_List_Paused { get; set; }
         public List<string[]> HasPO_List { get; set; }
 
 
@@ -81,6 +83,8 @@ namespace Base
         public List<string[]> HasWorkData_List { get; set; }
         public List<string[]> HasPO_List { get; set; }
         public List<string[]> HasWO_List { get; set; }
+        /// <summary>APS_NeedData.State='P'（暫停需求），欄位索引同 HasWO_List。</summary>
+        public List<string[]> HasWO_List_Paused { get; set; }
         public string Station_Config_Store_Type { get; set; } = "1";
 
         public string Remark { get; set; } = "";
@@ -448,6 +452,322 @@ namespace Base
             string values = string.Join(",", parameters.Keys.Select(k => "@" + k));
             string sql = $"INSERT INTO SoftNetLogDB.[dbo].[APS_EventLog] ({columns}) VALUES ({values})";
             return db.DB_SetDataByParams(sql, parameters);
+        }
+
+        private static string ApsSqlSafe(string s) => (s ?? "").Replace("'", "''");
+
+        /// <summary>NeedId 對應未關閉 ManufactureII 筆數。</summary>
+        public int CountOpenManufactureIIForNeed(DBADO db, string needId)
+        {
+            if (string.IsNullOrWhiteSpace(needId)) return 0;
+            return db.DB_GetQueryCount($@"SELECT m.Id FROM SoftNetMainDB.[dbo].[ManufactureII] m
+                INNER JOIN SoftNetSYSDB.[dbo].[PP_WorkOrder] wo ON m.OrderNO=wo.OrderNO AND m.ServerId=wo.ServerId
+                WHERE wo.NeedId='{ApsSqlSafe(needId)}' AND m.ServerId='{ApsSqlSafe(_Fun.Config.ServerId)}' AND m.EndTime IS NULL");
+        }
+
+        private string BuildOpenManufactureIISummary(DBADO db, string needId)
+        {
+            DataTable dt = db.DB_GetData($@"SELECT TOP 5 m.OrderNO,m.StationNO,m.PartNO,m.SimulationId
+                FROM SoftNetMainDB.[dbo].[ManufactureII] m
+                INNER JOIN SoftNetSYSDB.[dbo].[PP_WorkOrder] wo ON m.OrderNO=wo.OrderNO AND m.ServerId=wo.ServerId
+                WHERE wo.NeedId='{ApsSqlSafe(needId)}' AND m.ServerId='{ApsSqlSafe(_Fun.Config.ServerId)}' AND m.EndTime IS NULL");
+            if (dt == null || dt.Rows.Count == 0) return "";
+            var parts = new List<string>();
+            foreach (DataRow r in dt.Rows)
+            {
+                parts.Add($"工單:{r["OrderNO"]} 工站:{r["StationNO"]} 料號:{r["PartNO"]} SimId:{r["SimulationId"]}");
+            }
+            return string.Join("; ", parts);
+        }
+
+        private string BuildActiveManufactureIISummary(DBADO db, string needId)
+        {
+            DataTable dt = db.DB_GetData($@"SELECT TOP 5 m.OrderNO,m.StationNO,m.PartNO,m.SimulationId
+                FROM SoftNetMainDB.[dbo].[ManufactureII] m
+                INNER JOIN SoftNetSYSDB.[dbo].[PP_WorkOrder] wo ON m.OrderNO=wo.OrderNO AND m.ServerId=wo.ServerId
+                WHERE wo.NeedId='{ApsSqlSafe(needId)}' AND m.ServerId='{ApsSqlSafe(_Fun.Config.ServerId)}'
+                AND m.EndTime IS NULL AND m.RemarkTimeS IS NOT NULL AND m.RemarkTimeE IS NULL");
+            if (dt == null || dt.Rows.Count == 0) return "";
+            var parts = new List<string>();
+            foreach (DataRow r in dt.Rows)
+            {
+                parts.Add($"工單:{r["OrderNO"]} 工站:{r["StationNO"]} 料號:{r["PartNO"]} SimId:{r["SimulationId"]}");
+            }
+            return string.Join("; ", parts);
+        }
+
+        /// <summary>NeedId 對應生產中（已開工未停工）ManufactureII 筆數。</summary>
+        public int CountActiveManufactureIIForNeed(DBADO db, string needId)
+        {
+            if (string.IsNullOrWhiteSpace(needId)) return 0;
+            return db.DB_GetQueryCount($@"SELECT m.Id FROM SoftNetMainDB.[dbo].[ManufactureII] m
+                INNER JOIN SoftNetSYSDB.[dbo].[PP_WorkOrder] wo ON m.OrderNO=wo.OrderNO AND m.ServerId=wo.ServerId
+                WHERE wo.NeedId='{ApsSqlSafe(needId)}' AND m.ServerId='{ApsSqlSafe(_Fun.Config.ServerId)}'
+                AND m.EndTime IS NULL AND m.RemarkTimeS IS NOT NULL AND m.RemarkTimeE IS NULL");
+        }
+
+        /// <summary>重算前排程可安全關閉：未開工或已停工但未關站。</summary>
+        public int ForceCloseSafeManufactureIIForResimulation(DBADO db, string needId)
+        {
+            if (string.IsNullOrWhiteSpace(needId)) return 0;
+            int closed = 0;
+            string now = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
+            string safeNeedId = ApsSqlSafe(needId);
+            string safeSid = ApsSqlSafe(_Fun.Config.ServerId);
+            DataTable dt = db.DB_GetData($@"SELECT m.Id, m.OrderNO, m.StationNO, m.PartNO, m.SimulationId, m.RemarkTimeS, m.RemarkTimeE, m.IndexSN, m.PP_Name
+                FROM SoftNetMainDB.[dbo].[ManufactureII] m
+                INNER JOIN SoftNetSYSDB.[dbo].[PP_WorkOrder] wo ON m.OrderNO=wo.OrderNO AND m.ServerId=wo.ServerId
+                WHERE wo.NeedId='{safeNeedId}' AND m.ServerId='{safeSid}' AND m.EndTime IS NULL
+                AND (m.RemarkTimeS IS NULL OR m.RemarkTimeE IS NOT NULL)");
+            if (dt == null || dt.Rows.Count == 0) return 0;
+            foreach (DataRow m in dt.Rows)
+            {
+                string remarkE = m.IsNull("RemarkTimeE") ? $",RemarkTimeE='{now}'" : "";
+                if (db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[ManufactureII] SET EndTime='{now}'{remarkE} WHERE Id='{ApsSqlSafe(m["Id"].ToString())}'"))
+                {
+                    closed++;
+                    string simId = m["SimulationId"]?.ToString() ?? "";
+                    InsertApsEventLog(db, $"排程重算前強制關閉 ManufactureII: Id={m["Id"]} OrderNO={m["OrderNO"]} StationNO={m["StationNO"]} SimulationId={simId}", needId, simId, "99");
+                    db.DB_SetData($@"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[NeedId],[SimulationId],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,OP_NO,IndexSN)
+                        VALUES ('{safeSid}','{_Str.NewId('D')}','{safeNeedId}','{ApsSqlSafe(simId)}','{now}','CommLib','排程重算前關閉','{ApsSqlSafe(m["PP_Name"]?.ToString() ?? "")}','{ApsSqlSafe(m["StationNO"].ToString())}','{ApsSqlSafe(m["PartNO"].ToString())}','{ApsSqlSafe(m["OrderNO"].ToString())}','系統指派',{m["IndexSN"]})");
+                }
+            }
+            return closed;
+        }
+
+        private void RejectResimulationForNeed(DBADO db, string needId, ref string err, string reason, string summary)
+        {
+            string msg = $"拒絕排程重算: NeedId={needId} {reason}";
+            if (!string.IsNullOrWhiteSpace(summary)) { msg = $"{msg} ({summary})"; }
+            if (!string.IsNullOrWhiteSpace(err)) { msg = $"{msg}{Environment.NewLine}說明: {err}"; }
+            InsertApsEventLog(db, msg, needId, null, "WW");
+            _ = _Log.ErrorAsync(msg, true);
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(_Fun.Config.SendMonitorMail00) && _Fun.Config.SendMonitorMail00.Contains(","))
+                {
+                    string[] mailParts = _Fun.Config.SendMonitorMail00.Split(',');
+                    string mailSub = $"拒絕排程重算 NeedId={needId} ServerId={_Fun.Config.ServerId}";
+                    string mailBody = $"<p>{msg.Replace("\r\n", "<br/>").Replace("\n", "<br/>")}</p>";
+                    _Fun.Mail_Send(mailParts[0].Split(';'), mailParts[1].Split(';'), mailSub, mailBody, null, false);
+                }
+            }
+            catch (Exception ex)
+            {
+                _ = _Log.ErrorAsync($"RejectResimulationForNeed 發送監控郵件失敗 NeedId={needId} {ex.Message}", false);
+            }
+            if (string.IsNullOrWhiteSpace(err)) { err = reason; }
+            db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_NeedData] SET State='5',StateINFO='{ApsSqlSafe(err)}',UpdateTime='{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}',NeedSimulationDate=NULL WHERE ServerId='{ApsSqlSafe(_Fun.Config.ServerId)}' AND Id='{ApsSqlSafe(needId)}'");
+        }
+
+        /// <summary>
+        /// 排程重算前：先同步/清理 ManufactureII；僅當仍有生產中或無法清理項目時拒絕重算。
+        /// 回傳 true=已拒絕（不可重算）；false=已準備完成可繼續重算。
+        /// </summary>
+        public bool TryPrepareManufactureIIBeforeResimulation(DBADO db, string needId, char wType, ref string err)
+        {
+            if (string.IsNullOrWhiteSpace(needId)) return false;
+            if (CountOpenManufactureIIForNeed(db, needId) <= 0) return false;
+
+            int synced = SyncManufactureIISimulationIdsForNeed(db, needId);
+            int closedOrphan = CloseOrphanManufactureIIForNeed(db, needId);
+            int closedSafe = ForceCloseSafeManufactureIIForResimulation(db, needId);
+            if (synced > 0 || closedOrphan > 0 || closedSafe > 0)
+            {
+                InsertApsEventLog(db,
+                    $"排程重算前清理 ManufactureII: NeedId={needId} 同步SimulationId={synced} 關閉失效/結案={closedOrphan} 強制關閉可安全項目={closedSafe}",
+                    needId, null, "99");
+            }
+
+            int activeCnt = CountActiveManufactureIIForNeed(db, needId);
+            if (activeCnt > 0)
+            {
+                err = "現場有生產中的項目,請先停工關站後再重算排程";
+                RejectResimulationForNeed(db, needId, ref err, $"現場仍有生產中 ManufactureII {activeCnt} 筆", BuildActiveManufactureIISummary(db, needId));
+                return true;
+            }
+
+            int openCnt = CountOpenManufactureIIForNeed(db, needId);
+            if (openCnt > 0)
+            {
+                err = "現場有生產項目無法自動清理,無法重算排程";
+                RejectResimulationForNeed(db, needId, ref err, $"仍有無法自動清理的 ManufactureII {openCnt} 筆", BuildOpenManufactureIISummary(db, needId));
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>現場有未關閉 ManufactureII 時拒絕排程重算。回傳 true=已拒絕。（請改用 TryPrepareManufactureIIBeforeResimulation）</summary>
+        public bool TryRejectResimulationForOpenManufactureII(DBADO db, string needId, char wType, ref string err)
+            => TryPrepareManufactureIIBeforeResimulation(db, needId, wType, ref err);
+
+        /// <summary>依 OrderNO+StationNO+PartNO+IndexSN 將 ManufactureII.SimulationId 同步為現行 APS_Simulation。</summary>
+        public int SyncManufactureIISimulationIdsForNeed(DBADO db, string needId)
+        {
+            if (string.IsNullOrWhiteSpace(needId)) return 0;
+            int updated = 0;
+            string safeNeedId = ApsSqlSafe(needId);
+            string safeSid = ApsSqlSafe(_Fun.Config.ServerId);
+            DataTable dt = db.DB_GetData($@"SELECT m.* FROM SoftNetMainDB.[dbo].[ManufactureII] m
+                INNER JOIN SoftNetSYSDB.[dbo].[PP_WorkOrder] wo ON m.OrderNO=wo.OrderNO AND m.ServerId=wo.ServerId
+                WHERE wo.NeedId='{safeNeedId}' AND m.ServerId='{safeSid}' AND m.EndTime IS NULL");
+            if (dt == null || dt.Rows.Count == 0) return 0;
+            foreach (DataRow m in dt.Rows)
+            {
+                string oldSim = m["SimulationId"]?.ToString() ?? "";
+                if (!string.IsNullOrWhiteSpace(oldSim) &&
+                    db.DB_GetQueryCount($"SELECT SimulationId FROM SoftNetSYSDB.[dbo].[APS_Simulation] WHERE SimulationId='{ApsSqlSafe(oldSim)}'") > 0)
+                {
+                    continue;
+                }
+                string orderNO = ApsSqlSafe(m["OrderNO"].ToString());
+                string stationNO = ApsSqlSafe(m["StationNO"].ToString());
+                string partNO = ApsSqlSafe(m["PartNO"].ToString());
+                string indexSN = m["IndexSN"].ToString();
+                DataRow drSim = db.DB_GetFirstDataByDataRow($@"SELECT TOP 1 SimulationId FROM SoftNetSYSDB.[dbo].[APS_Simulation]
+                    WHERE NeedId='{safeNeedId}' AND Source_StationNO='{stationNO}' AND PartNO='{partNO}'
+                    AND DOCNumberNO='{orderNO}' AND Source_StationNO_IndexSN={indexSN} AND PartSN>=0
+                    ORDER BY CASE WHEN IsOK='0' THEN 0 ELSE 1 END, SimulationDate DESC");
+                if (drSim == null) continue;
+                string newSim = drSim["SimulationId"].ToString();
+                if (newSim == oldSim) continue;
+                if (db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[ManufactureII] SET SimulationId='{ApsSqlSafe(newSim)}' WHERE Id='{ApsSqlSafe(m["Id"].ToString())}'"))
+                {
+                    updated++;
+                    InsertApsEventLog(db, $"同步 ManufactureII SimulationId: Id={m["Id"]} OrderNO={m["OrderNO"]} {oldSim}->{newSim}", needId, newSim, "99");
+                }
+            }
+            return updated;
+        }
+
+        /// <summary>排程結案或 SimulationId 失效時，關閉殘留 ManufactureII。</summary>
+        public int CloseOrphanManufactureIIForNeed(DBADO db, string needId)
+        {
+            if (string.IsNullOrWhiteSpace(needId)) return 0;
+            int closed = 0;
+            string now = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
+            string safeNeedId = ApsSqlSafe(needId);
+            string safeSid = ApsSqlSafe(_Fun.Config.ServerId);
+            DataTable dt = db.DB_GetData($@"SELECT m.Id, m.OrderNO, m.StationNO, m.PartNO, m.SimulationId, m.RemarkTimeE
+                FROM SoftNetMainDB.[dbo].[ManufactureII] m
+                INNER JOIN SoftNetSYSDB.[dbo].[PP_WorkOrder] wo ON m.OrderNO=wo.OrderNO AND m.ServerId=wo.ServerId
+                WHERE wo.NeedId='{safeNeedId}' AND m.ServerId='{safeSid}' AND m.EndTime IS NULL");
+            if (dt == null || dt.Rows.Count == 0) return 0;
+            foreach (DataRow m in dt.Rows)
+            {
+                string simId = m["SimulationId"]?.ToString() ?? "";
+                DataRow drSim = string.IsNullOrWhiteSpace(simId) ? null
+                    : db.DB_GetFirstDataByDataRow($"SELECT SimulationId, IsOK FROM SoftNetSYSDB.[dbo].[APS_Simulation] WHERE SimulationId='{ApsSqlSafe(simId)}'");
+                bool shouldClose = drSim == null || drSim["IsOK"].ToString() == "1";
+                if (!shouldClose) continue;
+                string remarkE = m.IsNull("RemarkTimeE") ? $",RemarkTimeE='{now}'" : "";
+                if (db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[ManufactureII] SET EndTime='{now}'{remarkE} WHERE Id='{ApsSqlSafe(m["Id"].ToString())}'"))
+                {
+                    closed++;
+                    InsertApsEventLog(db, $"排程結案同步關閉 ManufactureII: Id={m["Id"]} OrderNO={m["OrderNO"]} StationNO={m["StationNO"]} SimulationId={simId}", needId, simId, "99");
+                }
+            }
+            return closed;
+        }
+
+        /// <summary>查詢 ManufactureII 對應 APS_Simulation；若 SimulationId 過期則嘗試同步後再查。</summary>
+        public DataRow GetApsSimulationForManufactureII(DBADO db, DataRow drMii)
+        {
+            if (drMii == null) return null;
+            string simId = drMii["SimulationId"]?.ToString() ?? "";
+            if (!string.IsNullOrWhiteSpace(simId))
+            {
+                DataRow dr = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[APS_Simulation] WHERE SimulationId='{ApsSqlSafe(simId)}'");
+                if (dr != null) return dr;
+            }
+            DataRow wo = db.DB_GetFirstDataByDataRow($"SELECT NeedId FROM SoftNetSYSDB.[dbo].[PP_WorkOrder] WHERE ServerId='{ApsSqlSafe(_Fun.Config.ServerId)}' AND OrderNO='{ApsSqlSafe(drMii["OrderNO"].ToString())}'");
+            if (wo == null || wo.IsNull("NeedId")) return null;
+            string needId = wo["NeedId"].ToString();
+            SyncManufactureIISimulationIdsForNeed(db, needId);
+            if (!drMii.IsNull("Id"))
+            {
+                DataRow mii2 = db.DB_GetFirstDataByDataRow($"SELECT SimulationId FROM SoftNetMainDB.[dbo].[ManufactureII] WHERE Id='{ApsSqlSafe(drMii["Id"].ToString())}'");
+                if (mii2 != null) simId = mii2["SimulationId"]?.ToString() ?? "";
+            }
+            if (string.IsNullOrWhiteSpace(simId)) return null;
+            return db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[APS_Simulation] WHERE SimulationId='{ApsSqlSafe(simId)}'");
+        }
+
+        /// <summary>加總同一需求、同一製程中，製程順序 IndexSN 小於目前工序的所有前站 Detail_Fail_QTY。</summary>
+        public int SumPriorDetailFailQTY(DBADO db, string needId, string applyPPName, int currentIndexSN)
+        {
+            if (string.IsNullOrWhiteSpace(needId) || string.IsNullOrWhiteSpace(applyPPName) || currentIndexSN <= 0) { return 0; }
+            DataRow row = db.DB_GetFirstDataByDataRow($@"SELECT ISNULL(SUM(b.Detail_Fail_QTY),0) AS FailSum
+                FROM SoftNetSYSDB.[dbo].[APS_Simulation] AS a
+                INNER JOIN SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] AS b ON a.SimulationId=b.SimulationId
+                WHERE a.NeedId='{ApsSqlSafe(needId)}' AND a.Apply_PP_Name='{ApsSqlSafe(applyPPName)}' AND a.IndexSN < {currentIndexSN}");
+            if (row == null || row.IsNull("FailSum")) { return 0; }
+            return int.Parse(row["FailSum"].ToString());
+        }
+
+        /// <summary>需求量 = 原始需求量 − 前序所有製程不良品數量（不小於 0）。</summary>
+        public int GetEffectiveNeedQTY(int baseQTY, int priorFailSum)
+        {
+            int qty = baseQTY - priorFailSum;
+            return qty < 0 ? 0 : qty;
+        }
+
+        /// <summary>依 Simulation 取得有效需求量（扣前序製程 Detail_Fail_QTY）。</summary>
+        public int GetEffectiveNeedQTYBySimulation(DBADO db, string needId, string simulationId, int baseNeedQTY)
+        {
+            if (string.IsNullOrWhiteSpace(simulationId)) { return baseNeedQTY; }
+            DataRow sim = db.DB_GetFirstDataByDataRow($"SELECT NeedId,Apply_PP_Name,IndexSN FROM SoftNetSYSDB.[dbo].[APS_Simulation] WHERE SimulationId='{ApsSqlSafe(simulationId)}'");
+            if (sim == null) { return baseNeedQTY; }
+            string nid = string.IsNullOrWhiteSpace(needId) ? sim["NeedId"].ToString() : needId;
+            int priorFail = SumPriorDetailFailQTY(db, nid, sim["Apply_PP_Name"].ToString(), int.Parse(sim["IndexSN"].ToString()));
+            return GetEffectiveNeedQTY(baseNeedQTY, priorFail);
+        }
+
+        /// <summary>本站報工（OK+Fail）是否已達有效需求量。</summary>
+        public bool IsStationReportingComplete(DBADO db, string needId, string simulationId, int detailQTY, int detailFailQTY, int baseNeedQTY)
+        {
+            int effective = GetEffectiveNeedQTYBySimulation(db, needId, simulationId, baseNeedQTY);
+            return (detailQTY + detailFailQTY) >= effective;
+        }
+
+        /// <summary>本站報工OK量是否已達有效需求量。</summary>
+        public bool IsStationOkReportingComplete(DBADO db, string needId, string simulationId, int detailQTY, int baseNeedQTY)
+        {
+            int effective = GetEffectiveNeedQTYBySimulation(db, needId, simulationId, baseNeedQTY);
+            return detailQTY >= effective;
+        }
+
+        /// <summary>本站與合併站累計 OK / Fail 顯示（格式：本站+其他站）。</summary>
+        public (string okDisplay, string failDisplay) GetStationOkFailDisplay(DBADO db, string serverId, string stationNO, string ppName, string orderNO, string indexSN, string simulationId)
+        {
+            int okQTY = 0;
+            int failedQty = 0;
+            int t_okQTY = 0;
+            int t_failedQty = 0;
+            if (!string.IsNullOrWhiteSpace(orderNO) && !string.IsNullOrWhiteSpace(indexSN) && int.TryParse(indexSN, out _))
+            {
+                DataTable tmp_dt = db.DB_GetData($@"SELECT sum(ProductFinishedQty) as OKQTY,sum(ProductFailedQty) as FailedQty FROM SoftNetLogDB.[dbo].[SFC_StationDetail] where 
+                    ServerId='{ApsSqlSafe(serverId)}' and StationNO='{ApsSqlSafe(stationNO)}' and PP_Name='{ApsSqlSafe(ppName)}' and OrderNO='{ApsSqlSafe(orderNO)}' and IndexSN={indexSN} group by OP_NO");
+                if (tmp_dt != null && tmp_dt.Rows.Count > 0)
+                {
+                    foreach (DataRow dr2 in tmp_dt.Rows)
+                    {
+                        okQTY += dr2.IsNull("OKQTY") ? 0 : int.Parse(dr2["OKQTY"].ToString());
+                        failedQty += dr2.IsNull("FailedQty") ? 0 : int.Parse(dr2["FailedQty"].ToString());
+                    }
+                }
+                if (!string.IsNullOrWhiteSpace(simulationId))
+                {
+                    DataRow tmp_dr2 = db.DB_GetFirstDataByDataRow($"select sum(ProductFinishedQty) as TOKQTY,sum(ProductFailedQty) as TFailedQty from SoftNetLogDB.[dbo].[SFC_StationDetail] where ServerId='{ApsSqlSafe(serverId)}' and StationNO!='{ApsSqlSafe(stationNO)}' and SimulationId='{ApsSqlSafe(simulationId)}' and OrderNO='{ApsSqlSafe(orderNO)}' and IndexSN_Merge='1' and PP_Name='{ApsSqlSafe(ppName)}' and IndexSN={indexSN}");
+                    if (tmp_dr2 != null)
+                    {
+                        t_okQTY = tmp_dr2.IsNull("TOKQTY") ? 0 : int.Parse(tmp_dr2["TOKQTY"].ToString());
+                        t_failedQty = tmp_dr2.IsNull("TFailedQty") ? 0 : int.Parse(tmp_dr2["TFailedQty"].ToString());
+                    }
+                }
+            }
+            return ($"{okQTY}+{t_okQTY}", $"{failedQty}+{t_failedQty}");
         }
 
         public bool InsertWarningData(DBADO db, string errorType, string needId = null, string simulationId = null, string stationNo = null, string docNumberNo = null, string partNo = null, string opNo = null, string dataRemark = null, string warningDate = null)
@@ -1507,12 +1827,10 @@ namespace Base
                             string inOK_NO = "BC01";//###??? 暫時寫死入庫單別
 
                             DataRow dr_APS_PartNOTimeNote = null;
-                            if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] SET DOCNumberNO='{data[1].Trim()}',Detail_QTY+={data[3]},Detail_Fail_QTY+={data[4]} where SimulationId='{keys.SimulationId}'"))
-                            {
-                                dr_APS_PartNOTimeNote = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where SimulationId='{keys.SimulationId}'");
-                                if ((int.Parse(dr_APS_PartNOTimeNote["Detail_QTY"].ToString()) + int.Parse(dr_APS_PartNOTimeNote["Detail_Fail_QTY"].ToString()) - int.Parse(dr_APS_PartNOTimeNote["NeedQTY"].ToString())) >= 0)
-                                { isNeedQTY_OK = true; }
-                            }
+                            db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] SET DOCNumberNO='{data[1].Trim()}',Detail_QTY+={data[3]},Detail_Fail_QTY+={data[4]} where SimulationId='{keys.SimulationId}'");
+                            dr_APS_PartNOTimeNote = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where SimulationId='{keys.SimulationId}'");
+                            if (IsStationReportingComplete(db, dr_APS_PartNOTimeNote["NeedId"].ToString(), keys.SimulationId, int.Parse(dr_APS_PartNOTimeNote["Detail_QTY"].ToString()), int.Parse(dr_APS_PartNOTimeNote["Detail_Fail_QTY"].ToString()), int.Parse(dr_APS_PartNOTimeNote["NeedQTY"].ToString())))
+                            { isNeedQTY_OK = true; }
 
                             //尋找相關BOM原物料
                             #region 扣Keep量 與 處理領料單單據
@@ -2426,9 +2744,11 @@ namespace Base
                                         }
                                     }
                                     #endregion
-
+                                    dr_APS_PartNOTimeNote = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where SimulationId='{keys.SimulationId}'");
                                     tmp_del = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where SimulationId='{keys.SimulationId}' order by CalendarDate desc");
-                                    if (tmp_del != null && int.Parse(tmp_del["Time1_C"].ToString()) == 0 && int.Parse(tmp_del["Time2_C"].ToString()) == 0 && int.Parse(tmp_del["Time3_C"].ToString()) == 0 && int.Parse(tmp_del["Time4_C"].ToString()) == 0 && int.Parse(tmp_del["NeedQTY"].ToString()) > (int.Parse(tmp_del["Detail_QTY"].ToString()) + int.Parse(tmp_del["Detail_Fail_QTY"].ToString())))
+                                    int effectiveNeedForWT = GetEffectiveNeedQTYBySimulation(db, dr_APS_PartNOTimeNote["NeedId"].ToString(), keys.SimulationId, int.Parse(dr_APS_PartNOTimeNote["NeedQTY"].ToString()));
+                                    int reportedForWT = int.Parse(dr_APS_PartNOTimeNote["Detail_QTY"].ToString()) + int.Parse(dr_APS_PartNOTimeNote["Detail_Fail_QTY"].ToString());
+                                    if (tmp_del != null && int.Parse(tmp_del["Time1_C"].ToString()) == 0 && int.Parse(tmp_del["Time2_C"].ToString()) == 0 && int.Parse(tmp_del["Time3_C"].ToString()) == 0 && int.Parse(tmp_del["Time4_C"].ToString()) == 0 && effectiveNeedForWT >= reportedForWT)
                                     {
                                         db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_WorkTimeNote] SET Time1_C=1 where SimulationId='{keys.SimulationId}'");
                                     }
@@ -2476,8 +2796,14 @@ namespace Base
 
                     dr_MII = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetMainDB.[dbo].[ManufactureII] where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and Id='{id}' and EndTime is NULL");
                     if (dr_MII == null) { keys.ERRMsg = $"該項目已關閉生產, 無法報工."; return false; }
-                    if (dr_MII.IsNull("StartTime")) { keys.ERRMsg = $"項目未設定開工過, 無法報工, 請先按開工."; return false; }
-                    if (dr_MII.IsNull("RemarkTimeS")) { keys.ERRMsg = $"項目未設定開工過, 無法報工, 請先按開工."; return false; }
+                    if (dr_MII.IsNull("StartTime") || dr_MII.IsNull("RemarkTimeS"))
+                    {
+                        DateTime nowTime = DateTime.Now;
+                        dr_MII["StartTime"] = nowTime;
+                        dr_MII["RemarkTimeS"] = nowTime;
+                        dr_MII["RemarkTimeE"] = nowTime;
+                    }
+
                     keys.SI_SimulationId = dr_MII["SimulationId"].ToString();
                     keys.SI_IndexSN = dr_MII["IndexSN"].ToString();
                     keys.SI_OrderNO = dr_MII["OrderNO"].ToString();
@@ -2507,6 +2833,8 @@ namespace Base
                         if (dr_MII == null)
                         { keys.ERRMsg = $"查無相關製程順序.製程={keys.SI_PP_Name} 順序={keys.SI_IndexSN}, 請通知管理者."; return false; }
                     }
+                    if (dr_MII.IsNull("StartTime")) { keys.ERRMsg = $"項目未設定開工過, 無法報工, 請先按開工."; return false; }
+                    if (dr_MII.IsNull("RemarkTimeS")) { keys.ERRMsg = $"項目未設定開工過, 無法報工, 請先按開工."; return false; }
                 }
                 #endregion
 
@@ -2855,7 +3183,7 @@ namespace Base
                                 }
                                 else
                                 {
-                                    if ((int.Parse(dr_APS_PartNOTimeNote["Detail_QTY"].ToString()) + int.Parse(dr_APS_PartNOTimeNote["Detail_Fail_QTY"].ToString()) - int.Parse(dr_APS_PartNOTimeNote["NeedQTY"].ToString())) >= 0)
+                                    if (IsStationReportingComplete(db, dr_APS_PartNOTimeNote["NeedId"].ToString(), keys.SI_SimulationId, int.Parse(dr_APS_PartNOTimeNote["Detail_QTY"].ToString()), int.Parse(dr_APS_PartNOTimeNote["Detail_Fail_QTY"].ToString()), int.Parse(dr_APS_PartNOTimeNote["NeedQTY"].ToString())))
                                     { isNeedQTY_OK = true; }
                                 }
                             }
@@ -3779,7 +4107,9 @@ namespace Base
                                     #endregion
 
                                     tmp_del = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where SimulationId='{keys.SI_SimulationId}' order by CalendarDate desc");
-                                    if (tmp_del != null && int.Parse(tmp_del["Time1_C"].ToString()) == 0 && int.Parse(tmp_del["Time2_C"].ToString()) == 0 && int.Parse(tmp_del["Time3_C"].ToString()) == 0 && int.Parse(tmp_del["Time4_C"].ToString()) == 0 && int.Parse(dr_APS_PartNOTimeNote["NeedQTY"].ToString()) > (int.Parse(dr_APS_PartNOTimeNote["Detail_QTY"].ToString()) + int.Parse(dr_APS_PartNOTimeNote["Detail_Fail_QTY"].ToString())))
+                                    int effectiveNeedForWT = GetEffectiveNeedQTYBySimulation(db, dr_APS_PartNOTimeNote["NeedId"].ToString(), keys.SI_SimulationId, int.Parse(dr_APS_PartNOTimeNote["NeedQTY"].ToString()));
+                                    int reportedForWT = int.Parse(dr_APS_PartNOTimeNote["Detail_QTY"].ToString()) + int.Parse(dr_APS_PartNOTimeNote["Detail_Fail_QTY"].ToString());
+                                    if (tmp_del != null && int.Parse(tmp_del["Time1_C"].ToString()) == 0 && int.Parse(tmp_del["Time2_C"].ToString()) == 0 && int.Parse(tmp_del["Time3_C"].ToString()) == 0 && int.Parse(tmp_del["Time4_C"].ToString()) == 0 && effectiveNeedForWT > reportedForWT)
                                     {
                                         db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_WorkTimeNote] SET Time1_C=1 where SimulationId='{keys.SI_SimulationId}'");
                                     }
@@ -3893,16 +4223,19 @@ namespace Base
                             tmp2 = db.DB_GetFirstDataByDataRow($"select top 1 a.Master_PartNO,b.PartName,a.PartSN from SoftNetSYSDB.[dbo].APS_Simulation as a,SoftNetMainDB.[dbo].[Material] as b where a.NeedId='{needID}' and a.Apply_PP_Name='{pp_Name}' and a.Master_PartNO=b.PartNO and a.PartSN>=0 order by a.PartNO");
                             if (int.Parse(tmp2["PartSN"].ToString()) != 1 && int.Parse(tmp2["PartSN"].ToString()) != 0)
                             {
-                                tmp2 = db.DB_GetFirstDataByDataRow($"select a.PartNO,b.PartName,(a.NeedQTY+a.SafeQTY-a.Math_TotalStock_HasUseQTY-a.Math_Online_SurplusQTY) as qty from SoftNetSYSDB.[dbo].APS_Simulation as a,SoftNetMainDB.[dbo].[Material] as b where a.NeedId='{needID}' and a.PartNO='{tmp2["Master_PartNO"].ToString()}' and a.PartNO=b.PartNO");
-                                qty = int.Parse(tmp2["qty"].ToString());
+                                tmp2 = db.DB_GetFirstDataByDataRow($"select a.SimulationId,a.NeedId,a.NeedQTY,a.SafeQTY,a.Math_TotalStock_HasUseQTY,a.Math_Online_SurplusQTY,a.PartNO,b.PartName from SoftNetSYSDB.[dbo].APS_Simulation as a,SoftNetMainDB.[dbo].[Material] as b where a.NeedId='{needID}' and a.PartNO='{tmp2["Master_PartNO"].ToString()}' and a.PartNO=b.PartNO");
+                                int effectiveNeed = GetEffectiveNeedQTYBySimulation(db, needID, tmp2["SimulationId"].ToString(), int.Parse(tmp2["NeedQTY"].ToString()));
+                                qty = effectiveNeed + int.Parse(tmp2["SafeQTY"].ToString()) - int.Parse(tmp2["Math_TotalStock_HasUseQTY"].ToString()) - int.Parse(tmp2["Math_Online_SurplusQTY"].ToString());
                                 if (qty < 0) { qty = 0; }
                                 partNO = tmp2["PartNO"].ToString();
                                 partName = tmp2["PartName"].ToString();
                             }
                             else
                             {
-                                tmp2 = db.DB_GetFirstDataByDataRow($"select a.PartNO,b.PartName,(c.NeedQTY+c.SafeQTY-c.Math_TotalStock_HasUseQTY-c.Math_Online_SurplusQTY) as qty,a.CalendarName from SoftNetSYSDB.[dbo].APS_NeedData as a,SoftNetMainDB.[dbo].[Material] as b,SoftNetSYSDB.[dbo].APS_Simulation as c where a.ServerId='{_Fun.Config.ServerId}' and a.Id='{needID}' and a.PartNO=b.PartNO and c.NeedId=a.Id and a.PartNO=c.PartNO and c.PartSN=0");
-                                qty = int.Parse(tmp2["qty"].ToString());
+                                tmp2 = db.DB_GetFirstDataByDataRow($"select c.SimulationId,c.NeedId,c.NeedQTY,c.SafeQTY,c.Math_TotalStock_HasUseQTY,c.Math_Online_SurplusQTY,a.PartNO,b.PartName,a.CalendarName from SoftNetSYSDB.[dbo].APS_NeedData as a,SoftNetMainDB.[dbo].[Material] as b,SoftNetSYSDB.[dbo].APS_Simulation as c where a.ServerId='{_Fun.Config.ServerId}' and a.Id='{needID}' and a.PartNO=b.PartNO and c.NeedId=a.Id and a.PartNO=c.PartNO and c.PartSN=0");
+                                int effectiveNeed = GetEffectiveNeedQTYBySimulation(db, needID, tmp2["SimulationId"].ToString(), int.Parse(tmp2["NeedQTY"].ToString()));
+                                qty = effectiveNeed + int.Parse(tmp2["SafeQTY"].ToString()) - int.Parse(tmp2["Math_TotalStock_HasUseQTY"].ToString()) - int.Parse(tmp2["Math_Online_SurplusQTY"].ToString());
+                                if (qty < 0) { qty = 0; }
                                 partNO = tmp2["PartNO"].ToString();
                                 partName = tmp2["PartName"].ToString();
                             }
@@ -3940,6 +4273,7 @@ namespace Base
                 if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_NeedData] SET State='9',StateINFO='無APS_Simulation資料,無生產行為',UpdateTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and Id='{needID}'"))
                 {
                     db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_Simulation] SET IsOK='1' where NeedId='{needID}'");
+                    CloseOrphanManufactureIIForNeed(db, needID);
                     db.DB_SetData($"DELETE FROM SoftNetMainDB.[dbo].[TotalStockII] where NeedId='{needID}'");
                     db.DB_SetData($"DELETE FROM SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where NeedId='{needID}'");
                     db.DB_SetData($"DELETE FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where NeedId='{needID}'");
@@ -4813,7 +5147,16 @@ namespace Base
                     {
                         err = "";
                         DataRow dr_M = db.DB_GetFirstDataByDataRow($"SELECT * from SoftNetSYSDB.[dbo].[APS_NeedData] where ServerId='{_Fun.Config.ServerId}' and Id='{needId[ai]}'");
+                        if (TryPrepareManufactureIIBeforeResimulation(db, needId[ai], wType, ref err))
+                        {
+                            continue;
+                        }
                         int tmp_int = int.Parse(dr_M["NeedQTY"].ToString());
+                        DataRow drSimRoot = db.DB_GetFirstDataByDataRow($"SELECT SimulationId,NeedQTY FROM SoftNetSYSDB.[dbo].[APS_Simulation] WHERE NeedId='{needId[ai]}' AND PartSN=0");
+                        if (drSimRoot != null)
+                        {
+                            tmp_int = GetEffectiveNeedQTYBySimulation(db, needId[ai], drSimRoot["SimulationId"].ToString(), int.Parse(drSimRoot["NeedQTY"].ToString()));
+                        }
                         DateTime intime = Convert.ToDateTime(dr_M["NeedDate"]);
                         if (wType == '5')
                         {
@@ -4952,11 +5295,11 @@ namespace Base
                                 #region 改變 NeedQTY 需求量
                                 if (tot_TotalStock_QTY < tmp_int)
                                 {
-                                    tmp_int = int.Parse(dr_M["NeedQTY"].ToString()) - tot_TotalStock_QTY;
+                                    tmp_int = tmp_int - tot_TotalStock_QTY;
                                 }
                                 else
                                 {
-                                    tot_TotalStock_QTY = int.Parse(dr_M["NeedQTY"].ToString());
+                                    tot_TotalStock_QTY = tmp_int;
                                     tmp_int = 0;
                                 }
                                 #endregion
@@ -5083,13 +5426,17 @@ namespace Base
                             { Run_Index(args, db, needId[ai], tmp_int, wType, pp_M, pp_S); }
                             else { Run_Index(args, db, needId[ai], tmp_int, wType); }
                             RunSetSimulation_thread(args, db, ipport, needId[ai], mainBOMID, wType, ref err);
+                            if (err == "") { SyncManufactureIISimulationIdsForNeed(db, needId[ai]); }
                             #endregion
                         }
                         else
                         {
                             string bomid = Run_Index(args, db, needId[ai], tmp_int, wType);
                             if (bomid == mainBOMID)//建立 APS_Simulation 資料  生產量=NeedQTY+SafeQTY
-                            { RunSetSimulation_thread(args, db, ipport, needId[ai], mainBOMID, wType, ref err); }
+                            {
+                                RunSetSimulation_thread(args, db, ipport, needId[ai], mainBOMID, wType, ref err);
+                                if (err == "") { SyncManufactureIISimulationIdsForNeed(db, needId[ai]); }
+                            }
                             else
                             {
                                 if (wType == '5')
@@ -5540,10 +5887,11 @@ namespace Base
                                 tmp_s = $",Math_TotalStock_HasUseQTY-={tmp_i}";
                                 db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStockII] SET KeepQTY-={tmp_i} where SimulationId='{dr_tmp["SimulationId"].ToString()}'");
                             }
-                            else if (int.Parse(dr_tmp["Math_TotalStock_HasUseQTY"].ToString()) != 0 && int.Parse(dr_tmp["Math_TotalStock_HasUseQTY"].ToString()) + int.Parse(dr_tmp["Math_Online_SurplusQTY"].ToString()) > int.Parse(dr_tmp["NeedQTY"].ToString()))
+                            else if (int.Parse(dr_tmp["Math_TotalStock_HasUseQTY"].ToString()) != 0 && int.Parse(dr_tmp["Math_TotalStock_HasUseQTY"].ToString()) + int.Parse(dr_tmp["Math_Online_SurplusQTY"].ToString()) > GetEffectiveNeedQTYBySimulation(db, dr_tmp["NeedId"].ToString(), dr_tmp["SimulationId"].ToString(), int.Parse(dr_tmp["NeedQTY"].ToString())))
                             {
-                                tmp_s = $",Math_TotalStock_HasUseQTY-={(int.Parse(dr_tmp["Math_TotalStock_HasUseQTY"].ToString()) + int.Parse(dr_tmp["Math_Online_SurplusQTY"].ToString()) - int.Parse(dr_tmp["NeedQTY"].ToString()))}";
-                                db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStockII] SET KeepQTY-={(int.Parse(dr_tmp["Math_TotalStock_HasUseQTY"].ToString()) + int.Parse(dr_tmp["Math_Online_SurplusQTY"].ToString()) - int.Parse(dr_tmp["NeedQTY"].ToString()))} where SimulationId='{dr_tmp["SimulationId"].ToString()}'");
+                                int surplusRelease = int.Parse(dr_tmp["Math_TotalStock_HasUseQTY"].ToString()) + int.Parse(dr_tmp["Math_Online_SurplusQTY"].ToString()) - GetEffectiveNeedQTYBySimulation(db, dr_tmp["NeedId"].ToString(), dr_tmp["SimulationId"].ToString(), int.Parse(dr_tmp["NeedQTY"].ToString()));
+                                tmp_s = $",Math_TotalStock_HasUseQTY-={surplusRelease}";
+                                db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStockII] SET KeepQTY-={surplusRelease} where SimulationId='{dr_tmp["SimulationId"].ToString()}'");
 
                             }
                             db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_Simulation] SET Math_Online_SurplusQTY+={tmp_i}{tmp_s} where SimulationId='{dr_tmp["SimulationId"].ToString()}'");
@@ -5781,7 +6129,7 @@ namespace Base
                             dt_tmp = db.DB_GetData($"select a.StoreNO,a.StoreSpacesNO,a.PartNO,a.Id,b.Simulation_FirstNO,sum(a.QTY) as qty from SoftNetMainDB.[dbo].TotalStock as a,dbo.[Store] as b where a.Class!='虛擬倉' and b.ServerId='{_Fun.Config.ServerId}' and a.PartNO='{dr["PartNO"].ToString()}' and a.StoreNO=b.StoreNO group by a.StoreNO,a.StoreSpacesNO,a.PartNO,a.Id,b.Simulation_FirstNO order by b.Simulation_FirstNO");
                             if (dt_tmp != null && dt_tmp.Rows.Count > 0)
                             {
-                                int_tmp = int.Parse(dr["NeedQTY"].ToString()) + int.Parse(dr["SafeQTY"].ToString());
+                                int_tmp = GetEffectiveNeedQTYBySimulation(db, dr["NeedId"].ToString(), dr["SimulationId"].ToString(), int.Parse(dr["NeedQTY"].ToString())) + int.Parse(dr["SafeQTY"].ToString());
 
                                 #region 加生產損耗率值
                                 //###???計算損耗率加數量
@@ -5944,7 +6292,7 @@ namespace Base
                         sct = int.Parse(dr["Math_StandardCT"].ToString());
                         if (int.Parse(dr["PartSN"].ToString()) >= 0 && (!dr.IsNull("Source_StationNO") && (dr["Class"].ToString() == "4" || dr["Class"].ToString() == "5")))
                         {
-                            needqty = int.Parse(dr["NeedQTY"].ToString()) + int.Parse(dr["SafeQTY"].ToString());
+                            needqty = GetEffectiveNeedQTYBySimulation(db, dr["NeedId"].ToString(), dr["SimulationId"].ToString(), int.Parse(dr["NeedQTY"].ToString())) + int.Parse(dr["SafeQTY"].ToString());
                             hasuseqty = int.Parse(dr["Math_TotalStock_HasUseQTY"].ToString()) + int.Parse(dr["Math_Online_SurplusQTY"].ToString());
                             if (hasuseqty >= needqty)
                             {
@@ -6009,7 +6357,7 @@ namespace Base
                 {
                     foreach (DataRow dr in dt_Simulation.Rows)
                     {
-                        needqty = int.Parse(dr["NeedQTY"].ToString()) + int.Parse(dr["SafeQTY"].ToString());
+                        needqty = GetEffectiveNeedQTYBySimulation(db, dr["NeedId"].ToString(), dr["SimulationId"].ToString(), int.Parse(dr["NeedQTY"].ToString())) + int.Parse(dr["SafeQTY"].ToString());
                         hasuseqty = int.Parse(dr["Math_TotalStock_HasUseQTY"].ToString()) + int.Parse(dr["Math_Online_SurplusQTY"].ToString());
                         if (hasuseqty >= needqty)
                         {
@@ -6072,7 +6420,7 @@ namespace Base
             #region 生產件有庫存,但量不足 修正往下階的Math_TotalStock_HasUseQTY, Math_Online_SurplusQTY值, TotalStockII的KeepQTY值
             {
 
-                dt_Simulation = db.DB_GetData($"select *,((NeedQTY+SafeQTY)-(Math_TotalStock_HasUseQTY+Math_Online_SurplusQTY)) as sQTY from SoftNetSYSDB.[dbo].[APS_Simulation] where NeedId='{needId}' and PartType='0' and IsOK='0' and PartSN>=0 and (Class='4' or Class='5') and Source_StationNO is not null and Math_TotalStock_HasUseQTY!=0 and NeedQTY>(Math_TotalStock_HasUseQTY+Math_Online_SurplusQTY) order by PartSN,Class desc");
+                dt_Simulation = db.DB_GetData($"select * from SoftNetSYSDB.[dbo].[APS_Simulation] where NeedId='{needId}' and PartType='0' and IsOK='0' and PartSN>=0 and (Class='4' or Class='5') and Source_StationNO is not null and Math_TotalStock_HasUseQTY!=0 order by PartSN,Class desc");
                 if (dt_Simulation != null && dt_Simulation.Rows.Count > 0)
                 {
                     DataRow dr_tmp = null;
@@ -6083,7 +6431,8 @@ namespace Base
                     string today = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
                     foreach (DataRow dr in dt_Simulation.Rows)
                     {
-                        needQTY = int.Parse(dr["sQTY"].ToString());//重新計算扣除量
+                        int demandQTY = GetEffectiveNeedQTYBySimulation(db, needId, dr["SimulationId"].ToString(), int.Parse(dr["NeedQTY"].ToString())) + int.Parse(dr["SafeQTY"].ToString());
+                        needQTY = demandQTY - (int.Parse(dr["Math_TotalStock_HasUseQTY"].ToString()) + int.Parse(dr["Math_Online_SurplusQTY"].ToString()));//重新計算扣除量
                         if (needQTY <= 0) { continue; }
                         //取得有效BOM的ID
                         string Main_Item = "0"; if (int.Parse(dr["PartSN"].ToString()) == 0) { Main_Item = "1"; }
@@ -6707,7 +7056,7 @@ namespace Base
                                 }
                                 partNOClass = dr["Class"].ToString();
                                 if (dr["ChangeSimulationClass"].ToString().Trim() != "") { partNOClass = dr["ChangeSimulationClass"].ToString().Trim(); }
-                                real_NeedQTY = int.Parse(dr["NeedQTY"].ToString()) + int.Parse(dr["SafeQTY"].ToString()) - int.Parse(dr["Math_TotalStock_HasUseQTY"].ToString()) - int.Parse(dr["Math_Online_SurplusQTY"].ToString());
+                                real_NeedQTY = GetEffectiveNeedQTYBySimulation(db, needId, dr["SimulationId"].ToString(), int.Parse(dr["NeedQTY"].ToString())) + int.Parse(dr["SafeQTY"].ToString()) - int.Parse(dr["Math_TotalStock_HasUseQTY"].ToString()) - int.Parse(dr["Math_Online_SurplusQTY"].ToString());
 
                                 if (dr.IsNull("Source_StationNO") || (partNOClass != "4" && partNOClass != "5") || bool.Parse(dr["OutPackType"].ToString()) || dr["Source_StationNO"].ToString() == _Fun.Config.OutPackStationName)
                                 {
@@ -6825,7 +7174,8 @@ namespace Base
                                 {
                                     foreach (DataRow dr0 in dt_BOMII.Rows)
                                     {
-                                        tmp_i = int.Parse(dr["NeedQTY"].ToString()) * int.Parse(dr0["BOMQTY"].ToString());
+                                        int parentEffectiveNeed = GetEffectiveNeedQTYBySimulation(db, needId, dr["SimulationId"].ToString(), int.Parse(dr["NeedQTY"].ToString()));
+                                        tmp_i = parentEffectiveNeed * int.Parse(dr0["BOMQTY"].ToString());
                                         dr_tmp = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_Simulation] where NeedId='{needId}' and PartNO='{dr0["PartNO"].ToString()}' and Apply_PP_Name='{dt_BOM["Apply_PP_Name"].ToString()}' and Apply_StationNO='{dt_BOM["Apply_StationNO"].ToString()}' and IndexSN={dt_BOM["IndexSN"].ToString()} and Station_Custom_IndexSN='{dt_BOM["Station_Custom_IndexSN"].ToString()}'");
                                         db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] SET NeedQTY={tmp_i} where SimulationId='{dr_tmp["SimulationId"].ToString()}'");
                                     }
@@ -6871,6 +7221,7 @@ namespace Base
                 {
                     db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_NeedData] SET State='2',StateINFO=NULL,UpdateTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}',NeedSimulationDate='{sTimeLog.ToString("yyyy-MM-dd HH:mm:ss")}' where ServerId='{_Fun.Config.ServerId}' and Id='{needId}'");
                 }
+                SyncManufactureIISimulationIdsForNeed(db, needId);
             }
 
             if (isError)
@@ -6905,11 +7256,13 @@ namespace Base
         public bool RefreshRunSetSimulation(DBADO db, string[] data, ref List<string> run_HasWeb_Id_Change)
         {
             bool is_RefreshRunSetSimulation_OK = false;
+            string refreshSyncNeedId = "";
             string sql = "";
             DataTable dt_tmp = null;
             DataRow dr_tmp = null;
+            var ppStationCache = new Dictionary<string, DataRow>(StringComparer.Ordinal);
             {
-                DataRow dr_APS_Simulation = db.DB_GetFirstDataByDataRow($"select *,(NeedQTY+SafeQTY) as APS_SQTY from SoftNetSYSDB.[dbo].[APS_Simulation] where SimulationId='{data[1]}' and IsOK='0'");
+                DataRow dr_APS_Simulation = db.DB_GetFirstDataByDataRow($"select *,(NeedQTY+SafeQTY) as APS_SQTY from SoftNetSYSDB.[dbo].[APS_Simulation] where SimulationId='{data[1]}'");
                 DataRow dr_APS_NeedData = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_NeedData] where ServerId='{_Fun.Config.ServerId}' and Id='{dr_APS_Simulation["NeedId"].ToString()}'");
 
                 char type = '1';
@@ -6946,6 +7299,7 @@ namespace Base
                     startDate = Convert.ToDateTime(dr_APS_Simulation["StartDate"]);
                     simulationDate = Convert.ToDateTime(dr_APS_Simulation["SimulationDate"]);
                     needID = dr_APS_Simulation["NeedId"].ToString();
+                    refreshSyncNeedId = needID;
                     station = dr_APS_Simulation["Source_StationNO"].ToString();
                     indexSN = dr_APS_Simulation["Source_StationNO_IndexSN"].ToString();
                     partNO = dr_APS_Simulation["PartNO"].ToString();
@@ -6964,7 +7318,7 @@ namespace Base
                     dr_tmp = db.DB_GetFirstDataByDataRow($"select *,(Detail_QTY+Detail_Fail_QTY) as PQTY,NeedQTY as SQTY from SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where NeedId='{needID}' and SimulationId='{simulationId}' and PartNO='{partNO}'");
                     if (dr_tmp != null)
                     {
-                        sQTY = int.Parse(dr_tmp["SQTY"].ToString());
+                        sQTY = GetEffectiveNeedQTYBySimulation(db, needID, simulationId, int.Parse(dr_tmp["SQTY"].ToString()));
                         if (int.Parse(dr_tmp["PQTY"].ToString()) == 0)
                         {
                             dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT TOP 1 * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{station}' and IndexSN={indexSN} and OrderNO='{orderNO}'  and PartNO='{partNO}' and LOGDateTime>='{startDate.ToString("yyyy-MM-dd HH:mm:ss")}' and LOGDateTime<'{simulationDate.ToString("yyyy-MM-dd HH:mm:ss")}' and OperateType like '%開工%' order by LOGDateTime desc");
@@ -6985,7 +7339,7 @@ namespace Base
                 #endregion
 
                 int dltime = 0;
-                DataRow dr_PP_Station = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[PP_Station] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr_APS_Simulation["Source_StationNO"]}'");
+                DataRow dr_PP_Station = GetPPStationCached(db, dr_APS_Simulation["Source_StationNO"]?.ToString() ?? "", ppStationCache);
                 #region 計算要順延多小時間
                 if (type == '1') { sQTY -= pQTY; }
                 dltime = (int.Parse(dr_APS_Simulation["Math_UseTime"].ToString()) / sQTY) * int.Parse(dr_APS_Simulation["Math_UseOPCount"].ToString());
@@ -7023,6 +7377,11 @@ namespace Base
 
                 #region 先計算減自己buffer是否足夠
                 dr_tmp = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_Simulation] where NeedId='{needID}' and PartSN=0");
+                if (dr_tmp == null)
+                {
+                    System.Threading.Tasks.Task task = _Log.ErrorAsync($"RefreshRunSetSimulation 中止：NeedId={needID} SimulationId={simulationId} 查無 PartSN=0 之首道 APS_Simulation，無法比對 APS_WorkTimeNote buffer", true);
+                    goto break_FUN;
+                }
                 string tmp_station = $"StationNO='{dr_tmp["Source_StationNO"].ToString()}'";
                 if (!dr_tmp.IsNull("StationNO_Merge") && dr_tmp["StationNO_Merge"].ToString().Trim() != "")
                 {
@@ -7049,7 +7408,7 @@ namespace Base
                                 #region 檢查已開站要排除
                                 if (!dr.IsNull("Source_StationNO"))
                                 {
-                                    dr_PP_Station = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[PP_Station] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["Source_StationNO"].ToString()}'");
+                                    dr_PP_Station = GetPPStationCached(db, dr["Source_StationNO"].ToString(), ppStationCache);
                                     if (dr_PP_Station["Station_Type"].ToString() == "1")
                                     {
                                         if (db.DB_GetQueryCount($"select * from SoftNetMainDB.[dbo].[Manufacture] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["Source_StationNO"].ToString()}' and State='1'") > 0) { noSID.Add(dr["SimulationId"].ToString()); continue; }
@@ -7078,7 +7437,7 @@ namespace Base
                                 { log_Before_DATA.Add($"StationNO:{dr["Source_StationNO"].ToString()},SimulationId:{dr["SimulationId"].ToString()},StartDate:{startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")},SimulationDate:{dltime_startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}"); }
                                 else { log_Before_DATA.Add($"PartNO:{dr["PartNO"]},SimulationId:{dr["SimulationId"].ToString()},StartDate:{startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")},SimulationDate:{dltime_startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}"); }
 
-                                isRunOK = Deferred_Calculation(db, dr, needID, dltime, ref dltime_startDate, ref log_Change_DATA);
+                                isRunOK = Deferred_Calculation(db, dr, needID, dltime, ref dltime_startDate, ref log_Change_DATA, ppStationCache);
                                 if (!isRunOK)
                                 {
                                     System.Threading.Tasks.Task task = _Log.ErrorAsync($"buffer足夠 RefreshRunSetSimulation延後失敗 NeedId={needID} SimulationId:{dr["SimulationId"].ToString()} PartSN={dr["PartSN"].ToString()} PartNO:{dr["PartNO"]}", true);
@@ -7105,7 +7464,7 @@ namespace Base
                                     #region 判斷多工站是否刪 ManufactureII
                                     if (!dr.IsNull("Source_StationNO"))
                                     {
-                                        dr_PP_Station = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[PP_Station] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["Source_StationNO"].ToString()}'");
+                                        dr_PP_Station = GetPPStationCached(db, dr["Source_StationNO"].ToString(), ppStationCache);
                                         if (dr_PP_Station != null && dr_PP_Station["Station_Type"].ToString() == "8")
                                         {
                                             if (db.DB_GetQueryCount($"select * from SoftNetMainDB.[dbo].[ManufactureII] where StationNO='{dr["Source_StationNO"].ToString()}' and SimulationId='{dr["SimulationId"].ToString()}' and RemarkTimeE is NULL") > 0)
@@ -7203,7 +7562,7 @@ namespace Base
                                 #region 檢查已開站要排除
                                 if (!dr.IsNull("Source_StationNO"))
                                 {
-                                    dr_PP_Station = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[PP_Station] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["Source_StationNO"].ToString()}'");
+                                    dr_PP_Station = GetPPStationCached(db, dr["Source_StationNO"].ToString(), ppStationCache);
                                     if (dr_PP_Station["Station_Type"].ToString() == "1")
                                     {
                                         if (db.DB_GetQueryCount($"select * from SoftNetMainDB.[dbo].[Manufacture] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["Source_StationNO"].ToString()}' and State='1'") > 0) { noSID.Add(dr["SimulationId"].ToString()); continue; }
@@ -7231,7 +7590,7 @@ namespace Base
                                 if ((dr["Class"].ToString() == "4" || dr["Class"].ToString() == "5") && int.Parse(dr["PartSN"].ToString()) >= 0 && !dr.IsNull("Source_StationNO"))
                                 { log_Before_DATA.Add($"StationNO:{dr["Source_StationNO"].ToString()},SimulationId:{dr["SimulationId"].ToString()},StartDate:{startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")},SimulationDate:{dltime_startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}"); }
                                 else { log_Before_DATA.Add($"PartNO:{dr["PartNO"]},SimulationId:{dr["SimulationId"].ToString()},StartDate:{startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")},SimulationDate:{dltime_startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}"); }
-                                isRunOK = Deferred_Calculation(db, dr, needID, dltime, ref dltime_startDate, ref log_Change_DATA);
+                                isRunOK = Deferred_Calculation(db, dr, needID, dltime, ref dltime_startDate, ref log_Change_DATA, ppStationCache);
                                 if (!isRunOK)
                                 {
                                     System.Threading.Tasks.Task task = _Log.ErrorAsync($"直接延 RefreshRunSetSimulation延後失敗 NeedId={needID} SimulationId:{dr["SimulationId"].ToString()} PartSN={dr["PartSN"].ToString()} PartNO:{dr["PartNO"]}", true);
@@ -7258,7 +7617,7 @@ namespace Base
                                     #region 判斷多工站是否刪 ManufactureII
                                     if (!dr.IsNull("Source_StationNO"))
                                     {
-                                        dr_PP_Station = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[PP_Station] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["Source_StationNO"].ToString()}'");
+                                        dr_PP_Station = GetPPStationCached(db, dr["Source_StationNO"].ToString(), ppStationCache);
                                         if (dr_PP_Station != null && dr_PP_Station["Station_Type"].ToString() == "8")
                                         {
                                             if (db.DB_GetQueryCount($"select * from SoftNetMainDB.[dbo].[ManufactureII] where StationNO='{dr["Source_StationNO"].ToString()}' and SimulationId='{dr["SimulationId"].ToString()}' and RemarkTimeE is NULL") > 0)
@@ -7392,7 +7751,7 @@ namespace Base
                                         #region 檢查已開站要排除
                                         if (!dr.IsNull("Source_StationNO"))
                                         {
-                                            dr_PP_Station = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[PP_Station] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["Source_StationNO"].ToString()}'");
+                                            dr_PP_Station = GetPPStationCached(db, dr["Source_StationNO"].ToString(), ppStationCache);
                                             if (dr_PP_Station["Station_Type"].ToString() == "1")
                                             {
                                                 if (db.DB_GetQueryCount($"select * from SoftNetMainDB.[dbo].[Manufacture] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["Source_StationNO"].ToString()}' and State='1'") > 0) { noSID.Add(dr["SimulationId"].ToString()); continue; }
@@ -7420,7 +7779,7 @@ namespace Base
                                         if ((dr["Class"].ToString() == "4" || dr["Class"].ToString() == "5") && int.Parse(dr["PartSN"].ToString()) >= 0 && !dr.IsNull("Source_StationNO"))
                                         { log_Before_DATA.Add($"StationNO:{dr["Source_StationNO"].ToString()},SimulationId:{dr["SimulationId"].ToString()},StartDate:{startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")},SimulationDate:{dltime_startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}"); }
                                         else { log_Before_DATA.Add($"PartNO:{dr["PartNO"]},SimulationId:{dr["SimulationId"].ToString()},StartDate:{startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")},SimulationDate:{dltime_startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}"); }
-                                        isBreak = Deferred_Calculation(db, dr, kv.Key, dltime, ref dltime_startDate, ref log_Change_DATA);
+                                        isBreak = Deferred_Calculation(db, dr, kv.Key, dltime, ref dltime_startDate, ref log_Change_DATA, ppStationCache);
                                         if (!isBreak)
                                         {
                                             System.Threading.Tasks.Task task = _Log.ErrorAsync($"多NeedId RefreshRunSetSimulation延後失敗 NeedId={needID} SimulationId:{dr["SimulationId"].ToString()} PartSN={dr["PartSN"].ToString()} PartNO:{dr["PartNO"]}", true);
@@ -7447,7 +7806,7 @@ namespace Base
                                             #region 判斷多工站是否刪 ManufactureII
                                             if (!dr.IsNull("Source_StationNO"))
                                             {
-                                                dr_PP_Station = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[PP_Station] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["Source_StationNO"].ToString()}'");
+                                                dr_PP_Station = GetPPStationCached(db, dr["Source_StationNO"].ToString(), ppStationCache);
                                                 if (dr_PP_Station != null && dr_PP_Station["Station_Type"].ToString() == "8")
                                                 {
                                                     if (db.DB_GetQueryCount($"select * from SoftNetMainDB.[dbo].[ManufactureII] where StationNO='{dr["Source_StationNO"].ToString()}' and SimulationId='{dr["SimulationId"].ToString()}' and RemarkTimeE is NULL") > 0)
@@ -7524,7 +7883,7 @@ namespace Base
                                                 #region 檢查已開站要排除
                                                 if (!dr.IsNull("Source_StationNO"))
                                                 {
-                                                    dr_PP_Station = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[PP_Station] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["Source_StationNO"].ToString()}'");
+                                                    dr_PP_Station = GetPPStationCached(db, dr["Source_StationNO"].ToString(), ppStationCache);
                                                     if (dr_PP_Station["Station_Type"].ToString() == "1")
                                                     {
                                                         if (db.DB_GetQueryCount($"select * from SoftNetMainDB.[dbo].[Manufacture] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["Source_StationNO"].ToString()}' and State='1'") > 0) { noSID.Add(dr["SimulationId"].ToString()); continue; }
@@ -7552,7 +7911,7 @@ namespace Base
                                                 if ((dr["Class"].ToString() == "4" || dr["Class"].ToString() == "5") && int.Parse(dr["PartSN"].ToString()) >= 0 && !dr.IsNull("Source_StationNO"))
                                                 { log_Before_DATA.Add($"StationNO:{dr["Source_StationNO"].ToString()},SimulationId:{dr["SimulationId"].ToString()},StartDate:{startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")},SimulationDate:{dltime_startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}"); }
                                                 else { log_Before_DATA.Add($"PartNO:{dr["PartNO"]},SimulationId:{dr["SimulationId"].ToString()},StartDate:{startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")},SimulationDate:{dltime_startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}"); }
-                                                isRunOK = Deferred_Calculation(db, dr, needID, dltime, ref dltime_startDate, ref log_Change_DATA);
+                                                isRunOK = Deferred_Calculation(db, dr, needID, dltime, ref dltime_startDate, ref log_Change_DATA, ppStationCache);
                                                 if (!isRunOK)
                                                 {
                                                     System.Threading.Tasks.Task task = _Log.ErrorAsync($"判斷自己 RefreshRunSetSimulation延後失敗 發生錯誤 不應該進入 NeedId='{needID} PartSN<={partSN}", true);
@@ -7579,7 +7938,7 @@ namespace Base
                                                     #region 判斷多工站是否刪 ManufactureII
                                                     if (!dr.IsNull("Source_StationNO"))
                                                     {
-                                                        dr_PP_Station = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[PP_Station] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["Source_StationNO"].ToString()}'");
+                                                        dr_PP_Station = GetPPStationCached(db, dr["Source_StationNO"].ToString(), ppStationCache);
                                                         if (dr_PP_Station != null && dr_PP_Station["Station_Type"].ToString() == "8")
                                                         {
                                                             if (db.DB_GetQueryCount($"select * from SoftNetMainDB.[dbo].[ManufactureII] where StationNO='{dr["Source_StationNO"].ToString()}' and SimulationId='{dr["SimulationId"].ToString()}' and RemarkTimeE is NULL") > 0)
@@ -7655,13 +8014,17 @@ namespace Base
             }
 
         break_FUN:
+            if (is_RefreshRunSetSimulation_OK && !string.IsNullOrWhiteSpace(refreshSyncNeedId))
+            {
+                SyncManufactureIISimulationIdsForNeed(db, refreshSyncNeedId);
+            }
             if (!is_RefreshRunSetSimulation_OK)
             {
                 string _s = "";
             }
             return is_RefreshRunSetSimulation_OK;
         }
-        private bool Deferred_Calculation(DBADO db, DataRow dr, string needID, int dltime, ref DateTime dltime_startDate, ref List<string> log_list)
+        private bool Deferred_Calculation(DBADO db, DataRow dr, string needID, int dltime, ref DateTime dltime_startDate, ref List<string> log_list, Dictionary<string, DataRow> ppStationCache = null)
         {
             bool IsErr = true;
             string errINFO = "";
@@ -7669,66 +8032,168 @@ namespace Base
             DateTime arrivalDate = dltime_startDate;
             DataRow dr_tmp = null;
             RunSimulation_Arg args = new RunSimulation_Arg();
+            string ctx_SimulationId = dr != null && dr.Table.Columns.Contains("SimulationId") && !dr.IsNull("SimulationId") ? dr["SimulationId"].ToString() : "";
+            string ctx_SourceStation = dr != null && dr.Table.Columns.Contains("Source_StationNO") && !dr.IsNull("Source_StationNO") ? dr["Source_StationNO"].ToString() : "";
+            string ctx_PartNO = dr != null && dr.Table.Columns.Contains("PartNO") && !dr.IsNull("PartNO") ? dr["PartNO"].ToString() : "";
             try
             {
+                if (dr == null)
+                {
+                    _ = _Log.ErrorAsync($"Deferred_Calculation 收到 null DataRow NeedId={needID}", true);
+                    IsErr = false; goto finish;
+                }
+
                 DataRow dr_APS_NeedData = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_NeedData] where ServerId='{_Fun.Config.ServerId}' and Id='{needID}'");
-                DataRow dr_PP_Station = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[PP_Station] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["Source_StationNO"].ToString()}'");
+                if (dr_APS_NeedData == null)
+                {
+                    _ = _Log.ErrorAsync($"Deferred_Calculation 查無 APS_NeedData NeedId={needID} SimulationId={ctx_SimulationId} Station={ctx_SourceStation} PartNO={ctx_PartNO}", true);
+                    IsErr = false; goto finish;
+                }
+
+                DataRow dr_PP_Station = null;
+                if (!string.IsNullOrEmpty(ctx_SourceStation))
+                {
+                    dr_PP_Station = GetPPStationCached(db, ctx_SourceStation, ppStationCache);
+                }
 
                 #region 讀排程設定參數 args
-                List<string> cs = dr_APS_NeedData["KeyA"].ToString().Split(',').ToList();
-                foreach (string c in cs)
+                string keyA = dr_APS_NeedData.IsNull("KeyA") ? "" : dr_APS_NeedData["KeyA"].ToString();
+                if (!string.IsNullOrEmpty(keyA))
                 {
-                    if (c == "0") { args.ARGs.Add(false); }
-                    else { args.ARGs.Add(true); }
+                    foreach (string c in keyA.Split(','))
+                    {
+                        args.ARGs.Add(c != "0");
+                    }
                 }
                 #endregion
 
-                if ((dr["Class"].ToString() == "4" || dr["Class"].ToString() == "5") && int.Parse(dr["PartSN"].ToString()) >= 0 && !dr.IsNull("Source_StationNO"))
-                {
-                    #region for GetFinallyDate 前置處裡 目的修改 APS_WorkTimeNote 時間
+                string drClass = dr.IsNull("Class") ? "" : dr["Class"].ToString();
+                int drPartSN = SafeToInt(dr["PartSN"], -1);
 
-                    dr_tmp = db.DB_GetFirstDataByDataRow($"select top 1 * from SoftNetSYSDB.[dbo].[APS_Simulation] where NeedId='{needID}' and Master_PartNO='{dr["PartNO"].ToString()}' order by SimulationDate desc");
-                    string partNOClass = dr["Class"].ToString();
-                    if (dr["ChangeSimulationClass"].ToString().Trim() != "") { partNOClass = dr["ChangeSimulationClass"].ToString().Trim(); }
-                    int real_NeedQTY = int.Parse(dr["NeedQTY"].ToString()) + int.Parse(dr["SafeQTY"].ToString()) - int.Parse(dr["Math_TotalStock_HasUseQTY"].ToString()) - int.Parse(dr["Math_Online_SurplusQTY"].ToString());
+                if ((drClass == "4" || drClass == "5") && drPartSN >= 0 && !dr.IsNull("Source_StationNO"))
+                {
+                    if (dr_PP_Station == null)
+                    {
+                        _ = _Log.ErrorAsync($"Deferred_Calculation 查無 PP_Station 停止該站延後 NeedId={needID} SimulationId={ctx_SimulationId} Station={ctx_SourceStation} PartNO={ctx_PartNO}", true);
+                        IsErr = false; goto finish;
+                    }
+
+                    #region for GetFinallyDate 前置處裡 目的修改 APS_WorkTimeNote 時間
+                    dr_tmp = db.DB_GetFirstDataByDataRow($"select top 1 * from SoftNetSYSDB.[dbo].[APS_Simulation] where NeedId='{needID}' and Master_PartNO='{ctx_PartNO}' order by SimulationDate desc");
+                    string partNOClass = drClass;
+                    string chg = dr.IsNull("ChangeSimulationClass") ? "" : dr["ChangeSimulationClass"].ToString().Trim();
+                    if (chg != "") { partNOClass = chg; }
+                    int real_NeedQTY = GetEffectiveNeedQTYBySimulation(db, needID, dr["SimulationId"].ToString(), SafeToInt(dr["NeedQTY"])) + SafeToInt(dr["SafeQTY"]) - SafeToInt(dr["Math_TotalStock_HasUseQTY"]) - SafeToInt(dr["Math_Online_SurplusQTY"]);
                     #endregion
                     object stationNO_Merge = null;
                     if (!dr.IsNull("StationNO_Merge")) { stationNO_Merge = dr["StationNO_Merge"]; }
-                    dltime_startDate = GetFinallyDate(args, db, needID, dr["SimulationId"].ToString(), "站", dr["Source_StationNO"].ToString(), dr["PartNO"].ToString(), partNOClass, real_NeedQTY.ToString(), dr_PP_Station["CalendarName"].ToString(), dltime_startDate, int.Parse(dr["Math_UseTime"].ToString()), int.Parse(dr["Math_UseOPCount"].ToString()), stationNO_Merge, ref errINFO, false, false);
-                    if (errINFO != "") { return false; }
-                    db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_WorkTimeNote] SET DOCNumberNO='{dr["DOCNumberNO"].ToString()}' where NeedId='{needID}' and SimulationId='{dr["SimulationId"].ToString()}' and StationNO='{dr["Source_StationNO"].ToString()}'");
 
-                    db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_Simulation] SET StartDate='{startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}',SimulationDate='{dltime_startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}' where SimulationId='{dr["SimulationId"].ToString()}'");
-                    log_list.Add($"StationNO:{dr["Source_StationNO"].ToString()},SimulationId:{dr["SimulationId"].ToString()},StartDate:{startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")},SimulationDate:{dltime_startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}");
+                    int mathUseTime = SafeToInt(dr["Math_UseTime"]);
+                    int mathUseOPCount = SafeToInt(dr["Math_UseOPCount"], 1);
+                    if (mathUseOPCount <= 0) { mathUseOPCount = 1; }
+
+                    string calendarName = dr_PP_Station.IsNull("CalendarName") ? (dr_APS_NeedData.IsNull("CalendarName") ? _Fun.Config.DefaultCalendarName : dr_APS_NeedData["CalendarName"].ToString()) : dr_PP_Station["CalendarName"].ToString();
+
+                    dltime_startDate = GetFinallyDate(args, db, needID, ctx_SimulationId, "站", ctx_SourceStation, ctx_PartNO, partNOClass, real_NeedQTY.ToString(), calendarName, dltime_startDate, mathUseTime, mathUseOPCount, stationNO_Merge, ref errINFO, false, false);
+                    if (errINFO != "")
+                    {
+                        _ = _Log.ErrorAsync($"Deferred_Calculation GetFinallyDate 回傳 err='{errINFO}' NeedId={needID} SimulationId={ctx_SimulationId} Station={ctx_SourceStation} PartNO={ctx_PartNO}", true);
+                        IsErr = false; goto finish;
+                    }
+
+                    string docNo = dr.IsNull("DOCNumberNO") ? "" : dr["DOCNumberNO"].ToString();
+                    db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_WorkTimeNote] SET DOCNumberNO='{docNo}' where NeedId='{needID}' and SimulationId='{ctx_SimulationId}' and StationNO='{ctx_SourceStation}'");
+                    db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_Simulation] SET StartDate='{startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}',SimulationDate='{dltime_startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}' where SimulationId='{ctx_SimulationId}'");
+                    log_list.Add($"StationNO:{ctx_SourceStation},SimulationId:{ctx_SimulationId},StartDate:{startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")},SimulationDate:{dltime_startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}");
                 }
                 else
                 {
                     //###領料起始日ㄝ要改
                     #region 改TotalStockII keep的 ArrivalDate時間 
-                    DataTable dt_tmp03 = db.DB_GetData($@"select * from SoftNetMainDB.[dbo].[TotalStockII] where NeedId='{dr["NeedId"].ToString()}' and SimulationId='{dr["SimulationId"].ToString()}' and KeepQTY!=0 order by ArrivalDate");
+                    string drNeedIdLocal = dr.IsNull("NeedId") ? needID : dr["NeedId"].ToString();
+                    string needCalendar = dr_APS_NeedData.IsNull("CalendarName") ? _Fun.Config.DefaultCalendarName : dr_APS_NeedData["CalendarName"].ToString();
+
+                    DataTable dt_tmp03 = db.DB_GetData($@"select * from SoftNetMainDB.[dbo].[TotalStockII] where NeedId='{drNeedIdLocal}' and SimulationId='{ctx_SimulationId}' and KeepQTY!=0 order by ArrivalDate");
                     if (dt_tmp03 != null && dt_tmp03.Rows.Count > 0)
                     {
                         foreach (DataRow dr3 in dt_tmp03.Rows)
                         {
-                            arrivalDate = TimeCompute2DateTime_BY_ReturnNextShift(db, dr_APS_NeedData["CalendarName"].ToString(), Convert.ToDateTime(dr3["ArrivalDate"]), dltime);
+                            if (dr3.IsNull("ArrivalDate")) { continue; }
+                            arrivalDate = TimeCompute2DateTime_BY_ReturnNextShift(db, needCalendar, Convert.ToDateTime(dr3["ArrivalDate"]), dltime);
                             db.DB_SetData($"update SoftNetMainDB.[dbo].[TotalStockII] SET ArrivalDate='{arrivalDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}' where NeedId='{dr3["NeedId"].ToString()}' and Id='{dr3["Id"].ToString()}' and SimulationId='{dr3["SimulationId"].ToString()}'");
                         }
                     }
-                    db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] SET CalendarDate='{startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}' where PartNO='{dr["PartNO"].ToString()}' and NeedId='{dr["NeedId"].ToString()}' and SimulationId='{dr["SimulationId"].ToString()}'");
-                    db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_Simulation] SET StartDate='{startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}',SimulationDate='{arrivalDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}' where SimulationId='{dr["SimulationId"].ToString()}'");
-                    log_list.Add($"PartNO:{dr["PartNO"]},SimulationId:{dr["SimulationId"].ToString()},StartDate:{startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")},SimulationDate:{arrivalDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}");
+                    db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] SET CalendarDate='{startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}' where PartNO='{ctx_PartNO}' and NeedId='{drNeedIdLocal}' and SimulationId='{ctx_SimulationId}'");
+                    db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_Simulation] SET StartDate='{startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}',SimulationDate='{arrivalDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}' where SimulationId='{ctx_SimulationId}'");
+                    log_list.Add($"PartNO:{ctx_PartNO},SimulationId:{ctx_SimulationId},StartDate:{startDate.ToString("yyyy-MM-dd HH:mm:ss.fff")},SimulationDate:{arrivalDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}");
                     #endregion
-
                 }
             }
             catch (Exception ex)
             {
                 IsErr = false;
-                System.Threading.Tasks.Task task = _Log.ErrorAsync($"SNWebSockeyService.cs Deferred_Calculation {ex.Message} {ex.StackTrace}", true);
-
+                _ = _Log.ErrorAsync($"CommLib.cs Deferred_Calculation 例外 NeedId={needID} SimulationId={ctx_SimulationId} Station={ctx_SourceStation} PartNO={ctx_PartNO} {ex.Message} {ex.StackTrace}", true);
             }
+        finish:
             args.Dispose();
             return IsErr;
+        }
+
+        /// <summary>APS_WorkTimeNote 暫列加列：須依欄位名稱寫入，不可再用序號（表結構含 ServerId/BufferTime 等後，序號會錯位導致空字串寫入 Int 欄）。</summary>
+        private void TmpSimulationWorkTimeNote_AddRow(DataTable dt, string stationNo, DateTime calendarDate, string needId, string simulationId,
+            bool type1, bool type2, bool type3, bool type4,
+            double time1C, double time2C, double time3C, double time4C, double timeTot,
+            int bufferTime,
+            string stationNoMerge)
+        {
+            DataRow r = dt.NewRow();
+            r["StationNO"] = stationNo;
+            r["CalendarDate"] = calendarDate;
+            r["NeedId"] = needId;
+            r["SimulationId"] = simulationId;
+            if (dt.Columns.Contains("ServerId"))
+            {
+                r["ServerId"] = _Fun.Config.ServerId;
+            }
+            r["Type1"] = type1;
+            r["Type2"] = type2;
+            r["Type3"] = type3;
+            r["Type4"] = type4;
+            r["Time1_C"] = time1C;
+            r["Time2_C"] = time2C;
+            r["Time3_C"] = time3C;
+            r["Time4_C"] = time4C;
+            r["Time_TOT"] = timeTot;
+            if (dt.Columns.Contains("DOCNumberNO"))
+            {
+                r["DOCNumberNO"] = "";
+            }
+            r["BufferTime"] = bufferTime;
+            r["Id"] = _Str.NewId('Y');
+            r["StationNO_Merge"] = stationNoMerge ?? "";
+            dt.Rows.Add(r);
+        }
+
+        private static int TmpWorkTimeNote_ParseSecondsInt(DataRow d, string col)
+        {
+            if (d == null || !d.Table.Columns.Contains(col) || d.IsNull(col))
+            {
+                return 0;
+            }
+            string s = d[col].ToString()?.Trim() ?? "";
+            if (s.Length == 0)
+            {
+                return 0;
+            }
+            if (int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out int iv))
+            {
+                return iv;
+            }
+            if (double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out double dv))
+            {
+                return (int)Math.Round(dv);
+            }
+            return 0;
         }
 
         private DateTime TMP_Simulation_APS_WorkTimeNote(DBADO db, string needID, string partSN, int dltime, string simulationId)
@@ -7741,8 +8206,6 @@ namespace Base
                 DataTable dt_SimulationTMP = dttmp;
                 DataRow dr_PP_Station = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[PP_Station] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dt_tmp.Rows[0]["Source_StationNO"]}'");
                 intime = TimeCompute2DateTime_BY_ReturnNextShift(db, dr_PP_Station["CalendarName"].ToString(), Convert.ToDateTime(dt_tmp.Rows[0]["StartDate"]), dltime);
-                DataRow workTime_TMP = null;
-                bool fristRUN = false;
                 bool IsARGs10 = false;
                 foreach (DataRow dr_TMP in dt_tmp.Rows)
                 {
@@ -7861,7 +8324,7 @@ namespace Base
                                 {
                                     foreach (DataRow d in dr_WorkTimeNote)
                                     {
-                                        TOT += int.Parse(d["Time1_C"].ToString());
+                                        TOT += TmpWorkTimeNote_ParseSecondsInt(d, "Time1_C");
                                     }
                                 }
                                 if (TOT > 0)
@@ -7872,15 +8335,11 @@ namespace Base
                                         if (times >= Math.Abs((typeTotalTime - TOT)))
                                         {
                                             times -= Math.Abs((typeTotalTime - TOT));
-                                            workTime_TMP = dt_SimulationTMP.NewRow();
-                                            workTime_TMP[0] = staionNO; workTime_TMP[1] = intime.ToString("yyyy-MM-dd HH:mm:ss.fff"); workTime_TMP[2] = needID; ; workTime_TMP[3] = dr_TMP["SimulationId"].ToString(); workTime_TMP[4] = true; workTime_TMP[5] = false; workTime_TMP[6] = false; workTime_TMP[7] = false; workTime_TMP[8] = Math.Abs((typeTotalTime - TOT)); workTime_TMP[9] = 0; workTime_TMP[10] = 0; workTime_TMP[11] = 0; ; workTime_TMP[12] = ""; workTime_TMP[13] = 0; workTime_TMP[14] = _Str.NewId('Y'); workTime_TMP[15] = dr_TMP["StationNO_Merge"].ToString();
-                                            dt_SimulationTMP.Rows.Add(workTime_TMP);
+                                            TmpSimulationWorkTimeNote_AddRow(dt_SimulationTMP, staionNO, intime, needID, dr_TMP["SimulationId"].ToString(), true, false, false, false, Math.Abs((typeTotalTime - TOT)), 0, 0, 0, 0, 0, dr_TMP["StationNO_Merge"]?.ToString() ?? "");
                                         }
                                         else
                                         {
-                                            workTime_TMP = dt_SimulationTMP.NewRow();
-                                            workTime_TMP[0] = staionNO; workTime_TMP[1] = intime.ToString("yyyy-MM-dd HH:mm:ss.fff"); workTime_TMP[2] = needID; ; workTime_TMP[3] = dr_TMP["SimulationId"].ToString(); workTime_TMP[4] = true; workTime_TMP[5] = false; workTime_TMP[6] = false; workTime_TMP[7] = false; workTime_TMP[8] = times; workTime_TMP[9] = 0; workTime_TMP[10] = 0; workTime_TMP[11] = 0; ; workTime_TMP[12] = ""; workTime_TMP[13] = 0; workTime_TMP[14] = _Str.NewId('Y'); workTime_TMP[15] = dr_TMP["StationNO_Merge"].ToString();
-                                            dt_SimulationTMP.Rows.Add(workTime_TMP);
+                                            TmpSimulationWorkTimeNote_AddRow(dt_SimulationTMP, staionNO, intime, needID, dr_TMP["SimulationId"].ToString(), true, false, false, false, times, 0, 0, 0, 0, 0, dr_TMP["StationNO_Merge"]?.ToString() ?? "");
                                             intime = intime.AddSeconds((Math.Abs(times) + 60));
                                             break;
                                         }
@@ -7893,15 +8352,11 @@ namespace Base
                                     if (times >= typeTotalTime)
                                     {
                                         times -= typeTotalTime;
-                                        workTime_TMP = dt_SimulationTMP.NewRow();
-                                        workTime_TMP[0] = staionNO; workTime_TMP[1] = intime.ToString("yyyy-MM-dd HH:mm:ss.fff"); workTime_TMP[2] = needID; ; workTime_TMP[3] = dr_TMP["SimulationId"].ToString(); workTime_TMP[4] = true; workTime_TMP[5] = false; workTime_TMP[6] = false; workTime_TMP[7] = false; workTime_TMP[8] = times; workTime_TMP[9] = 0; workTime_TMP[10] = 0; workTime_TMP[11] = 0; ; workTime_TMP[12] = ""; workTime_TMP[13] = 0; workTime_TMP[14] = _Str.NewId('Y'); workTime_TMP[15] = dr_TMP["StationNO_Merge"].ToString();
-                                        dt_SimulationTMP.Rows.Add(workTime_TMP);
+                                        TmpSimulationWorkTimeNote_AddRow(dt_SimulationTMP, staionNO, intime, needID, dr_TMP["SimulationId"].ToString(), true, false, false, false, times, 0, 0, 0, 0, 0, dr_TMP["StationNO_Merge"]?.ToString() ?? "");
                                     }
                                     else
                                     {
-                                        workTime_TMP = dt_SimulationTMP.NewRow();
-                                        workTime_TMP[0] = staionNO; workTime_TMP[1] = intime.ToString("yyyy-MM-dd HH:mm:ss.fff"); workTime_TMP[2] = needID; ; workTime_TMP[3] = dr_TMP["SimulationId"].ToString(); workTime_TMP[4] = true; workTime_TMP[5] = false; workTime_TMP[6] = false; workTime_TMP[7] = false; workTime_TMP[8] = times; workTime_TMP[9] = 0; workTime_TMP[10] = 0; workTime_TMP[11] = 0; ; workTime_TMP[12] = ""; workTime_TMP[13] = 0; workTime_TMP[14] = _Str.NewId('Y'); workTime_TMP[15] = dr_TMP["StationNO_Merge"].ToString();
-                                        dt_SimulationTMP.Rows.Add(workTime_TMP);
+                                        TmpSimulationWorkTimeNote_AddRow(dt_SimulationTMP, staionNO, intime, needID, dr_TMP["SimulationId"].ToString(), true, false, false, false, times, 0, 0, 0, 0, 0, dr_TMP["StationNO_Merge"]?.ToString() ?? "");
 
                                         intime = intime.AddSeconds((Math.Abs(times) + 60));
                                         break;
@@ -7991,7 +8446,7 @@ namespace Base
                                 {
                                     foreach (DataRow d in dr_WorkTimeNote)
                                     {
-                                        TOT += int.Parse(d["Time2_C"].ToString());
+                                        TOT += TmpWorkTimeNote_ParseSecondsInt(d, "Time2_C");
                                     }
                                 }
                                 if (TOT > 0)
@@ -8002,15 +8457,11 @@ namespace Base
                                         if (times >= Math.Abs((typeTotalTime - TOT)))
                                         {
                                             times -= Math.Abs((typeTotalTime - TOT));
-                                            workTime_TMP = dt_SimulationTMP.NewRow();
-                                            workTime_TMP[0] = staionNO; workTime_TMP[1] = intime.ToString("yyyy-MM-dd HH:mm:ss.fff"); workTime_TMP[2] = needID; ; workTime_TMP[3] = dr_TMP["SimulationId"].ToString(); workTime_TMP[4] = false; workTime_TMP[5] = true; workTime_TMP[6] = false; workTime_TMP[7] = false; workTime_TMP[9] = Math.Abs((typeTotalTime - TOT)); workTime_TMP[8] = 0; workTime_TMP[10] = 0; workTime_TMP[11] = 0; ; workTime_TMP[12] = ""; workTime_TMP[13] = 0; workTime_TMP[14] = _Str.NewId('Y'); workTime_TMP[15] = dr_TMP["StationNO_Merge"].ToString();
-                                            dt_SimulationTMP.Rows.Add(workTime_TMP);
+                                            TmpSimulationWorkTimeNote_AddRow(dt_SimulationTMP, staionNO, intime, needID, dr_TMP["SimulationId"].ToString(), false, true, false, false, 0, Math.Abs((typeTotalTime - TOT)), 0, 0, 0, 0, dr_TMP["StationNO_Merge"]?.ToString() ?? "");
                                         }
                                         else
                                         {
-                                            workTime_TMP = dt_SimulationTMP.NewRow();
-                                            workTime_TMP[0] = staionNO; workTime_TMP[1] = intime.ToString("yyyy-MM-dd HH:mm:ss.fff"); workTime_TMP[2] = needID; ; workTime_TMP[3] = dr_TMP["SimulationId"].ToString(); workTime_TMP[4] = false; workTime_TMP[5] = true; workTime_TMP[6] = false; workTime_TMP[7] = false; workTime_TMP[9] = times; workTime_TMP[8] = 0; workTime_TMP[10] = 0; workTime_TMP[11] = 0; ; workTime_TMP[12] = ""; workTime_TMP[13] = 0; workTime_TMP[14] = _Str.NewId('Y'); workTime_TMP[15] = dr_TMP["StationNO_Merge"].ToString();
-                                            dt_SimulationTMP.Rows.Add(workTime_TMP);
+                                            TmpSimulationWorkTimeNote_AddRow(dt_SimulationTMP, staionNO, intime, needID, dr_TMP["SimulationId"].ToString(), false, true, false, false, 0, times, 0, 0, 0, 0, dr_TMP["StationNO_Merge"]?.ToString() ?? "");
                                             intime = intime.AddSeconds((Math.Abs(times) + 60));
                                             break;
                                         }
@@ -8023,15 +8474,11 @@ namespace Base
                                     if (times >= typeTotalTime)
                                     {
                                         times -= typeTotalTime;
-                                        workTime_TMP = dt_SimulationTMP.NewRow();
-                                        workTime_TMP[0] = staionNO; workTime_TMP[1] = intime.ToString("yyyy-MM-dd HH:mm:ss.fff"); workTime_TMP[2] = needID; ; workTime_TMP[3] = dr_TMP["SimulationId"].ToString(); workTime_TMP[4] = false; workTime_TMP[5] = true; workTime_TMP[6] = false; workTime_TMP[7] = false; workTime_TMP[9] = typeTotalTime; workTime_TMP[8] = 0; workTime_TMP[10] = 0; workTime_TMP[11] = 0; ; workTime_TMP[12] = ""; workTime_TMP[13] = 0; workTime_TMP[14] = _Str.NewId('Y'); workTime_TMP[15] = dr_TMP["StationNO_Merge"].ToString();
-                                        dt_SimulationTMP.Rows.Add(workTime_TMP);
+                                        TmpSimulationWorkTimeNote_AddRow(dt_SimulationTMP, staionNO, intime, needID, dr_TMP["SimulationId"].ToString(), false, true, false, false, 0, times, 0, 0, 0, 0, dr_TMP["StationNO_Merge"]?.ToString() ?? "");
                                     }
                                     else
                                     {
-                                        workTime_TMP = dt_SimulationTMP.NewRow();
-                                        workTime_TMP[0] = staionNO; workTime_TMP[1] = intime.ToString("yyyy-MM-dd HH:mm:ss.fff"); workTime_TMP[2] = needID; ; workTime_TMP[3] = dr_TMP["SimulationId"].ToString(); workTime_TMP[4] = false; workTime_TMP[5] = true; workTime_TMP[6] = false; workTime_TMP[7] = false; workTime_TMP[9] = times; workTime_TMP[8] = 0; workTime_TMP[10] = 0; workTime_TMP[11] = 0; ; workTime_TMP[12] = ""; workTime_TMP[13] = 0; workTime_TMP[14] = _Str.NewId('Y'); workTime_TMP[15] = dr_TMP["StationNO_Merge"].ToString();
-                                        dt_SimulationTMP.Rows.Add(workTime_TMP);
+                                        TmpSimulationWorkTimeNote_AddRow(dt_SimulationTMP, staionNO, intime, needID, dr_TMP["SimulationId"].ToString(), false, true, false, false, 0, times, 0, 0, 0, 0, dr_TMP["StationNO_Merge"]?.ToString() ?? "");
 
                                         intime = intime.AddSeconds((Math.Abs(times) + 60));
                                         break;
@@ -8125,7 +8572,7 @@ namespace Base
                                 {
                                     foreach (DataRow d in dr_WorkTimeNote)
                                     {
-                                        TOT += int.Parse(d["Time3_C"].ToString());
+                                        TOT += TmpWorkTimeNote_ParseSecondsInt(d, "Time3_C");
                                     }
                                 }
                                 if (TOT > 0)
@@ -8136,15 +8583,11 @@ namespace Base
                                         if (times >= Math.Abs((typeTotalTime - TOT)))
                                         {
                                             times -= Math.Abs((typeTotalTime - TOT));
-                                            workTime_TMP = dt_SimulationTMP.NewRow();
-                                            workTime_TMP[0] = staionNO; workTime_TMP[1] = intime.ToString("yyyy-MM-dd HH:mm:ss.fff"); workTime_TMP[2] = needID; ; workTime_TMP[3] = dr_TMP["SimulationId"].ToString(); workTime_TMP[4] = false; workTime_TMP[5] = false; workTime_TMP[6] = true; workTime_TMP[7] = false; workTime_TMP[10] = Math.Abs((typeTotalTime - TOT)); workTime_TMP[8] = 0; workTime_TMP[9] = 0; workTime_TMP[11] = 0; ; workTime_TMP[12] = ""; workTime_TMP[13] = 0; workTime_TMP[14] = _Str.NewId('Y'); workTime_TMP[15] = dr_TMP["StationNO_Merge"].ToString();
-                                            dt_SimulationTMP.Rows.Add(workTime_TMP);
+                                            TmpSimulationWorkTimeNote_AddRow(dt_SimulationTMP, staionNO, intime, needID, dr_TMP["SimulationId"].ToString(), false, false, true, false, 0, 0, Math.Abs((typeTotalTime - TOT)), 0, 0, 0, dr_TMP["StationNO_Merge"]?.ToString() ?? "");
                                         }
                                         else
                                         {
-                                            workTime_TMP = dt_SimulationTMP.NewRow();
-                                            workTime_TMP[0] = staionNO; workTime_TMP[1] = intime.ToString("yyyy-MM-dd HH:mm:ss.fff"); workTime_TMP[2] = needID; ; workTime_TMP[3] = dr_TMP["SimulationId"].ToString(); workTime_TMP[4] = false; workTime_TMP[5] = false; workTime_TMP[6] = true; workTime_TMP[7] = false; workTime_TMP[10] = times; workTime_TMP[8] = 0; workTime_TMP[9] = 0; workTime_TMP[11] = 0; ; workTime_TMP[12] = ""; workTime_TMP[13] = 0; workTime_TMP[14] = _Str.NewId('Y'); workTime_TMP[15] = dr_TMP["StationNO_Merge"].ToString();
-                                            dt_SimulationTMP.Rows.Add(workTime_TMP);
+                                            TmpSimulationWorkTimeNote_AddRow(dt_SimulationTMP, staionNO, intime, needID, dr_TMP["SimulationId"].ToString(), false, false, true, false, 0, 0, times, 0, 0, 0, dr_TMP["StationNO_Merge"]?.ToString() ?? "");
                                             intime = intime.AddSeconds((Math.Abs(times) + 60));
                                             break;
                                         }
@@ -8157,15 +8600,11 @@ namespace Base
                                     if (times >= typeTotalTime)
                                     {
                                         times -= typeTotalTime;
-                                        workTime_TMP = dt_SimulationTMP.NewRow();
-                                        workTime_TMP[0] = staionNO; workTime_TMP[1] = intime.ToString("yyyy-MM-dd HH:mm:ss.fff"); workTime_TMP[2] = needID; ; workTime_TMP[3] = dr_TMP["SimulationId"].ToString(); workTime_TMP[4] = false; workTime_TMP[5] = false; workTime_TMP[6] = true; workTime_TMP[7] = false; workTime_TMP[10] = typeTotalTime; workTime_TMP[8] = 0; workTime_TMP[9] = 0; workTime_TMP[11] = 0; ; workTime_TMP[12] = ""; workTime_TMP[13] = 0; workTime_TMP[14] = _Str.NewId('Y'); workTime_TMP[15] = dr_TMP["StationNO_Merge"].ToString();
-                                        dt_SimulationTMP.Rows.Add(workTime_TMP);
+                                        TmpSimulationWorkTimeNote_AddRow(dt_SimulationTMP, staionNO, intime, needID, dr_TMP["SimulationId"].ToString(), false, false, true, false, 0, 0, times, 0, 0, 0, dr_TMP["StationNO_Merge"]?.ToString() ?? "");
                                     }
                                     else
                                     {
-                                        workTime_TMP = dt_SimulationTMP.NewRow();
-                                        workTime_TMP[0] = staionNO; workTime_TMP[1] = intime.ToString("yyyy-MM-dd HH:mm:ss.fff"); workTime_TMP[2] = needID; ; workTime_TMP[3] = dr_TMP["SimulationId"].ToString(); workTime_TMP[4] = false; workTime_TMP[5] = false; workTime_TMP[6] = true; workTime_TMP[7] = false; workTime_TMP[10] = times; workTime_TMP[8] = 0; workTime_TMP[9] = 0; workTime_TMP[11] = 0; ; workTime_TMP[12] = ""; workTime_TMP[13] = 0; workTime_TMP[14] = _Str.NewId('Y'); workTime_TMP[15] = dr_TMP["StationNO_Merge"].ToString();
-                                        dt_SimulationTMP.Rows.Add(workTime_TMP);
+                                        TmpSimulationWorkTimeNote_AddRow(dt_SimulationTMP, staionNO, intime, needID, dr_TMP["SimulationId"].ToString(), false, false, true, false, 0, 0, times, 0, 0, 0, dr_TMP["StationNO_Merge"]?.ToString() ?? "");
 
                                         intime = intime.AddSeconds((Math.Abs(times) + 60));
                                         break;
@@ -8270,7 +8709,7 @@ namespace Base
                                 {
                                     foreach (DataRow d in dr_WorkTimeNote)
                                     {
-                                        TOT += int.Parse(d["Time4_C"].ToString());
+                                        TOT += TmpWorkTimeNote_ParseSecondsInt(d, "Time4_C");
                                     }
                                 }
                                 if (TOT > 0)
@@ -8281,15 +8720,11 @@ namespace Base
                                         if (times >= Math.Abs((typeTotalTime - TOT)))
                                         {
                                             times -= Math.Abs((typeTotalTime - TOT));
-                                            workTime_TMP = dt_SimulationTMP.NewRow();
-                                            workTime_TMP[0] = staionNO; workTime_TMP[1] = intime.ToString("yyyy-MM-dd HH:mm:ss.fff"); workTime_TMP[2] = needID; ; workTime_TMP[3] = dr_TMP["SimulationId"].ToString(); workTime_TMP[4] = false; workTime_TMP[5] = false; workTime_TMP[6] = false; workTime_TMP[7] = true; workTime_TMP[11] = Math.Abs((typeTotalTime - TOT)); workTime_TMP[8] = 0; workTime_TMP[9] = 0; workTime_TMP[10] = 0; ; workTime_TMP[12] = ""; workTime_TMP[13] = 0; workTime_TMP[14] = _Str.NewId('Y'); workTime_TMP[15] = dr_TMP["StationNO_Merge"].ToString();
-                                            dt_SimulationTMP.Rows.Add(workTime_TMP);
+                                            TmpSimulationWorkTimeNote_AddRow(dt_SimulationTMP, staionNO, intime, needID, dr_TMP["SimulationId"].ToString(), false, false, false, true, 0, 0, 0, Math.Abs((typeTotalTime - TOT)), 0, 0, dr_TMP["StationNO_Merge"]?.ToString() ?? "");
                                         }
                                         else
                                         {
-                                            workTime_TMP = dt_SimulationTMP.NewRow();
-                                            workTime_TMP[0] = staionNO; workTime_TMP[1] = intime.ToString("yyyy-MM-dd HH:mm:ss.fff"); workTime_TMP[2] = needID; ; workTime_TMP[3] = dr_TMP["SimulationId"].ToString(); workTime_TMP[4] = false; workTime_TMP[5] = false; workTime_TMP[6] = false; workTime_TMP[7] = true; workTime_TMP[11] = times; workTime_TMP[8] = 0; workTime_TMP[9] = 0; workTime_TMP[10] = 0; ; workTime_TMP[12] = ""; workTime_TMP[13] = 0; workTime_TMP[14] = _Str.NewId('Y'); workTime_TMP[15] = dr_TMP["StationNO_Merge"].ToString();
-                                            dt_SimulationTMP.Rows.Add(workTime_TMP);
+                                            TmpSimulationWorkTimeNote_AddRow(dt_SimulationTMP, staionNO, intime, needID, dr_TMP["SimulationId"].ToString(), false, false, false, true, 0, 0, 0, times, 0, 0, dr_TMP["StationNO_Merge"]?.ToString() ?? "");
                                             intime = intime.AddSeconds((Math.Abs(times) + 60));
                                             break;
                                         }
@@ -8302,15 +8737,11 @@ namespace Base
                                     if (times >= typeTotalTime)
                                     {
                                         times -= typeTotalTime;
-                                        workTime_TMP = dt_SimulationTMP.NewRow();
-                                        workTime_TMP[0] = staionNO; workTime_TMP[1] = intime.ToString("yyyy-MM-dd HH:mm:ss.fff"); workTime_TMP[2] = needID; ; workTime_TMP[3] = dr_TMP["SimulationId"].ToString(); workTime_TMP[4] = false; workTime_TMP[5] = false; workTime_TMP[6] = false; workTime_TMP[7] = true; workTime_TMP[11] = typeTotalTime; workTime_TMP[8] = 0; workTime_TMP[9] = 0; workTime_TMP[10] = 0; ; workTime_TMP[12] = ""; workTime_TMP[13] = 0; workTime_TMP[14] = _Str.NewId('Y'); workTime_TMP[15] = dr_TMP["StationNO_Merge"].ToString();
-                                        dt_SimulationTMP.Rows.Add(workTime_TMP);
+                                        TmpSimulationWorkTimeNote_AddRow(dt_SimulationTMP, staionNO, intime, needID, dr_TMP["SimulationId"].ToString(), false, false, false, true, 0, 0, 0, times, 0, 0, dr_TMP["StationNO_Merge"]?.ToString() ?? "");
                                     }
                                     else
                                     {
-                                        workTime_TMP = dt_SimulationTMP.NewRow();
-                                        workTime_TMP[0] = staionNO; workTime_TMP[1] = intime.ToString("yyyy-MM-dd HH:mm:ss.fff"); workTime_TMP[2] = needID; ; workTime_TMP[3] = dr_TMP["SimulationId"].ToString(); workTime_TMP[4] = false; workTime_TMP[5] = false; workTime_TMP[6] = false; workTime_TMP[7] = true; workTime_TMP[11] = times; workTime_TMP[8] = 0; workTime_TMP[9] = 0; workTime_TMP[10] = 0; ; workTime_TMP[12] = ""; workTime_TMP[13] = 0; workTime_TMP[14] = _Str.NewId('Y'); workTime_TMP[15] = dr_TMP["StationNO_Merge"].ToString();
-                                        dt_SimulationTMP.Rows.Add(workTime_TMP);
+                                        TmpSimulationWorkTimeNote_AddRow(dt_SimulationTMP, staionNO, intime, needID, dr_TMP["SimulationId"].ToString(), false, false, false, true, 0, 0, 0, times, 0, 0, dr_TMP["StationNO_Merge"]?.ToString() ?? "");
 
                                         intime = intime.AddSeconds((Math.Abs(times) + 60));
                                         break;
@@ -8329,8 +8760,132 @@ namespace Base
 
 
 
+        /// <summary>
+        /// 為 GetFinallyDate 建立預設行事曆 Fallback：週一至五 08:00-17:00（中午 12:00-13:00 休息）。
+        /// 當 PP_HolidayCalendar 查無資料時使用，避免整段排程直接失敗。產出欄位與實表一致。
+        /// </summary>
+        private DataTable BuildDefaultHolidayCalendarFallback(DateTime fromDate, int days)
+        {
+            DataTable dt = new DataTable();
+            dt.Columns.Add("Holiday", typeof(DateTime));
+            dt.Columns.Add("Flag_Morning", typeof(bool));
+            dt.Columns.Add("Shift_Morning", typeof(string));
+            dt.Columns.Add("Flag_Afternoon", typeof(bool));
+            dt.Columns.Add("Shift_Afternoon", typeof(string));
+            dt.Columns.Add("Flag_Night", typeof(bool));
+            dt.Columns.Add("Shift_Night", typeof(string));
+            dt.Columns.Add("Flag_Graveyard", typeof(bool));
+            dt.Columns.Add("Shift_Graveyard", typeof(string));
+
+            DateTime d = fromDate.Date;
+            int added = 0;
+            int maxScan = days * 2 + 14;
+            for (int i = 0; i < maxScan && added < days; ++i)
+            {
+                DayOfWeek dow = d.DayOfWeek;
+                if (dow != DayOfWeek.Saturday && dow != DayOfWeek.Sunday)
+                {
+                    DataRow r = dt.NewRow();
+                    r["Holiday"] = d;
+                    r["Flag_Morning"] = true;
+                    r["Shift_Morning"] = "08:00,12:00,13:00,17:00";
+                    r["Flag_Afternoon"] = false;
+                    r["Shift_Afternoon"] = "13:00,17:00,13:00,17:00";
+                    r["Flag_Night"] = false;
+                    r["Shift_Night"] = "17:00,22:00,17:00,22:00";
+                    r["Flag_Graveyard"] = false;
+                    r["Shift_Graveyard"] = "22:00,06:00,22:00,06:00";
+                    dt.Rows.Add(r);
+                    added++;
+                }
+                d = d.AddDays(1);
+            }
+            return dt;
+        }
+
+        /// <summary>
+        /// 安全寫入 APS_WorkTimeNote，失敗僅記 Log、不中斷排程。避免單筆 INSERT 失敗導致整段 Deferred_Calculation false 回傳。
+        /// </summary>
+        private bool InsertAPS_WorkTimeNoteSafe(DBADO db, string sql, string needId, string simulationId, string stationNO, DateTime intime)
+        {
+            try
+            {
+                if (db.DB_SetData(sql)) { return true; }
+                _ = _Log.ErrorAsync($"GetFinallyDate APS_WorkTimeNote 寫入失敗(略過繼續) NeedId={needId} SimulationId={simulationId} Station={stationNO} Date={intime:yyyy-MM-dd HH:mm:ss.fff}", false);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _ = _Log.ErrorAsync($"GetFinallyDate APS_WorkTimeNote 寫入例外(略過繼續) NeedId={needId} SimulationId={simulationId} Station={stationNO} Date={intime:yyyy-MM-dd HH:mm:ss.fff} {ex.Message}", false);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 於單次排程運算中快取 PP_Station 查詢：避免多層 foreach 內以相同 StationNO 重複查 DB（效能優化）。
+        /// </summary>
+        private DataRow GetPPStationCached(DBADO db, string stationNO, Dictionary<string, DataRow> cache)
+        {
+            if (string.IsNullOrEmpty(stationNO)) return null;
+            if (cache == null) return db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[PP_Station] where ServerId='{_Fun.Config.ServerId}' and StationNO='{stationNO}'");
+            if (!cache.TryGetValue(stationNO, out var dr))
+            {
+                dr = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[PP_Station] where ServerId='{_Fun.Config.ServerId}' and StationNO='{stationNO}'");
+                cache[stationNO] = dr;
+            }
+            return dr;
+        }
+
+        /// <summary>物件安全轉整數，NULL、空字串、非數字皆回 fallback，避免 int.Parse 拋例外。</summary>
+        private static int SafeToInt(object v, int fallback = 0)
+        {
+            if (v == null || v == DBNull.Value) return fallback;
+            string s = v.ToString()?.Trim() ?? "";
+            if (s.Length == 0) return fallback;
+            if (int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out int iv)) return iv;
+            if (double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out double dv)) return (int)Math.Round(dv);
+            return fallback;
+        }
+
+        /// <summary>
+        /// 合併查詢 APS_WorkTimeNote 於指定工站、指定日期下 Time1_C~Time4_C 的四段班別加總，並以 (StationNO,Date) 為 Key 做快取。
+        /// 改採 sargable 範圍查詢（避免 CONVERT 在 WHERE 阻斷索引），並以單一查詢取代原本的 4 次 SUM 查詢。
+        /// </summary>
+        private int GetAPS_WorkTimeNoteShiftSumSeconds(DBADO db, string stationNO, DateTime date, int shiftIndex, Dictionary<string, int[]> cache)
+        {
+            if (shiftIndex < 1 || shiftIndex > 4) return 0;
+            string key = stationNO + "|" + date.ToString("yyyy-MM-dd");
+            if (!cache.TryGetValue(key, out int[] arr))
+            {
+                arr = new int[4];
+                try
+                {
+                    string d0 = date.ToString("yyyy-MM-dd");
+                    string d1 = date.AddDays(1).ToString("yyyy-MM-dd");
+                    string sql = $@"SELECT ISNULL(SUM(Time1_C),0) AS T1, ISNULL(SUM(Time2_C),0) AS T2, ISNULL(SUM(Time3_C),0) AS T3, ISNULL(SUM(Time4_C),0) AS T4
+                                    FROM SoftNetSYSDB.[dbo].[APS_WorkTimeNote]
+                                    WHERE StationNO='{stationNO}' AND CalendarDate>='{d0}' AND CalendarDate<'{d1}'";
+                    DataRow dr = db.DB_GetFirstDataByDataRow(sql);
+                    if (dr != null)
+                    {
+                        arr[0] = SafeToInt(dr["T1"]);
+                        arr[1] = SafeToInt(dr["T2"]);
+                        arr[2] = SafeToInt(dr["T3"]);
+                        arr[3] = SafeToInt(dr["T4"]);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _ = _Log.ErrorAsync($"GetAPS_WorkTimeNoteShiftSumSeconds 查詢例外 Station={stationNO} Date={date:yyyy-MM-dd} {ex.Message}", false);
+                }
+                cache[key] = arr;
+            }
+            return arr[shiftIndex - 1];
+        }
+
         public DateTime GetFinallyDate(RunSimulation_Arg args, DBADO db, string needId, string simulationId, string mathType, string staionNO, string partNO, string partClass, string needQTY, string calendarName, DateTime intime, int times, int op_Count, object StationNO_Merge, ref string err, bool IsARGs10 = false, bool IsRUN_insert_APS_PartNOTimeNote = true)
         {
+            var shiftSumCache = new Dictionary<string, int[]>(StringComparer.Ordinal);
             if (mathType == "站")
             {
                 if (staionNO == "A01" || staionNO == "A02")
@@ -8363,7 +8918,13 @@ namespace Base
 
             if (times <= 0) { return intime.AddSeconds(60); }
             DataTable dt = db.DB_GetData($"select * from SoftNetSYSDB.[dbo].PP_HolidayCalendar where ServerId='{_Fun.Config.ServerId}' and CalendarName='{calendarName}' and Holiday>='{intime.ToString("yyyy-MM-dd")}' order by Holiday");
-            if (dt == null || dt.Rows.Count <= 0) { err = "行事曆日期不足計算."; goto break_FUN; }
+            if (dt == null || dt.Rows.Count <= 0)
+            {
+                int needDays = Math.Max(30, (times / (8 * 3600)) + 14);
+                if (needDays > 365) needDays = 365;
+                dt = BuildDefaultHolidayCalendarFallback(intime, needDays);
+                _ = _Log.ErrorAsync($"GetFinallyDate 行事曆查無資料，啟用預設週一至五 08:00-17:00 Fallback CalendarName='{calendarName}' From={intime:yyyy-MM-dd} Days={needDays} NeedId={needId} SimulationId={simulationId}", false);
+            }
             DateTime etime1 = DateTime.Now;
             DateTime etime2 = DateTime.Now;
             DateTime stime1 = DateTime.Now;
@@ -8408,7 +8969,6 @@ namespace Base
                         }
                     }
                     #endregion
-                    DataRow dr_WorkTimeNote = null;
 
                     //###???若以下 有改 則 APSViewController 的 TMP_Simulation_APS_WorkTimeNote ㄝ要改
 
@@ -8485,14 +9045,14 @@ namespace Base
                                 if (op_Count > 1) { typeTotalTime *= op_Count; }
                                 #endregion
 
-                                dr_WorkTimeNote = db.DB_GetFirstDataByDataRow($"select sum(Time1_C) as TOT from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where CONVERT(varchar(10), CalendarDate, 23)='{intime.ToString("yyyy-MM-dd")}' and StationNO='{staionNO}'");
-                                if (dr_WorkTimeNote != null && !dr_WorkTimeNote.IsNull("TOT") && int.Parse(dr_WorkTimeNote["TOT"].ToString()) > 0)
+                                int shiftUsedTOT = GetAPS_WorkTimeNoteShiftSumSeconds(db, staionNO, intime, 1, shiftSumCache);
+                                if (shiftUsedTOT > 0)
                                 {
                                     #region 已有其他排程, 與其他合計
-                                    if (int.Parse(dr_WorkTimeNote["TOT"].ToString()) < typeTotalTime)
+                                    if (shiftUsedTOT < typeTotalTime)
                                     {
-                                        intime = intime.AddSeconds(int.Parse(dr_WorkTimeNote["TOT"].ToString()));
-                                        int tmp_time = typeTotalTime - int.Parse(dr_WorkTimeNote["TOT"].ToString());
+                                        intime = intime.AddSeconds(shiftUsedTOT);
+                                        int tmp_time = typeTotalTime - shiftUsedTOT;
                                         if (times >= tmp_time)
                                         {
                                             times -= tmp_time;
@@ -8503,7 +9063,7 @@ namespace Base
                                             }
                                             else
                                             {
-                                                err = $"WorkTimeNote寫入失敗."; goto break_FUN;
+                                                _ = _Log.ErrorAsync($"GetFinallyDate APS_WorkTimeNote 寫入失敗(略過繼續) NeedId={needId} SimulationId={simulationId} Station={staionNO} Date={intime:yyyy-MM-dd HH:mm:ss.fff}", false);
                                             }
                                         }
                                         else
@@ -8519,7 +9079,7 @@ namespace Base
                                             }
                                             else
                                             {
-                                                err = $"WorkTimeNote寫入失敗."; goto break_FUN;
+                                                _ = _Log.ErrorAsync($"GetFinallyDate APS_WorkTimeNote 寫入失敗(略過繼續) NeedId={needId} SimulationId={simulationId} Station={staionNO} Date={intime:yyyy-MM-dd HH:mm:ss.fff}", false);
                                             }
                                             if (intime.AddSeconds(times) > finish_MAX_intime) { finish_MAX_intime = intime.AddSeconds(times); }
                                             times = 0;
@@ -8545,7 +9105,7 @@ namespace Base
                                         }
                                         else
                                         {
-                                            err = $"WorkTimeNote寫入失敗."; goto break_FUN;
+                                            _ = _Log.ErrorAsync($"GetFinallyDate APS_WorkTimeNote 寫入失敗(略過繼續) NeedId={needId} SimulationId={simulationId} Station={staionNO} Date={intime:yyyy-MM-dd HH:mm:ss.fff}", false);
                                         }
                                     }
                                     else
@@ -8561,7 +9121,7 @@ namespace Base
                                         }
                                         else
                                         {
-                                            err = $"WorkTimeNote寫入失敗."; goto break_FUN;
+                                            _ = _Log.ErrorAsync($"GetFinallyDate APS_WorkTimeNote 寫入失敗(略過繼續) NeedId={needId} SimulationId={simulationId} Station={staionNO} Date={intime:yyyy-MM-dd HH:mm:ss.fff}", false);
                                         }
                                         if (intime.AddSeconds(times) > finish_MAX_intime) { finish_MAX_intime = intime.AddSeconds(times); }
                                         times = 0;
@@ -8663,14 +9223,14 @@ namespace Base
                                 if (op_Count > 1) { typeTotalTime *= op_Count; }
                                 #endregion
 
-                                dr_WorkTimeNote = db.DB_GetFirstDataByDataRow($"select sum(Time2_C) as TOT from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where StationNO='{staionNO}' and CONVERT(varchar(10), CalendarDate, 23)='{intime.ToString("yyyy-MM-dd")}'");
-                                if (dr_WorkTimeNote != null && !dr_WorkTimeNote.IsNull("TOT") && int.Parse(dr_WorkTimeNote["TOT"].ToString()) > 0)
+                                int shiftUsedTOT = GetAPS_WorkTimeNoteShiftSumSeconds(db, staionNO, intime, 2, shiftSumCache);
+                                if (shiftUsedTOT > 0)
                                 {
                                     #region 已有其他排程, 與其他合計
-                                    if (int.Parse(dr_WorkTimeNote["TOT"].ToString()) < typeTotalTime)
+                                    if (shiftUsedTOT < typeTotalTime)
                                     {
-                                        intime = intime.AddSeconds(int.Parse(dr_WorkTimeNote["TOT"].ToString()));
-                                        int tmp_time = typeTotalTime - int.Parse(dr_WorkTimeNote["TOT"].ToString());
+                                        intime = intime.AddSeconds(shiftUsedTOT);
+                                        int tmp_time = typeTotalTime - shiftUsedTOT;
                                         if (times >= tmp_time)
                                         {
                                             times -= tmp_time;
@@ -8685,7 +9245,7 @@ namespace Base
                                             }
                                             else
                                             {
-                                                err = $"WorkTimeNote寫入失敗."; goto break_FUN;
+                                                _ = _Log.ErrorAsync($"GetFinallyDate APS_WorkTimeNote 寫入失敗(略過繼續) NeedId={needId} SimulationId={simulationId} Station={staionNO} Date={intime:yyyy-MM-dd HH:mm:ss.fff}", false);
                                             }
                                         }
                                         else
@@ -8697,7 +9257,7 @@ namespace Base
                                             }
                                             else
                                             {
-                                                err = $"WorkTimeNote寫入失敗."; goto break_FUN;
+                                                _ = _Log.ErrorAsync($"GetFinallyDate APS_WorkTimeNote 寫入失敗(略過繼續) NeedId={needId} SimulationId={simulationId} Station={staionNO} Date={intime:yyyy-MM-dd HH:mm:ss.fff}", false);
                                             }
                                             if (intime.AddSeconds(times) > finish_MAX_intime) { finish_MAX_intime = intime.AddSeconds(times); }
                                             times = 0;
@@ -8719,7 +9279,7 @@ namespace Base
                                         }
                                         else
                                         {
-                                            err = $"WorkTimeNote寫入失敗."; goto break_FUN;
+                                            _ = _Log.ErrorAsync($"GetFinallyDate APS_WorkTimeNote 寫入失敗(略過繼續) NeedId={needId} SimulationId={simulationId} Station={staionNO} Date={intime:yyyy-MM-dd HH:mm:ss.fff}", false);
                                         }
                                     }
                                     else
@@ -8731,7 +9291,7 @@ namespace Base
                                         }
                                         else
                                         {
-                                            err = $"WorkTimeNote寫入失敗."; goto break_FUN;
+                                            _ = _Log.ErrorAsync($"GetFinallyDate APS_WorkTimeNote 寫入失敗(略過繼續) NeedId={needId} SimulationId={simulationId} Station={staionNO} Date={intime:yyyy-MM-dd HH:mm:ss.fff}", false);
                                         }
                                         if (intime.AddSeconds(times) > finish_MAX_intime) { finish_MAX_intime = intime.AddSeconds(times); }
                                         times = 0;
@@ -8838,14 +9398,14 @@ namespace Base
                                 if (op_Count > 1) { typeTotalTime *= op_Count; }
                                 #endregion
                                 //###???要計算合併站的問題
-                                dr_WorkTimeNote = db.DB_GetFirstDataByDataRow($"select sum(Time3_C) as TOT from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where StationNO='{staionNO}' and CONVERT(varchar(10), CalendarDate, 23)='{intime.ToString("yyyy-MM-dd")}'");
-                                if (dr_WorkTimeNote != null && !dr_WorkTimeNote.IsNull("TOT") && int.Parse(dr_WorkTimeNote["TOT"].ToString()) > 0)
+                                int shiftUsedTOT = GetAPS_WorkTimeNoteShiftSumSeconds(db, staionNO, intime, 3, shiftSumCache);
+                                if (shiftUsedTOT > 0)
                                 {
                                     #region 已有其他排程, 與其他合計
-                                    if (int.Parse(dr_WorkTimeNote["TOT"].ToString()) < typeTotalTime)
+                                    if (shiftUsedTOT < typeTotalTime)
                                     {
-                                        intime = intime.AddSeconds(int.Parse(dr_WorkTimeNote["TOT"].ToString()));
-                                        int tmp_time = typeTotalTime - int.Parse(dr_WorkTimeNote["TOT"].ToString());
+                                        intime = intime.AddSeconds(shiftUsedTOT);
+                                        int tmp_time = typeTotalTime - shiftUsedTOT;
                                         if (times >= tmp_time)
                                         {
                                             times -= tmp_time;
@@ -8857,7 +9417,7 @@ namespace Base
                                             }
                                             else
                                             {
-                                                err = $"WorkTimeNote寫入失敗."; goto break_FUN;
+                                                _ = _Log.ErrorAsync($"GetFinallyDate APS_WorkTimeNote 寫入失敗(略過繼續) NeedId={needId} SimulationId={simulationId} Station={staionNO} Date={intime:yyyy-MM-dd HH:mm:ss.fff}", false);
                                             }
                                         }
                                         else
@@ -8870,7 +9430,7 @@ namespace Base
                                             }
                                             else
                                             {
-                                                err = $"WorkTimeNote寫入失敗."; goto break_FUN;
+                                                _ = _Log.ErrorAsync($"GetFinallyDate APS_WorkTimeNote 寫入失敗(略過繼續) NeedId={needId} SimulationId={simulationId} Station={staionNO} Date={intime:yyyy-MM-dd HH:mm:ss.fff}", false);
                                             }
                                             if (intime.AddSeconds(times) > finish_MAX_intime) { finish_MAX_intime = intime.AddSeconds(times); }
                                             times = 0;
@@ -8893,7 +9453,7 @@ namespace Base
                                         }
                                         else
                                         {
-                                            err = $"WorkTimeNote寫入失敗."; goto break_FUN;
+                                            _ = _Log.ErrorAsync($"GetFinallyDate APS_WorkTimeNote 寫入失敗(略過繼續) NeedId={needId} SimulationId={simulationId} Station={staionNO} Date={intime:yyyy-MM-dd HH:mm:ss.fff}", false);
                                         }
                                     }
                                     else
@@ -8906,7 +9466,7 @@ namespace Base
                                         }
                                         else
                                         {
-                                            err = $"WorkTimeNote寫入失敗."; goto break_FUN;
+                                            _ = _Log.ErrorAsync($"GetFinallyDate APS_WorkTimeNote 寫入失敗(略過繼續) NeedId={needId} SimulationId={simulationId} Station={staionNO} Date={intime:yyyy-MM-dd HH:mm:ss.fff}", false);
                                         }
                                         if (intime.AddSeconds(times) > finish_MAX_intime) { finish_MAX_intime = intime.AddSeconds(times); }
                                         times = 0;
@@ -9024,14 +9584,14 @@ namespace Base
                                 #region 多工單, 增加可用工時
                                 if (op_Count > 1) { typeTotalTime *= op_Count; }
                                 #endregion
-                                dr_WorkTimeNote = db.DB_GetFirstDataByDataRow($"select sum(Time4_C) as TOT from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where StationNO='{staionNO}' and CONVERT(varchar(10), CalendarDate, 23)='{intime.ToString("yyyy-MM-dd")}'");
-                                if (dr_WorkTimeNote != null && !dr_WorkTimeNote.IsNull("TOT") && int.Parse(dr_WorkTimeNote["TOT"].ToString()) > 0)
+                                int shiftUsedTOT = GetAPS_WorkTimeNoteShiftSumSeconds(db, staionNO, intime, 4, shiftSumCache);
+                                if (shiftUsedTOT > 0)
                                 {
                                     #region 已有其他排程, 與其他合計
-                                    if (int.Parse(dr_WorkTimeNote["TOT"].ToString()) < typeTotalTime)
+                                    if (shiftUsedTOT < typeTotalTime)
                                     {
-                                        intime = intime.AddSeconds(int.Parse(dr_WorkTimeNote["TOT"].ToString()));
-                                        int tmp_time = typeTotalTime - int.Parse(dr_WorkTimeNote["TOT"].ToString());
+                                        intime = intime.AddSeconds(shiftUsedTOT);
+                                        int tmp_time = typeTotalTime - shiftUsedTOT;
                                         if (times >= tmp_time)
                                         {
                                             times -= tmp_time;
@@ -9043,7 +9603,7 @@ namespace Base
                                             }
                                             else
                                             {
-                                                err = $"WorkTimeNote寫入失敗."; goto break_FUN;
+                                                _ = _Log.ErrorAsync($"GetFinallyDate APS_WorkTimeNote 寫入失敗(略過繼續) NeedId={needId} SimulationId={simulationId} Station={staionNO} Date={intime:yyyy-MM-dd HH:mm:ss.fff}", false);
                                             }
                                         }
                                         else
@@ -9055,7 +9615,7 @@ namespace Base
                                             }
                                             else
                                             {
-                                                err = $"WorkTimeNote寫入失敗."; goto break_FUN;
+                                                _ = _Log.ErrorAsync($"GetFinallyDate APS_WorkTimeNote 寫入失敗(略過繼續) NeedId={needId} SimulationId={simulationId} Station={staionNO} Date={intime:yyyy-MM-dd HH:mm:ss.fff}", false);
                                             }
                                             if (intime.AddSeconds(times) > finish_MAX_intime) { finish_MAX_intime = intime.AddSeconds(times); }
                                             times = 0;
@@ -9078,7 +9638,7 @@ namespace Base
                                         }
                                         else
                                         {
-                                            err = $"WorkTimeNote寫入失敗."; goto break_FUN;
+                                            _ = _Log.ErrorAsync($"GetFinallyDate APS_WorkTimeNote 寫入失敗(略過繼續) NeedId={needId} SimulationId={simulationId} Station={staionNO} Date={intime:yyyy-MM-dd HH:mm:ss.fff}", false);
                                         }
                                     }
                                     else
@@ -9091,7 +9651,7 @@ namespace Base
                                         }
                                         else
                                         {
-                                            err = $"WorkTimeNote寫入失敗."; goto break_FUN;
+                                            _ = _Log.ErrorAsync($"GetFinallyDate APS_WorkTimeNote 寫入失敗(略過繼續) NeedId={needId} SimulationId={simulationId} Station={staionNO} Date={intime:yyyy-MM-dd HH:mm:ss.fff}", false);
                                         }
                                         if (intime.AddSeconds(times) > finish_MAX_intime) { finish_MAX_intime = intime.AddSeconds(times); }
                                         times = 0;
@@ -9123,8 +9683,6 @@ namespace Base
                     if (times == 0) { return finish_MAX_intime.AddSeconds(120); }
                 }
             }
-        break_FUN:
-
             return intime.AddSeconds((Math.Abs(times) + 120));
         }
 
@@ -10634,6 +11192,7 @@ namespace Base
                                 #endregion
 
                                 db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_Simulation] SET IsOK='1' where NeedId='{needID}'");
+                                CloseOrphanManufactureIIForNeed(db, needID);
                             }
                         }
                         //db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[Manufacture] SET OrderNO='',OP_NO='',Master_PP_Name='',PP_Name='',IndexSN=0,Station_Custom_IndexSN='',StationNO_Custom_DisplayName='' where ServerId='{_Fun.Config.ServerId}' and StationNO='{data[i]}'");
@@ -10975,66 +11534,8 @@ namespace Base
         }
 
 
-        public DataRow GetStationStandardCT(string processName, string partNO, string stationNO, string orderNO)
-        {
-            DataRow dataRow = _SoftNetSYSDB.DB_GetFirstDataByDataRow($"SELECT Process.PP_Name,Station.PartNO,Station.StationNO,AVG(Station.E_CycleTime) E_CycleTime \r\n                                FROM\r\n                                (\r\n                                    SELECT [PartNO],[StationNO],[E_CycleTime] \r\n                                    FROM SoftNetSYSDB.[dbo].[PP_Station_RobotConfig]\r\n                                ) Station\r\n                                RIGHT JOIN\r\n                                (\r\n                                    SELECT [StationNO],[PP_Name] \r\n                                    FROM SoftNetSYSDB.[dbo].[PP_ProductProcess_Item]\r\n                                ) Process\r\n                                ON Station.StationNO = Process.StationNO\r\n                                WHERE [PP_Name] = '{processName}' AND [PartNO] = '{partNO}' AND Station.[StationNO] = '{stationNO}'\r\n                                GROUP BY Process.PP_Name, Station.PartNO, Station.StationNO");
-            if (dataRow == null)
-            {
-                dataRow = _SoftNetSYSDB.DB_GetFirstDataByDataRow($"SELECT [OrderNO],[PP_Name],[StationNO],[E_CycleTime] \r\n                                        FROM SoftNetSYSDB.[dbo].[PP_WO_Process_Item]\r\n                                        WHERE [OrderNO] = '{orderNO}' AND [PP_Name] = '{processName}' AND [StationNO] = '{stationNO}'");
-                if (dataRow == null)
-                {
-                    dataRow = _SoftNetSYSDB.DB_GetFirstDataByDataRow($"SELECT [PP_Name],[StationNO],[E_CycleTime] \r\n                                        FROM SoftNetSYSDB.[dbo].[PP_ProductProcess_Item] Process\r\n                                        WHERE [PP_Name]='{processName}' AND [StationNO]='{stationNO}'");
-                }
-            }
+ 
 
-            return dataRow;
-        }
-
-        public Tuple<float, int> GetStationWarningValue(string orderNO, string stationNO)
-        {
-            float item = 0f;
-            int item2 = 0;
-            DataRow dataRow = _SoftNetSYSDB.DB_GetFirstDataByDataRow("SELECT [PP_Name],[PartNO] FROM SoftNetSYSDB.[dbo].PP_WorkOrder WHERE OrderNO = '" + orderNO + "'");
-            if (dataRow != null && !dataRow.IsNull("PartNO"))
-            {
-                DataRow dataRow2 = _SoftNetSYSDB.DB_GetFirstDataByDataRow("SELECT [BelowYield],[BelowCycleTime] FROM SoftNetSYSDB.[dbo].PP_Station_RobotConfig WHERE StationNO='" + stationNO + "' AND PartNO=N'" + dataRow["PartNO"].ToString() + "'");
-                if (dataRow2 != null)
-                {
-                    if (!dataRow2.IsNull("BelowYield"))
-                    {
-                        item = float.Parse(dataRow2["BelowYield"].ToString());
-                    }
-
-                    if (!dataRow2.IsNull("BelowCycleTime"))
-                    {
-                        item2 = int.Parse(dataRow2["BelowCycleTime"].ToString());
-                    }
-                }
-                else
-                {
-                    DataRow dataRow3 = _SoftNetSYSDB.DB_GetFirstDataByDataRow("SELECT [BelowYield],[BelowCycleTime] FROM SoftNetSYSDB.[dbo].[PP_WO_Process_Item] WHERE OrderNO='" + orderNO + "' and StationNO='" + stationNO + "' AND PP_Name='" + dataRow["PP_Name"].ToString() + "'");
-                    if (dataRow3 == null)
-                    {
-                        dataRow3 = _SoftNetSYSDB.DB_GetFirstDataByDataRow("SELECT [BelowYield],[BelowCycleTime] FROM SoftNetSYSDB.[dbo].[PP_ProductProcess_Item] WHERE StationNO='" + stationNO + "' AND PP_Name='" + dataRow["PP_Name"].ToString() + "'");
-                    }
-
-                    if (dataRow3 != null)
-                    {
-                        if (!dataRow3.IsNull("BelowYield"))
-                        {
-                            item = float.Parse(dataRow3["BelowYield"].ToString());
-                        }
-
-                        if (!dataRow3.IsNull("BelowCycleTime"))
-                        {
-                            item2 = int.Parse(dataRow3["BelowCycleTime"].ToString());
-                        }
-                    }
-                }
-            }
-
-            return Tuple.Create(item, item2);
-        }
 
         public bool IsStationHasSNSource(string stationNO)
         {

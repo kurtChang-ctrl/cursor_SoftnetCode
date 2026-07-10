@@ -202,7 +202,7 @@ namespace Base.Services
                     {
                         //arg.Value = (DateTime)sqlArgs[i + 1];
                         //arg.ParameterName = sqlArgs[i].ToString();
-                        arg.Value = result.ToString("MM/dd/yyyy HH:mm:ss.fff");
+                        arg.Value = result.ToString("yyyy-MM-dd HH:mm:ss.fff");
                         //arg.DbType = DbType.DateTime;
                     }
                     else
