@@ -17,7 +17,7 @@ namespace Base
         //###??? 將來要寫reTry connect
         string ms_connectType = "";
         string ms_connectString = "";
-  
+
         public delegate void ERROR(string sql, string MEG);
         public event ERROR Error;
 
@@ -46,8 +46,8 @@ namespace Base
             }
             catch (Exception ex)
             {
-                
-                    Mail_Send("kurt@softnet.tw", ex.Message, $"New資料庫物件時錯誤   來源Connect:{ms_connectString}");
+
+                Mail_Send("kurt@softnet.tw", ex.Message, $"New資料庫物件時錯誤   來源Connect:{ms_connectString}");
             }
         }
 
@@ -105,6 +105,10 @@ namespace Base
             DataTable drN = fn_GetDataTable(sql, ref err);
             if (drN != null)
             {
+                if (IsAggregateCountSelect(sql) && drN.Rows.Count > 0 && drN.Columns.Count > 0)
+                {
+                    return Convert.ToInt32(drN.Rows[0][0]);
+                }
                 return drN.Rows.Count;
             }
             return 0;
@@ -115,9 +119,23 @@ namespace Base
             DataTable drN = fn_GetDataTable(sql, ref err);
             if (drN != null)
             {
+                if (IsAggregateCountSelect(sql) && drN.Rows.Count > 0 && drN.Columns.Count > 0)
+                {
+                    return Convert.ToInt32(drN.Rows[0][0]);
+                }
                 return drN.Rows.Count;
             }
             return 0;
+        }
+
+        /// <summary>
+        /// 判斷是否為「單一彙總 COUNT」查詢（COUNT(*) / COUNT(1) 等），此時應回傳第一欄數值，而非 DataTable 列數。
+        /// </summary>
+        private static bool IsAggregateCountSelect(string sql)
+        {
+            if (string.IsNullOrEmpty(sql)) { return false; }
+            string lower = sql.ToLowerInvariant();
+            return lower.Contains("count(*)") || lower.Contains("count(1)");
         }
         public JArray DB_Test(string sql, List<object> sqlArgs)//取得資料
         {
@@ -170,7 +188,7 @@ namespace Base
             return 0;
         }
 
-        public DataTable? DB_GetData(string sql)//取得資料
+        public DataTable DB_GetData(string sql)//取得資料
         {
             if (sql == "") { return null; }
             string err = "";
@@ -181,7 +199,7 @@ namespace Base
             }
             return null;
         }
-        public DataTable? DB_GetData(string sql, ref string err)//取得資料
+        public DataTable DB_GetData(string sql, ref string err)//取得資料
         {
             if (sql == "") { return null; }
             DataTable drN = fn_GetDataTable(sql, ref err);
@@ -191,7 +209,63 @@ namespace Base
             }
             return null;
         }
-        public string[]? DB_GetFirstDataByStringArray(string sql)//取得第一筆資料
+        /// <summary>
+        /// 依據參數化查詢取得資料表
+        /// </summary>
+        /// <param name="sql">SQL 語法（需用 @參數名）</param>
+        /// <param name="args">物件陣列，例如 {"Id", 123, "Name", "Test"}</param>
+        /// <returns>DataTable 結果，查無資料時回傳空表</returns>
+        public DataTable DB_GetDataByDataTable(string sql, List<object> args, bool checkDate=false)
+        {
+            if (string.IsNullOrEmpty(sql))
+                return new DataTable();
+
+            using (SqlConnection conn = new SqlConnection(ms_connectString))
+            {
+                using (SqlCommand cmd = new SqlCommand(sql, conn))
+                {
+                    if (args != null)
+                    {
+                        for (int i = 0; i + 1 < args.Count; i += 2)
+                        {
+                            var paramName = args[i]?.ToString();
+                            object argValue = args[i + 1] ?? DBNull.Value;
+                            object paramValue;
+                            if (checkDate)
+                            {
+                                // 若為日期格式，轉 yyyy-MM-dd HH:mm:ss:fff 字串
+                                if (argValue is DateTime dt)
+                                {
+                                    paramValue = dt.ToString("yyyy-MM-dd HH:mm:ss:fff");
+                                }
+                                else if (argValue is DateTimeOffset dto)
+                                {
+                                    paramValue = dto.ToString("yyyy-MM-dd HH:mm:ss:fff");
+                                }
+                                else
+                                {
+                                    paramValue = argValue;
+                                }
+                            }
+                            else
+                            {
+                                paramValue = argValue;
+                            }
+
+                            cmd.Parameters.AddWithValue("@" + paramName, paramValue);
+                        }
+                    }
+
+                    using (SqlDataAdapter da = new SqlDataAdapter(cmd))
+                    {
+                        DataTable dt = new DataTable();
+                        da.Fill(dt);
+                        return dt;
+                    }
+                }
+            }
+        }
+        public string[] DB_GetFirstDataByStringArray(string sql)//取得第一筆資料
         {
             if (sql == "") { return null; }
             string err = "";
@@ -203,7 +277,7 @@ namespace Base
                     if (drN.Rows[0].ItemArray.Length > 0)
                     {
                         string[] re = new string[drN.Rows[0].ItemArray.Length];
-                        int i = 0; int j = 0;
+                        int i = 0;
                         for (i = 0; i < drN.Rows[0].ItemArray.Length; i++)
                         {
                             re[i] = drN.Rows[0][i].ToString();
@@ -214,7 +288,7 @@ namespace Base
             }
             return null;
         }
-        public string[]? DB_GetFirstDataByStringArray(string sql, ref string err)//取得第一筆資料
+        public string[] DB_GetFirstDataByStringArray(string sql, ref string err)//取得第一筆資料
         {
             if (sql == "") { return null; }
             DataTable drN = fn_GetDataTable(sql, ref err);
@@ -225,7 +299,7 @@ namespace Base
                     if (drN.Rows[0].ItemArray.Length > 0)
                     {
                         string[] re = new string[drN.Rows[0].ItemArray.Length];
-                        int i = 0; int j = 0;
+                        int i = 0;
                         for (i = 0; i < drN.Rows[0].ItemArray.Length; i++)
                         {
                             re[i] = drN.Rows[0][i].ToString();
@@ -239,7 +313,7 @@ namespace Base
             }
             return null;
         }
-        public DataRow? DB_GetFirstDataByDataRow(string sql)//取得第一筆資料
+        public DataRow DB_GetFirstDataByDataRow(string sql)//取得第一筆資料
         {
             if (sql == "") { return null; }
             string err = "";
@@ -253,7 +327,7 @@ namespace Base
             }
             return null;
         }
-        public DataRow? DB_GetFirstDataByDataRow(string sql, ref string err)//取得第一筆資料
+        public DataRow DB_GetFirstDataByDataRow(string sql, ref string err)//取得第一筆資料
         {
             if (sql == "") { return null; }
             DataTable drN = fn_GetDataTable(sql, ref err);
@@ -312,6 +386,42 @@ namespace Base
                 return false;
             }
         }
+        /// <summary>
+        /// Parameterized Insert/Update/Delete with automatic parameter creation
+        /// </summary>
+        public bool DB_SetDataByParams(string sql, List<object> parameters)
+        {
+            if (string.IsNullOrEmpty(sql)) { return false; }
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(ms_connectString))
+                {
+                    using (SqlCommand cmd = new SqlCommand(sql, conn))
+                    {
+                        if (parameters != null)
+                        {
+                            for (int i = 0; i + 1 < parameters.Count; i += 2)
+                            {
+                                var paramName = parameters[i]?.ToString();
+                                var paramValue = parameters[i + 1] ?? DBNull.Value;
+                                cmd.Parameters.AddWithValue("@" + paramName, paramValue);
+                            }
+                        }
+                        conn.Open();
+                        cmd.ExecuteNonQuery();
+                        return true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                if (Error != null)
+                {
+                    Error(sql, $"DB_SetDataByParams fail: {ex.Message}");
+                }
+                return false;
+            }
+        }
         public bool DB_SetData(string sql, ref string err)//異動資料
         {
             if (sql == "") { return false; }
@@ -337,11 +447,11 @@ namespace Base
                 catch (SqlException ex)
                 {
 
-                     if (Error != null) { Error(string.Format("select * from {0}", dbname), string.Format("DB_SetMSSQLData fail:{0}", ex.Message)); } //012
+                    if (Error != null) { Error(string.Format("select * from {0}", dbname), string.Format("DB_SetMSSQLData fail:{0}", ex.Message)); } //012
                 }
                 catch (Exception ex)
                 {
- 
+
                     if (Error != null) { Error(string.Format("select * from {0}", dbname), string.Format("DB_SetMSSQLData fail :{0}", ex.Message)); } //012
                 }
             }
@@ -448,7 +558,7 @@ namespace Base
             return re;
         }
 
-        private DataTable fn_GetDataTable(string getSql, ref string err ) //sql=SQL語法
+        private DataTable fn_GetDataTable(string getSql, ref string err) //sql=SQL語法
         {
             err = "";
             DataTable re = null;
@@ -483,7 +593,7 @@ namespace Base
                                             { arg.Value = DBNull.Value; }
                                             else if (sqlArgs[i + 1].GetType() == typeof(DateTime) || DateTime.TryParse(sqlArgs[(i + 1)].ToString(), out result))
                                             {
-                                                arg.Value = result.ToString("MM/dd/yyyy HH:mm:ss");
+                                                arg.Value = result.ToString("yyyy-MM-dd HH:mm:ss");
                                             }
                                             else
                                             { arg.Value = sqlArgs[i + 1].ToString(); }
@@ -553,7 +663,7 @@ namespace Base
                                             { arg.Value = DBNull.Value; }
                                             else if (sqlArgs[i + 1].GetType() == typeof(DateTime) || DateTime.TryParse(sqlArgs[(i + 1)].ToString(), out result))
                                             {
-                                                arg.Value = result.ToString("MM/dd/yyyy HH:mm:ss");
+                                                arg.Value = result.ToString("yyyy-MM-dd HH:mm:ss");
                                             }
                                             else
                                             { arg.Value = sqlArgs[i + 1].ToString(); }
@@ -569,9 +679,9 @@ namespace Base
                                 }
                                 catch (SqlException ex)
                                 {
-                                    if (Error != null) 
+                                    if (Error != null)
                                     {
-                                                          Error(getSql, string.Format("fn_GetDataTable fail:{0}", ex.Message)); 
+                                        Error(getSql, string.Format("fn_GetDataTable fail:{0}", ex.Message));
                                     } //014
                                     else
                                     {
@@ -582,9 +692,9 @@ namespace Base
                                 catch (Exception ex)
                                 {
 
-                                    if (Error != null) 
+                                    if (Error != null)
                                     {
-                                                          Error(getSql, string.Format("fn_GetDataTable fail:{0}", ex.Message));
+                                        Error(getSql, string.Format("fn_GetDataTable fail:{0}", ex.Message));
                                     } //014
                                     else
                                     {
@@ -627,12 +737,12 @@ namespace Base
                             }
                             catch (SqlException ex)
                             {
-                                if (Error != null) 
+                                if (Error != null)
                                 {
-                      //                                     Error(setSql, string.Format("fn_SetDataTable fail:{0} sql={1}", ex.Message, setSql)); 
+                                    //                                     Error(setSql, string.Format("fn_SetDataTable fail:{0} sql={1}", ex.Message, setSql)); 
                                 }
-                                else 
-                                { 
+                                else
+                                {
                                     err = ex.Message;
                                     //0000                       Mail_Send("kurt@softnet.tw", $"SQL={setSql}<p>ERR={err}</p>", $"資料庫法語錯誤<p> 來源Connect:{ms_connectString}");
                                 }
@@ -641,10 +751,10 @@ namespace Base
                             {
                                 if (Error != null)
                                 {
-                      //                                    Error(setSql, string.Format("fn_SetDataTable fail:{0} sql={1}", ex.Message, setSql));
+                                    //                                    Error(setSql, string.Format("fn_SetDataTable fail:{0} sql={1}", ex.Message, setSql));
                                 }
-                                else 
-                                { 
+                                else
+                                {
                                     err = ex.Message;
                                     //0000                     Mail_Send("kurt@softnet.tw", $"SQL={setSql}<p>ERR={err}</p>", $"資料庫法語錯誤<p> 來源Connect:{ms_connectString}");
                                 }
@@ -713,7 +823,7 @@ namespace Base
         }
 
 
-        #region 2019/04/19 Neil add for sql parameter
+
         public enum SqlNonQueryStyle { WithRollBack, None }//在NonQuery語法是否做RollBack NeilBug
         public DataTable DB_Query(string connectionstring, string sqlexcutestring, Dictionary<string, object> sqlparameters = null)
         {
@@ -1008,7 +1118,8 @@ namespace Base
                 }
             }
         }
-        #endregion
+
+
     }
 
 }

@@ -20,7 +20,11 @@ namespace SoftNetWebII.Models
         public string Select_ID_QTY { get; set; } = "";
         public string Select_DroneType { get; set; } = "1";
         public string ERRMsg { get; set; } = "";
-        
+        public string Search_PartNO { get; set; } = "";
+        public string Search_PartName { get; set; } = "";
+        public string Search_Specification { get; set; } = "";
+        public string Search_Custom01 { get; set; } = "";
+
         public DataTable SIDList { get; set; }
         public DataTable New_K_List { get; set; }
         public DataTable OLD_K_List { get; set; }

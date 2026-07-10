@@ -7,7 +7,7 @@
         if (SYS_ClickBlock) { _fun.unBlock(); }
         SYS_ClickBlock = false;
         if (!IS_SYS_Clock) {
-            IS_SYS_Clock=true;
+            IS_SYS_Clock = true;
             SYS_Clock = setInterval(printword, 1000);
         }
         function printword() {
@@ -41,6 +41,7 @@
                 columns: [
 
                     { data: 'Time', },
+                    { data: 'DISLOGTYPE', },
                     { data: 'SimulationId', },
                     { data: 'DOCNumberNO', },
                     { data: 'Name', },
@@ -48,6 +49,21 @@
 
 
                 ],
+
+                // 縮小表格行距
+                createdRow: function (row, data, dataIndex) {
+                    $(row).find('td').css({
+                        'padding': '0.4rem 0.5rem',
+                        'line-height': '1.3'
+                    });
+                },
+                drawCallback: function (settings) {
+                    // 調整表頭行距
+                    $('#tableRead thead th').css({
+                        'padding': '0.4rem 0.5rem',
+                        'line-height': '1.3'
+                    });
+                },
                 // columnDefs: [
                 //     {
                 //         targets: [0], render: function (data, type, full, meta) {
@@ -67,12 +83,13 @@
     }; //class
 </script>
 
-@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "系統異常查詢" } })
+@await Component.InvokeAsync("XgProgPath", new { names = new string[] { "系統最近7天異常查詢" } })
 <div class="xp-prog">
     <div id="divRead">
         <form id='formRead' class='xg-form'>
             <div class="row">
-                @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "工站編號", Fid = "StationNO", Rows = (List<IdStrDto>)ViewBag.StationNOData, InRow = true })
+                @await Component.InvokeAsync("XiSelect", new XiSelectDto { Title = "工站編號", Fid = "StationNO", Rows =
+                                (List<IdStrDto>)ViewBag.StationNOData, InRow = true })
                 @await Component.InvokeAsync("XgFindTbar", new XgFindTbarDto { HasReset = true, HasFind2 = false })
             </div>
         </form>
@@ -84,7 +101,8 @@
             <thead>
                 <tr>
                     <th>異常時間</th>
-                    <th>需求主件料</th>
+                    <th>異常類型</th>
+                    <th>異常主件料</th>
                     <th>異常單據</th>
                     <th>單據名稱</th>
                     <th>異常內容</th>

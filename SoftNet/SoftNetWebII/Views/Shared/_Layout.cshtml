@@ -1,4 +1,4 @@
-﻿@using Base
+@using Base
 @using Base.Models
 
 @using SoftNetWebII.Services
@@ -106,7 +106,7 @@
             new() { Name = "排程查詢或干涉", Url = "/APSView/ALLSimulation" ,HasUseRUNMode="23",ClickBlock=true},
             new() { Name = "需求工作底稿", Url = "/WorkingPaper/Index" ,HasUseRUNMode="23"},
             new() { Name = "已結案計畫查詢", Url = "/APSView/OLDALLSimulation" ,HasUseRUNMode="23"},
-            new() { Name = "已結案計畫干涉", Url = "/OverSimulation/Index" ,HasUseRUNMode="23"},
+            //new() { Name = "已結案計畫干涉", Url = "/OverSimulation/Index" ,HasUseRUNMode="23"},
             //new() { Name = "採購計畫移轉", Url = "/APSView/DOCBuyRead" ,HasUseRUNMode="23"},
             //new() { Name = "委外計畫移轉", Url = "/APSView/DOCOutSRead" ,HasUseRUNMode="3"},
             //new() { Name = "領料計畫移轉", Url = "/APSView/DOCPickRead",HasUseRUNMode="3" },
@@ -148,6 +148,11 @@
             new() { Name = "修正計畫工站負荷值", Url = "/Report06/EditWorkTime" ,HasUseRUNMode="123"},
             new() { Name = "建立人為標準CT", Url = "/Display/DefineStandardsCT" ,HasUseRUNMode="3"},
         }},
+
+        stationONE,
+        StoreNOONE,
+        storeSpacesNO,
+
         new() { Name = "報表與看板", Items = new List<MenuDto>()
         {
             new() { Name = "異常報表", Url = "/CIR/APSErrorData" ,HasUseRUNMode="123"},
@@ -167,12 +172,9 @@
             //new() { Name = "生產件未來產出總表", Url = "/Report02/Index3" ,HasUseRUNMode="123",ClickBlock=true},//顯示計畫目前狀況,將干涉表格化
 
         }},
-        StoreNOONE,
-        stationONE,
-        storeSpacesNO,
-
         new() { Name = "效益分析", Items = new List<MenuDto>()
         {
+            new() { Name = "AI問題歷史分析", Url = "/AIReport/Index", HasUseRUNMode="123", ClickBlock=true },
             new() { Name = "工站角度看效益(1週)", Url = "/CIR/Read3",HasUseRUNMode="123" },
             new() { Name = "工站角度看效益(4週)", Url = "/CIR/Read4",HasUseRUNMode="123" },
             new() { Name = "工站稼動率與OEE", Url = "/CIR/Read5",HasUseRUNMode="123" },
@@ -180,6 +182,15 @@
             //new() { Name = "所有料件節拍與瓶頸", Url = "/CIR/Read6",HasUseRUNMode="123" },
             new() { Name = "人員績效分析", Url = "/CIR/Read7",HasUseRUNMode="123" },
             new() { Name = "生產效能分析", Url = "/Select/Efficient",HasUseRUNMode="123",ClickBlock=true },
+
+        }},
+        new() { Name = "戰情室", Items = new List<MenuDto>()
+        {
+            new() { Name = "製造現場戰情室", Url = "/WarRoom/Manufacturing", HasUseRUNMode="123", ClickBlock=true },
+            new() { Name = "生管戰情室", Url = "/WarRoom/ProductionManagement", HasUseRUNMode="123", ClickBlock=true },
+            new() { Name = "高階管理戰情室", Url = "/WarRoom/Executive", HasUseRUNMode="123", ClickBlock=true },
+            //new() { Name = "GeminiTEST", Url = "/GeminiAI/Index",HasUseRUNMode="123" },
+            new() { Name = "與系統交談對話", Url = "/RagAI/Index", HasUseRUNMode="123", ClickBlock=true },
         }},
  
     };
@@ -245,6 +256,7 @@
         var SYS_Clock = Object;
         var IS_SYS_Clock = false;
         var _var_WebMURL = '@_Fun.Config.LocalWebURL';
+        var SYS_PageLength = @_Fun.Config.WebPageDataDisCount;
         var wa;
         var fgh = {
 

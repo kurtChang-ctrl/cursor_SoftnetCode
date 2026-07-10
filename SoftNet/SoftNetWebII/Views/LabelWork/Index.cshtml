@@ -71,6 +71,29 @@
             $("input[name=IndexSN]").val(tmp[1]);
             $("input[name=SimulationId]").val(tmp[2]);
         },
+        woListTab: function (which) {
+            var showA = which === 'active';
+            $('#wo-panel-active').toggle(showA);
+            $('#wo-panel-paused').toggle(!showA);
+            $('#wo-tab-btn-active').toggleClass('lw-wo-tab--active', showA).attr('aria-selected', showA);
+            $('#wo-tab-btn-paused').toggleClass('lw-wo-tab--active', !showA).attr('aria-selected', !showA);
+        },
+        sortState: {},
+        sortTable: function (tableId, colIdx) {
+            var state = _me.sortState;
+            var key = tableId + '_' + colIdx;
+            state[key] = !state[key];
+            var asc = state[key];
+            var tbody = document.querySelector('#' + tableId + ' tbody');
+            if (!tbody) return;
+            var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+            rows.sort(function (a, b) {
+                var aText = (a.cells[colIdx] ? a.cells[colIdx].textContent : '').trim();
+                var bText = (b.cells[colIdx] ? b.cells[colIdx].textContent : '').trim();
+                return asc ? aText.localeCompare(bText, 'zh-Hant') : bText.localeCompare(aText, 'zh-Hant');
+            });
+            for (var i = 0; i < rows.length; i++) { tbody.appendChild(rows[i]); }
+        },
 
         clickFunction: function (status) {
             document.getElementById("LocalIPPort").value = _crud.LocalIPPort;
@@ -78,6 +101,12 @@
             switch (status) {
                 case 1://設定工單
                     $('#stationSetOrderNO').show();
+                    if ($('#wo-panel-active').length) {
+                        var ha = $('#wo-panel-active').find('tbody tr').length > 0;
+                        var hp = $('#wo-panel-paused').find('tbody tr').length > 0;
+                        if (ha) { _me.woListTab('active'); }
+                        else if (hp) { _me.woListTab('paused'); }
+                    }
                     break;
                 case 2://設定作業人員
                     $('#stationSetOPNO').show();
@@ -130,40 +159,248 @@
 
 </script>
 
+<style>
+    /* === LabelWork 全域基底 === */
+    .lw-page { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif; }
 
+    /* === 卡片區塊 === */
+    .lw-card {
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: .85rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,.05);
+        border: 1px solid rgba(0,0,0,.06);
+    }
+    .lw-card h2, .lw-card h3 {
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin: 0 0 .6rem;
+        display: flex;
+        align-items: center;
+        gap: .4rem;
+    }
+    .lw-card h2::before, .lw-card h3::before {
+        content: "";
+        display: inline-block;
+        width: 4px;
+        height: 1em;
+        border-radius: 3px;
+        flex-shrink: 0;
+    }
+
+    /* === 區塊配色 === */
+    .lw-card-info { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); }
+    .lw-card-info h2::before { background: #495057; }
+    .lw-card-action { background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); }
+    .lw-card-action h2::before { background: #16a34a; }
+    .lw-card-report { background: linear-gradient(135deg, #eef2ff 0%, #c8d6f5 100%); }
+    .lw-card-report h2::before, .lw-card-report h3::before { background: #4263eb; }
+    .lw-card-setwo { background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); }
+    .lw-card-setwo h2::before { background: #d97706; }
+    .lw-card-staff { background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%); }
+    .lw-card-staff h2::before { background: #db2777; }
+
+    /* === 工站資訊表格 === */
+    .lw-info-grid { display: grid; grid-template-columns: auto 1fr; gap: .25rem .6rem; font-size: .9rem; }
+    .lw-info-grid dt { font-weight: 600; color: #495057; white-space: nowrap; }
+    .lw-info-grid dd { margin: 0; color: #1a1d21; font-weight: 500; }
+    .lw-status-badge {
+        display: inline-block;
+        padding: .15rem .5rem;
+        border-radius: 6px;
+        font-size: .82rem;
+        font-weight: 700;
+        color: #fff;
+    }
+    .lw-status-running { background: linear-gradient(135deg, #198754, #157347); }
+    .lw-status-stopped { background: linear-gradient(135deg, #dc3545, #b02a37); }
+    .lw-status-idle { background: #6c757d; }
+
+    /* === 通用按鈕 === */
+    .lw-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .5rem 1rem;
+        border: none;
+        border-radius: 8px;
+        font-size: .88rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all .18s ease;
+        text-decoration: none;
+    }
+    .lw-btn-primary { background: linear-gradient(135deg, #4263eb 0%, #3b5bdb 100%); color: #fff; box-shadow: 0 2px 8px rgba(66,99,235,.25); }
+    .lw-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(66,99,235,.35); }
+    .lw-btn-success { background: linear-gradient(135deg, #198754 0%, #157347 100%); color: #fff; box-shadow: 0 2px 8px rgba(25,135,84,.25); }
+    .lw-btn-success:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(25,135,84,.35); }
+    .lw-btn-warning { background: linear-gradient(135deg, #f59f00 0%, #e67700 100%); color: #fff; box-shadow: 0 2px 8px rgba(245,159,0,.25); }
+    .lw-btn-warning:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(245,159,0,.35); }
+    .lw-btn-danger { background: linear-gradient(135deg, #fa5252 0%, #e03131 100%); color: #fff; box-shadow: 0 2px 8px rgba(250,82,82,.25); }
+    .lw-btn-danger:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(250,82,82,.35); }
+    .lw-btn-outline { background: #fff; color: #495057; border: 1.5px solid #dee2e6; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+    .lw-btn-outline:hover { border-color: #adb5bd; background: #f8f9fa; }
+    .lw-btn-back {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        padding: .5rem 1rem;
+        background: linear-gradient(135deg, #495057 0%, #343a40 100%);
+        color: #fff;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: .88rem;
+        transition: all .18s;
+        box-shadow: 0 2px 8px rgba(0,0,0,.12);
+    }
+    .lw-btn-back:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.2); color: #fff; }
+    .lw-btn-back::before { content: "\2190"; font-size: 1.1rem; }
+
+    /* === 按鈕群組 === */
+    .lw-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .6rem; }
+
+    /* === 報工欄位 === */
+    .lw-field { display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; flex-wrap: wrap; }
+    .lw-field label { font-weight: 600; font-size: .88rem; min-width: 5rem; color: #495057; }
+    .lw-field input[type='number'],
+    .lw-field input[type='text'] {
+        flex: 1;
+        min-width: 100px;
+        max-width: 220px;
+        padding: .4rem .6rem;
+        border: 1.5px solid #dee2e6;
+        border-radius: 6px;
+        font-size: .88rem;
+        transition: border-color .18s;
+    }
+    .lw-field input:focus { border-color: #4263eb; outline: none; box-shadow: 0 0 0 3px rgba(66,99,235,.1); }
+
+    /* === 錯誤訊息 === */
+    .lw-error { background: #fff5f5; border: 1px solid #ffc9c9; border-radius: 8px; padding: .6rem .85rem; color: #c92a2a; font-weight: 600; margin-bottom: .6rem; }
+
+    /* === 設定工單頁籤 === */
+    .lw-wo-setorder-box { padding-bottom: .25rem; }
+    .lw-wo-title { font-size: 1.05rem; font-weight: 700; color: #1a1d21; margin: 0 0 .65rem; }
+    .lw-wo-tabs { display: flex; gap: .4rem; margin: 0; flex-wrap: wrap; }
+    .lw-wo-tab {
+        flex: 1 1 42%;
+        min-height: 2.75rem;
+        padding: .55rem .75rem;
+        border: 2px solid #ced4da;
+        border-radius: 12px 12px 0 0;
+        border-bottom: none;
+        background: #e9ecef;
+        color: #495057;
+        font-size: .9rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease;
+        text-align: center;
+        line-height: 1.25;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .lw-wo-tab:hover { background: #dee2e6; }
+    .lw-wo-tab--active.lw-wo-tab-active {
+        background: linear-gradient(180deg, #cfe8dc 0%, #8fc9b0 100%);
+        border-color: #198754;
+        color: #0a3622;
+        box-shadow: inset 0 -4px 0 #198754;
+    }
+    .lw-wo-tab--active.lw-wo-tab-paused {
+        background: linear-gradient(180deg, #fff3cd 0%, #f0c14b 100%);
+        border-color: #d39e00;
+        color: #664d03;
+        box-shadow: inset 0 -4px 0 #c7940a;
+    }
+    .lw-wo-tab:not(.lw-wo-tab--active) { opacity: .88; }
+    .lw-wo-badge {
+        display: inline-block;
+        min-width: 1.35rem;
+        padding: .1rem .35rem;
+        margin-left: .25rem;
+        font-size: .72rem;
+        font-weight: 800;
+        border-radius: 999px;
+        vertical-align: middle;
+        background: rgba(255,255,255,.55);
+    }
+    .lw-wo-panel {
+        border: 2px solid #dee2e6;
+        border-radius: 0 12px 12px 12px;
+        padding: .85rem .75rem 1rem;
+        background: #fff;
+        box-shadow: 0 3px 14px rgba(0,0,0,.07);
+        margin-bottom: .5rem;
+    }
+    .lw-wo-panel-active { border-top: 3px solid #198754; }
+    .lw-wo-panel-paused { border-top: 3px solid #e0a800; }
+    .lw-wo-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; }
+    .lw-wo-table-wrap .xg-table { margin-bottom: 0; font-size: .85rem; }
+    .lw-wo-table-wrap .xg-table thead th { white-space: nowrap; padding: .5rem .4rem; background: linear-gradient(180deg, #f1f3f5, #e9ecef); font-weight: 600; }
+    .lw-wo-table-wrap .xg-table tbody td { padding: .45rem .4rem; vertical-align: middle; }
+    .lw-wo-table-wrap .xg-table tbody tr:hover { background: #f8f9fa; }
+    .lw-wo-empty {
+        display: block;
+        padding: 1rem .75rem;
+        color: #6c757d;
+        font-size: .9rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 1px dashed #ced4da;
+    }
+    .lw-wo-submit-row { margin-top: .85rem; margin-bottom: 0; }
+
+    /* === 排序欄位 === */
+    .sortable-th { cursor: pointer; user-select: none; position: relative; padding-right: 18px !important; }
+    .sortable-th:hover { background-color: #e2e6ea; }
+    .sortable-th::after { content: "\21C5"; position: absolute; right: 4px; top: 50%; transform: translateY(-50%); font-size: 0.75rem; opacity: 0.5; }
+</style>
 
 <div id="displayNULL" data-role="page">
-    <div class="box">
-        <label>工站編號:</label><label>@Model.Station</label><label>      名稱:</label><label>@Model.Station_Name</label><label>      狀態:</label>
-        @{
-            if (Model.Station_State != null && Model.Station_State == "生產中...")
-            {
-                        <label style="background-color: forestgreen">@Model.Station_State</label>
-            }
-            else if (Model.Station_State != null && Model.Station_State == "停止...")
-            {
-                        <label style="background-color:red">@Model.Station_State</label>
-            }
-            else
-            {
-                        <label>@Model.Station_State</label>
-            }
-        }
-        
-        <br />
-        <label>工單編號:</label><label>@Model.OrderNO</label><label>  工序名稱:</label><label>@Model.StationNO_Custom_DisplayName</label><br />
-        <label>生產料件:</label><label>@Model.PartNO_INFO</label> <label>  前站帳面完成量:</label><label>@Model.Transfer_QTY</label><br />
-        <label>工單數量:</label><label>@Model.WO_QTY</label><label>  累計OK量:</label><label>@Model.TOT_OK_QTY</label><label>  Fail量:</label><label>@Model.TOT_Fail_QTY</label><br />
-        <label>開始日:</label><label>@Model.RemarkTimeS</label><label>  停止日:</label><label>@Model.RemarkTimeE</label><br />
-        <label>實際CT:</label><label>@Model.WO_CT</label><label>  目標CT:</label><label>@Model.E_CT</label>
+    <div class="lw-card lw-card-info">
+        <h2>工站資訊</h2>
+        <dl class="lw-info-grid">
+            <dt>工站編號</dt><dd>@Model.Station &nbsp; @Model.Station_Name</dd>
+            <dt>狀態</dt>
+            <dd>
+                @{
+                    if (Model.Station_State != null && Model.Station_State == "生產中...")
+                    {
+                        <span class="lw-status-badge lw-status-running">@Model.Station_State</span>
+                    }
+                    else if (Model.Station_State != null && Model.Station_State == "停止...")
+                    {
+                        <span class="lw-status-badge lw-status-stopped">@Model.Station_State</span>
+                    }
+                    else
+                    {
+                        <span class="lw-status-badge lw-status-idle">@Model.Station_State</span>
+                    }
+                }
+            </dd>
+            <dt>工單編號</dt><dd>@Model.OrderNO</dd>
+            <dt>工序名稱</dt><dd>@Model.StationNO_Custom_DisplayName</dd>
+            <dt>生產料件</dt><dd>@Model.PartNO_INFO</dd>
+            <dt>前站完成量</dt><dd>@Model.Transfer_QTY</dd>
+            <dt>工單數量</dt><dd>@Model.WO_QTY</dd>
+            <dt>累計OK量</dt><dd>@Model.TOT_OK_QTY</dd>
+            <dt>Fail量</dt><dd>@Model.TOT_Fail_QTY</dd>
+            <dt>開始日</dt><dd>@Model.RemarkTimeS</dd>
+            <dt>停止日</dt><dd>@Model.RemarkTimeE</dd>
+            <dt>實際CT</dt><dd>@Model.WO_CT</dd>
+            <dt>目標CT</dt><dd>@Model.E_CT</dd>
+        </dl>
     </div>
-    <div class="box">
-        <p><button class="ui-btn ui-icon-grid ui-btn-icon-left" onclick='_me.clickFunction(1)'>設定工單</button></p>
-        <p><button class="ui-btn ui-icon-grid ui-btn-icon-left" onclick='_me.clickFunction(2)'>設定作業人員</button></p>
+    <div class="lw-card lw-card-action">
+        <h2>操作功能</h2>
+        <div class="lw-actions">
+            <button class="lw-btn lw-btn-warning" onclick='_me.clickFunction(1)'>&#128203; 設定工單</button>
+            <button class="lw-btn lw-btn-outline" onclick='_me.clickFunction(2)'>&#128100; 設定作業人員</button>
         @{
             if (Model.OrderNO!="")
             {
-                        <p><button class="ui-btn ui-icon-grid ui-btn-icon-left" onclick='_me.clickFunction(3)'>報工</button></p>
+                        <button class="lw-btn lw-btn-primary" onclick='_me.clickFunction(3)'>&#9998; 報工</button>
             }
             if (Model.Type != "0")
             {
@@ -187,10 +424,10 @@
                     <input type='hidden' id='SimulationId' name='SimulationId' value="@Model.SimulationId" />
                     <input type='hidden' id='OPNO' name='OPNO' value="@Model.OPNO" />
                     <input type='hidden' id='OPNO_Name' name='OPNO_Name' value="@Model.OPNO_Name" />
-                    <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" data-confirm="你確定執行 開工 作業?">開工</button></p>
+                    <button type='submit' class="lw-btn lw-btn-success" data-confirm="你確定執行 開工 作業?">&#9654; 開工</button>
                 </form>
 
-                <form action=@Url.Action("SetAction") method="post">
+                <form action=@Url.Action("SetAction") method="post" style="display:inline;">
                     <input type='hidden' name='Has_Knives' value="@Model.Has_Knives" />
                     <input type='hidden' name='BOOLonToggleMenu' value="@Model.BOOLonToggleMenu" />
                     <input type='hidden' id='State' name='State' value="停工" />
@@ -210,7 +447,7 @@
                     <input type='hidden' id='SimulationId' name='SimulationId' value="@Model.SimulationId" />
                     <input type='hidden' id='OPNO' name='OPNO' value="@Model.OPNO" />
                     <input type='hidden' id='OPNO_Name' name='OPNO_Name' value="@Model.OPNO_Name" />
-                    <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" data-confirm="你確定執行 停工 作業?">停工</button></p>
+                    <button type='submit' class="lw-btn lw-btn-danger" data-confirm="你確定執行 停工 作業?">&#9724; 停工</button>
                 </form>
                 if (Model.OrderNO != "")
                 {
@@ -234,7 +471,7 @@
                         <input type='hidden' id='SimulationId' name='SimulationId' value="@Model.SimulationId" />
                         <input type='hidden' id='OPNO' name='OPNO' value="@Model.OPNO" />
                         <input type='hidden' id='OPNO_Name' name='OPNO_Name' value="@Model.OPNO_Name" />
-                        <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" data-confirm="你確定執行 領料 作業?">電子領料作業</button></p>
+                        <button type='submit' class="lw-btn lw-btn-primary" data-confirm="你確定執行 領料 作業?">&#128230; 電子領料作業</button>
                     </form>
                 }
                 if (Model.Station_Config_Store_Type == "1")
@@ -261,7 +498,7 @@
                                     <input type='hidden' id='SimulationId' name='SimulationId' value="@Model.SimulationId" />
                                     <input type='hidden' id='OPNO' name='OPNO' value="@Model.OPNO" />
                                     <input type='hidden' id='OPNO_Name' name='OPNO_Name' value="@Model.OPNO_Name" />
-                                    <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" data-confirm="你確定執行 入料 作業?">電子入料作業</button></p>
+                                    <button type='submit' class="lw-btn lw-btn-primary" data-confirm="你確定執行 入料 作業?">&#128229; 電子入料作業</button>
                                 </form>
                     }
                 }
@@ -286,17 +523,18 @@
                             <input type='hidden' id='SimulationId' name='SimulationId' value="@Model.SimulationId" />
                             <input type='hidden' id='OPNO' name='OPNO' value="@Model.OPNO" />
                             <input type='hidden' id='OPNO_Name' name='OPNO_Name' value="@Model.OPNO_Name" />
-                                                    <p><button type='submit' id="closeWObutton" class="ui-btn ui-icon-grid ui-btn-icon-left" data-confirm="@closeWODisINFO 你確定執行 結束工單 作業?">結束工單作業</button></p>
+                                                    <button type='submit' id="closeWObutton" class="lw-btn lw-btn-danger" data-confirm="@closeWODisINFO 你確定執行 結束工單 作業?">&#10006; 結束工單作業</button>
                         </form>
             }
         }
+        </div>
     </div>
 </div>
 
 <!--設定工單-->
 <div id="stationSetOrderNO">
     <form action=@Url.Action("SetAction") method="post">
-        <div class="box">
+        <div class="lw-card lw-card-setwo lw-wo-setorder-box">
             <input type='hidden' name='Has_Knives' value="@Model.Has_Knives" />
             <input type='hidden' name='BOOLonToggleMenu' value="@Model.BOOLonToggleMenu" />
             <input type='hidden' id='State' name='State' value="異動工單" />
@@ -318,33 +556,90 @@
             <input type='hidden' id='OrderNO' name='OrderNO' value="@Model.OrderNO" />
             <input type='hidden' id='IndexSN' name='IndexSN' value="@Model.IndexSN" />
             @{
-                if (Model.HasWO_List!=null && Model.HasWO_List.Count > 0)
+                int woActiveCnt = Model.HasWO_List != null ? Model.HasWO_List.Count : 0;
+                int woPausedCnt = Model.HasWO_List_Paused != null ? Model.HasWO_List_Paused.Count : 0;
+                if (woActiveCnt > 0 || woPausedCnt > 0)
                 {
-                    <table id='tableRead' class='table table-bordered xg-table' cellspacing='0'>
-                        <thead><tr><th>選擇</th><th>工單編號</th><th>料件編號</th><th>品名/規格</th><th>工序</th><th>需求量</th><th>型態</th><th>名稱</th></tr></thead>
-                        <tbody>
-                            @foreach (string[] s in Model.HasWO_List)
-                            {
-                                <tr>
-                                    <td>
-                                        <input type="radio" name="woList" onchange="_me.radioChange('@s[0];@s[12];@s[8]')" />
-                                    </td>
-                                    <td>@s[0]</td>
-                                    <td>@s[1]</td>
-                                    <td>@s[2]&nbsp;@s[3]</td>
-                                    <td>@s[7]</td>
-                                    <td>@s[11]</td>
-                                    <td>@s[4]</td>
-                                    <td>@s[5]</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                    <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none'">異動確定</button></p>
+                    <h2 class="lw-wo-title">選擇工單</h2>
+                    <div class="lw-wo-tabs" role="tablist">
+                        <button type="button" id="wo-tab-btn-active" class="lw-wo-tab lw-wo-tab-active @(woActiveCnt > 0 ? "lw-wo-tab--active" : "")" role="tab" aria-selected="@(woActiveCnt > 0 ? "true" : "false")" onclick="_me.woListTab('active'); return false;">
+                            在線可用工單<span class="lw-wo-badge">@woActiveCnt</span>
+                        </button>
+                        <button type="button" id="wo-tab-btn-paused" class="lw-wo-tab lw-wo-tab-paused @(woActiveCnt == 0 && woPausedCnt > 0 ? "lw-wo-tab--active" : "")" role="tab" aria-selected="@(woActiveCnt == 0 && woPausedCnt > 0 ? "true" : "false")" onclick="_me.woListTab('paused'); return false;">
+                            離線暫停工單<span class="lw-wo-badge">@woPausedCnt</span>
+                        </button>
+                    </div>
+                    <div id="wo-panel-active" class="lw-wo-panel lw-wo-panel-active" style="display:@(woActiveCnt > 0 ? "block" : "none")" role="tabpanel">
+                        @if (woActiveCnt > 0)
+                        {
+                            <div class="lw-wo-table-wrap">
+                                <table id="tableReadActive" class='table table-bordered xg-table' cellspacing='0'>
+                                    <thead><tr><th>選擇</th><th class="sortable-th" onclick="_me.sortTable('tableReadActive',1)">工單編號</th><th class="sortable-th" onclick="_me.sortTable('tableReadActive',2)">料件編號</th><th class="sortable-th" onclick="_me.sortTable('tableReadActive',3)">品名/規格</th><th>工序</th><th>需求量</th><th>累計OK量</th><th>Fail量</th><th>型態</th><th>名稱</th></tr></thead>
+                                    <tbody>
+                                        @foreach (string[] s in Model.HasWO_List)
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <input type="radio" name="woList" onchange="_me.radioChange('@s[0];@s[12];@s[8]')" />
+                                                </td>
+                                                <td>@s[0]</td>
+                                                <td>@s[1]</td>
+                                                <td>@s[2]&nbsp;@s[3]</td>
+                                                <td>@s[7]</td>
+                                                <td>@s[11]</td>
+                                                <td>@s[13]</td>
+                                                <td>@s[14]</td>
+                                                <td>@s[4]</td>
+                                                <td>@s[5]</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <span class="lw-wo-empty">此分頁無可用工單（進行中需求且工單未暫停）。</span>
+                        }
+                    </div>
+                    <div id="wo-panel-paused" class="lw-wo-panel lw-wo-panel-paused" style="display:@(woActiveCnt > 0 ? "none" : "block")" role="tabpanel">
+                        @if (woPausedCnt > 0)
+                        {
+                            <div class="lw-wo-table-wrap">
+                                <table id="tableReadPaused" class='table table-bordered xg-table' cellspacing='0'>
+                                    <thead><tr><th>選擇</th><th class="sortable-th" onclick="_me.sortTable('tableReadPaused',1)">工單編號</th><th class="sortable-th" onclick="_me.sortTable('tableReadPaused',2)">料件編號</th><th class="sortable-th" onclick="_me.sortTable('tableReadPaused',3)">品名/規格</th><th>工序</th><th>需求量</th><th>累計OK量</th><th>Fail量</th><th>型態</th><th>名稱</th></tr></thead>
+                                    <tbody>
+                                        @foreach (string[] s in Model.HasWO_List_Paused)
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <input type="radio" name="woList" onchange="_me.radioChange('@s[0];@s[12];@s[8]')" />
+                                                </td>
+                                                <td>@s[0]</td>
+                                                <td>@s[1]</td>
+                                                <td>@s[2]&nbsp;@s[3]</td>
+                                                <td>@s[7]</td>
+                                                <td>@s[11]</td>
+                                                <td>@s[13]</td>
+                                                <td>@s[14]</td>
+                                                <td>@s[4]</td>
+                                                <td>@s[5]</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <span class="lw-wo-empty">此分頁無暫停需求工單。</span>
+                        }
+                    </div>
+                    <div class="lw-wo-submit-row lw-actions"><button type='submit' class="lw-btn lw-btn-warning" onclick="this.style.display='none'">&#10004; 異動確定</button></div>
                 }
                 else
                 {
-                    <label>目前本站無其他生產計劃需求工單</label>
+                    <span class="lw-wo-empty">目前本站無其他生產計劃需求工單</span>
                 }
             }
             
@@ -357,15 +652,15 @@
             if (arg5 != "") { arg5 = $";{arg5}"; }
             if (Model.SimulationId != "")
             {
-                <p><a href="@Url.Action("Index", "LabelWork",$"{Model.Station};2;{Model.SimulationId};{Model.IndexSN}{arg5}")" class="ui-btn ui-icon-back ui-btn-icon-left">回到主選單畫面</a></p>
+                <p><a href="@Url.Action("Index", "LabelWork",$"{Model.Station};2;{Model.SimulationId};{Model.IndexSN}{arg5}")" class="lw-btn-back">回到主選單畫面</a></p>
             }
             else if (Model.OrderNO != "")
             {
-                                <p><a href="@Url.Action("Index", "LabelWork",$"{Model.Station};1;{Model.OrderNO};{Model.IndexSN}{arg5}")" class="ui-btn ui-icon-back ui-btn-icon-left">回到主選單畫面</a></p>
+                                <p><a href="@Url.Action("Index", "LabelWork",$"{Model.Station};1;{Model.OrderNO};{Model.IndexSN}{arg5}")" class="lw-btn-back">回到主選單畫面</a></p>
             }
             else
             {
-                                <p><a href="@Url.Action("Index", "LabelWork",$"{Model.Station};0;;0{arg5}")" class="ui-btn ui-icon-back ui-btn-icon-left">回到主選單畫面</a></p>
+                                <p><a href="@Url.Action("Index", "LabelWork",$"{Model.Station};0;;0{arg5}")" class="lw-btn-back">回到主選單畫面</a></p>
             }
         }
     }
@@ -374,7 +669,7 @@
 <!--設定作業人員-->
 <div id="stationSetOPNO">
     <form action=@Url.Action("SetAction") method="post">
-        <div class="box">
+        <div class="lw-card lw-card-staff">
             <input type='hidden' name='Has_Knives' value="@Model.Has_Knives" />
             <input type='hidden' name='BOOLonToggleMenu' value="@Model.BOOLonToggleMenu" />
             <input type='hidden' id='State' name='State' value="設定人員" />
@@ -406,8 +701,9 @@
                             </tbody></table>
                 }
            }
-             <p>新增員工編號:<input type='text' class='form-control' id='OPNO' name='OPNO' value="@Model.OPNO" /><input type='text' class='form-control' id='OPNO_Name' name='OPNO_Name' value="@Model.OPNO_Name" /></p>
-            <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none'">設定確定</button></p>
+             <div class="lw-field"><label>員工編號:</label><input type='text' id='OPNO' name='OPNO' value="@Model.OPNO" /></div>
+            <div class="lw-field"><label>員工姓名:</label><input type='text' id='OPNO_Name' name='OPNO_Name' value="@Model.OPNO_Name" /></div>
+            <div class="lw-actions"><button type='submit' class="lw-btn lw-btn-primary" onclick="this.style.display='none'">&#10004; 設定確定</button></div>
         </div>
     </form>
     @{
@@ -417,15 +713,15 @@
             if (arg5 != "") { arg5 = $";{arg5}"; }
             if (Model.SimulationId != "")
             {
-                <p><a href="@Url.Action("Index", "LabelWork",$"{Model.Station};2;{Model.SimulationId};{Model.IndexSN}{arg5}")" class="ui-btn ui-icon-back ui-btn-icon-left">回到主選單畫面</a></p>
+                <p><a href="@Url.Action("Index", "LabelWork",$"{Model.Station};2;{Model.SimulationId};{Model.IndexSN}{arg5}")" class="lw-btn-back">回到主選單畫面</a></p>
             }
             else if (Model.OrderNO != "")
             {
-                <p><a href="@Url.Action("Index", "LabelWork",$"{Model.Station};1;{Model.OrderNO};{Model.IndexSN}{arg5}")" class="ui-btn ui-icon-back ui-btn-icon-left">回到主選單畫面</a></p>
+                <p><a href="@Url.Action("Index", "LabelWork",$"{Model.Station};1;{Model.OrderNO};{Model.IndexSN}{arg5}")" class="lw-btn-back">回到主選單畫面</a></p>
             }
             else
             {
-                <p><a href="@Url.Action("Index", "LabelWork",$"{Model.Station};0;;0{arg5}")" class="ui-btn ui-icon-back ui-btn-icon-left">回到主選單畫面</a></p>
+                <p><a href="@Url.Action("Index", "LabelWork",$"{Model.Station};0;;0{arg5}")" class="lw-btn-back">回到主選單畫面</a></p>
             }
         }
     }
@@ -434,7 +730,8 @@
 <!--報工-->
 <div id="stationSetINFO">
     <form action=@Url.Action("SetAction") method="post">
-        <div class="box">
+        <div class="lw-card lw-card-report">
+            <h3>報工作業</h3>
             <input type='hidden' name='Has_Knives' value="@Model.Has_Knives" />
             <input type='hidden' name='BOOLonToggleMenu' value="@Model.BOOLonToggleMenu" />
             <input type='hidden' id='State' name='State' value="報工" />
@@ -447,15 +744,17 @@
             <input type='hidden' id='OPNO' name='OPNO' value="@Model.OPNO" />
             <input type='hidden' id='OPNO_Name' name='OPNO_Name' value="@Model.OPNO_Name" />
             <input type='hidden' id='LocalIPPort' name='LocalIPPort' />
-            <p><label>工單編號:</label><label>@Model.OrderNO</label><br />
-                <label>生產料件:</label><label>@Model.PartNO_INFO</label><br />
-                <label>工單數量:</label><label>@Model.WO_QTY</label><br />
-                <label>累計OK量:</label><label>@Model.TOT_OK_QTY</label><label>  Fail量:</label><label>@Model.TOT_Fail_QTY</label><br />
-                <label>員工編號: @Model.OPNO  @Model.OPNO_Name</label>
-            </p>
-            <p>生產數量:<input type='number' class='form-control' id='OKQTY' name='OKQTY' value="@Model.OKQTY" /></p>
-            <p>不良數量:<input type='number' class='form-control' id='FailQTY' name='FailQTY' value="@Model.FailQTY" /></p>
-            <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none'">報工確定</button></p>
+            <dl class="lw-info-grid" style="margin-bottom:.6rem;">
+                <dt>工單編號</dt><dd>@Model.OrderNO</dd>
+                <dt>生產料件</dt><dd>@Model.PartNO_INFO</dd>
+                <dt>工單數量</dt><dd>@Model.WO_QTY</dd>
+                <dt>累計OK量</dt><dd>@Model.TOT_OK_QTY</dd>
+                <dt>Fail量</dt><dd>@Model.TOT_Fail_QTY</dd>
+                <dt>員工</dt><dd>@Model.OPNO &nbsp; @Model.OPNO_Name</dd>
+            </dl>
+            <div class="lw-field"><label>生產數量:</label><input type='number' id='OKQTY' name='OKQTY' value="@Model.OKQTY" /></div>
+            <div class="lw-field"><label>不良數量:</label><input type='number' id='FailQTY' name='FailQTY' value="@Model.FailQTY" /></div>
+            <div class="lw-actions"><button type='submit' class="lw-btn lw-btn-primary" onclick="this.style.display='none'">&#10004; 報工確定</button></div>
         </div>
     </form>
     @{
@@ -465,61 +764,57 @@
             if (arg5 != "") { arg5 = $";{arg5}"; }
             if (Model.SimulationId != "")
             {
-                <p><a href="@Url.Action("Index", "LabelWork",$"{Model.Station};2;{Model.SimulationId};{Model.IndexSN}{arg5}")" class="ui-btn ui-icon-back ui-btn-icon-left">回到主選單畫面</a></p>
+                <p><a href="@Url.Action("Index", "LabelWork",$"{Model.Station};2;{Model.SimulationId};{Model.IndexSN}{arg5}")" class="lw-btn-back">回到主選單畫面</a></p>
             }
             else if (Model.OrderNO != "")
             {
-                <p><a href="@Url.Action("Index", "LabelWork",$"{Model.Station};1;{Model.OrderNO};{Model.IndexSN}{arg5}")" class="ui-btn ui-icon-back ui-btn-icon-left">回到主選單畫面</a></p>
+                <p><a href="@Url.Action("Index", "LabelWork",$"{Model.Station};1;{Model.OrderNO};{Model.IndexSN}{arg5}")" class="lw-btn-back">回到主選單畫面</a></p>
             }
             else
             {
-                <p><a href="@Url.Action("Index", "LabelWork",$"{Model.Station};0;;0{arg5}")" class="ui-btn ui-icon-back ui-btn-icon-left">回到主選單畫面</a></p>
+                <p><a href="@Url.Action("Index", "LabelWork",$"{Model.Station};0;;0{arg5}")" class="lw-btn-back">回到主選單畫面</a></p>
             }
         }
     }
 </div>
 
-<!--刀具功能-->
-@{
-    if (Model.Has_Knives=="1")
-    {
-    <div id="displayKnives" class="div-3">
-        <form action=@Url.Action("SetAction") method="post">
+<!--刀具功能 & ESOP-->
+<div class="lw-card lw-card-action" style="margin-top:0;">
+    <div class="lw-actions">
+        @if (Model.Has_Knives == "1")
+        {
+            <form action=@Url.Action("SetAction") method="post" style="margin:0;">
+                <input type='hidden' name='Has_Knives' value="@Model.Has_Knives" />
+                <input type='hidden' name='BOOLonToggleMenu' value="@Model.BOOLonToggleMenu" />
+                <input type='hidden' name='State' value="Knives" />
+                <input type='hidden' name='Station' value="@Model.Station" />
+                <input type='hidden' name='Station_Name' value="@Model.Station_Name" />
+                <input type='hidden' name='StationNO_Custom_DisplayName' value="@Model.StationNO_Custom_DisplayName" />
+                <input type='hidden' name='OrderNO' value="@Model.OrderNO" />
+                <input type='hidden' name='IndexSN' value="@Model.IndexSN" />
+                <input type='hidden' name='SimulationId' value="@Model.SimulationId" />
+                <input type='hidden' name='OPNO' value="@Model.OPNO" />
+                <input type='hidden' name='OPNO_Name' value="@Model.OPNO_Name" />
+                <input type='hidden' name='LocalIPPort' />
+                <button type='submit' class="lw-btn lw-btn-outline" onclick="this.style.display='none'">&#128295; 刀具與製工具歷程查詢</button>
+            </form>
+        }
+        <form action=@Url.Action("SetAction") method="post" style="margin:0;">
             <input type='hidden' name='Has_Knives' value="@Model.Has_Knives" />
             <input type='hidden' name='BOOLonToggleMenu' value="@Model.BOOLonToggleMenu" />
-                <input type='hidden' name='State' value="Knives" />
-            <input type='hidden' id='Station' name='Station' value="@Model.Station" />
+            <input type='hidden' name='State' value="ESOP" />
+            <input type='hidden' name='Station' value="@Model.Station" />
             <input type='hidden' name='Station_Name' value="@Model.Station_Name" />
             <input type='hidden' name='StationNO_Custom_DisplayName' value="@Model.StationNO_Custom_DisplayName" />
-            <input type='hidden' id='OrderNO' name='OrderNO' value="@Model.OrderNO" />
-            <input type='hidden' id='IndexSN' name='IndexSN' value="@Model.IndexSN" />
-            <input type='hidden' id='SimulationId' name='SimulationId' value="@Model.SimulationId" />
-            <input type='hidden' id='OPNO' name='OPNO' value="@Model.OPNO" />
-            <input type='hidden' id='OPNO_Name' name='OPNO_Name' value="@Model.OPNO_Name" />
-            <input type='hidden' id='LocalIPPort' name='LocalIPPort' />
-                <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none'">刀具 與 製工具 歷程查詢</button></p>
+            <input type='hidden' name='OrderNO' value="@Model.OrderNO" />
+            <input type='hidden' name='IndexSN' value="@Model.IndexSN" />
+            <input type='hidden' name='SimulationId' value="@Model.SimulationId" />
+            <input type='hidden' name='OPNO' value="@Model.OPNO" />
+            <input type='hidden' name='OPNO_Name' value="@Model.OPNO_Name" />
+            <input type='hidden' name='LocalIPPort' />
+            <button type='submit' class="lw-btn lw-btn-outline" onclick="this.style.display='none'">&#128196; ESOP 電子作業程序書</button>
         </form>
     </div>
-    }
-}
-
-<!--ESOP-->
-<div id="displayESOP" class="div-3">
-    <form action=@Url.Action("SetAction") method="post">
-        <input type='hidden' name='Has_Knives' value="@Model.Has_Knives" />
-        <input type='hidden' name='BOOLonToggleMenu' value="@Model.BOOLonToggleMenu" />
-        <input type='hidden' name='State' value="ESOP" />
-        <input type='hidden' id='Station' name='Station' value="@Model.Station" />
-        <input type='hidden' name='Station_Name' value="@Model.Station_Name" />
-        <input type='hidden' name='StationNO_Custom_DisplayName' value="@Model.StationNO_Custom_DisplayName" />
-        <input type='hidden' id='OrderNO' name='OrderNO' value="@Model.OrderNO" />
-        <input type='hidden' id='IndexSN' name='IndexSN' value="@Model.IndexSN" />
-        <input type='hidden' id='SimulationId' name='SimulationId' value="@Model.SimulationId" />
-        <input type='hidden' id='OPNO' name='OPNO' value="@Model.OPNO" />
-        <input type='hidden' id='OPNO_Name' name='OPNO_Name' value="@Model.OPNO_Name" />
-        <input type='hidden' id='LocalIPPort' name='LocalIPPort' />
-        <p><button type='submit' class="ui-btn ui-icon-grid ui-btn-icon-left" onclick="this.style.display='none'">ESOP 電子作業程序書</button></p>
-    </form>
 </div>
 
 

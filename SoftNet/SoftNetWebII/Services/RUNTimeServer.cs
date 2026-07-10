@@ -1,9 +1,11 @@
 //using AspNetCore;
 using Base;
+using Base.Enums;
 using Base.Services;
 using Microsoft.Extensions.Hosting;
 using Newtonsoft.Json;
 using SoftNetWebII.Models;
+using SoftNetWebII.Tables;
 using StackExchange.Redis;
 using System;
 using System.Collections.Generic;
@@ -20,6 +22,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
+using static SoftNetWebII.Services.RagIntentService;
 using static StackExchange.Redis.Role;
 
 namespace SoftNetWebII.Services
@@ -39,6 +42,10 @@ namespace SoftNetWebII.Services
         private Dictionary<string, rmsMasterUserData> _MasterRMSUserList = new Dictionary<string, rmsMasterUserData>(); //key=ip:port  value=rmsConectUserData(deviceName,ipcRobotName,socket)
         private object lock__MasterRMSUserList = new object();
         private CancellationToken _stoppingToken = CancellationToken.None;
+        private DateTime? _lastAIReportRunDate = null;
+        // SCM Mail Bridge：供應鏈收發信與入站處理
+        private readonly ScmMailBridgeService _scmMailBridgeService = new ScmMailBridgeService();
+        private DateTime _nextScmRunTime = DateTime.MinValue;
 
         private TcpListener _MastertcpListener = null;
         int SFCStatisticalAnalysisLoopTime = 60000;
@@ -309,6 +316,24 @@ namespace SoftNetWebII.Services
                     err = "";
                     logdate = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
 
+                    #region SCM(供應鏈) 輪巡：依設定分鐘數執行一次，避免每次主迴圈都觸發
+                    if (_Fun.Config.SCM_IsEnabled && DateTime.Now >= _nextScmRunTime)
+                    {
+                        try
+                        {
+                            _scmMailBridgeService.RunCycle(db, _stoppingToken);
+                        }
+                        catch (Exception ex)
+                        {
+                            await _Log.ErrorAsync($"RUNTimeServer.cs SCM cycle exception: {ex.Message}", true);
+                        }
+                        finally
+                        {
+                            _nextScmRunTime = DateTime.Now.AddMinutes(Math.Max(1, _Fun.Config.SCM_WorkingDoWhileTime));
+                        }
+                    }
+                    #endregion
+
                     if (!IsWork && _stoppingToken.CanBeCanceled) { break; }
                     #region 執行預存程序 WorkOrderProductionUpdate) 與 處理工單 TmpClose 未結
                     DataTable dt_PP_WorkOrder_StartWO = DBMaster.DB_GetData($@"SELECT * FROM SoftNetSYSDB.[dbo].PP_WorkOrder WHERE ServerId='{_Fun.Config.ServerId}' and StartTime IS NOT NULL AND (EndTime is null OR TmpClose IS NOT NULL)");
@@ -431,12 +456,76 @@ namespace SoftNetWebII.Services
                     #region 每天只執行一次 的工作
                     if (onedayRUN_data < DateTime.Now)
                     {
+                        #region 處理 AIReport（依 AIReportDDay 指定星期，該星期到就執行一次）
+                        if (_Fun.Config.AIReportDDay != DaysOfWeek.None)
+                        {
+                            var today = DateTime.Now.Date;
+                            var todayFlag = (DaysOfWeek)(1 << (int)today.DayOfWeek);
+                            if ((todayFlag & _Fun.Config.AIReportDDay) != 0 && _lastAIReportRunDate != today)
+                            {
+                                _lastAIReportRunDate = today;
+                                try
+                                {
+                                    // 依 AIReportDDay 計算「上一個執行日」與今日的區間；僅一個星期則區間為一週
+                                    var configuredDays = new List<int>();
+                                    for (int i = 0; i <= 6; i++)
+                                        if ((_Fun.Config.AIReportDDay & (DaysOfWeek)(1 << i)) != 0)
+                                            configuredDays.Add(i);
+                                    DateTime startday;
+                                    if (configuredDays.Count == 0)
+                                        startday = today.AddDays(-6);
+                                    else if (configuredDays.Count == 1)
+                                        startday = today.AddDays(-6);
+                                    else
+                                    {
+                                        int currentDay = (int)today.DayOfWeek;
+                                        int currentIndex = configuredDays.IndexOf(currentDay);
+                                        if (currentIndex < 0) currentIndex = 0;
+                                        int prevIndex = (currentIndex - 1 + configuredDays.Count) % configuredDays.Count;
+                                        int prevDay = configuredDays[prevIndex];
+                                        int daysBack = ((currentDay - prevDay + 7) % 7) - 1;
+                                        if (daysBack == 0) daysBack = 7;
+                                        startday = today.AddDays(-daysBack);
+                                    }
+                                    if (startday > today) startday = today;
+                                    string question = _Fun.Config.AIReportQuestion == "" ? "請分析問題並提出建議。" : _Fun.Config.AIReportQuestion;
+                                    string provider = "gemini";
+                                    bool enableVectorSearch = true;
+                                    var intent = new QueryIntent { OriginalQuestion = question };
+                                    intent.TimeRange = new TimeRange { StartDate = startday, EndDate = today };
+                                    intent.DataTypes = new List<string> { "Exception" };
+                                    var ragQueryService = new RagQueryService();
+                                    var (answer, retrievedData) = await ragQueryService.AskAsync(question, intent, provider, enableVectorSearch);
+                                    if (!string.IsNullOrEmpty(answer))
+                                    {
+                                        await _Log.InfoAsync($"RUNTimeServer AIReport 完成 時間範圍 {startday:yyyy-MM-dd}～{today:yyyy-MM-dd} 檢索筆數 {retrievedData?.Count ?? 0}");
+                                        //記錄查詢（背景執行，不阻塞回應）
+                                        _ = Task.Run(async () =>
+                                        {
+                                            try
+                                            {
+                                                await SystemAsk_LogQuery("系統指派", question, provider, retrievedData.Count, answer,
+                                                    0, true, null);
+                                            }
+                                            catch { }
+                                        });
+
+                                    }
+                                }
+                                catch (Exception exAI)
+                                {
+                                    await _Log.ErrorAsync($"RUNTimeServer 處理 AIReport: {exAI.Message} {exAI.StackTrace}", false);
+                                }
+                            }
+                        }
+                        #endregion
+
                         #region 判斷 APS_WorkingPaper 是否有欄位需要人工處理 發Mail與紀錄ApsEventLog
                         if (_Fun.Config.SendMonitorMail19.Trim() != ",")
                         {
                             sql = $@"SELECT a.*,b.PartName,b.Specification FROM SoftNetSYSDB.[dbo].[APS_WorkingPaper] as a
                                     join SoftNetMainDB.[dbo].[Material] as b on a.PartNO=b.PartNO
-                                    where a.IsOK='0' and ServerId='{_Fun.Config.ServerId}' and CONVERT(varchar(10), StartTime, 23)='{DateTime.Now.ToString("yyyy-MM-dd")}'";
+                                    where a.IsOK='0' and a.ServerId='{_Fun.Config.ServerId}' and CONVERT(varchar(10), StartTime, 23)='{DateTime.Now.ToString("yyyy-MM-dd")}'";
                             tmp_dt = db.DB_GetData(sql);
                             if (tmp_dt != null && tmp_dt.Rows.Count > 0)
                             {
@@ -476,6 +565,7 @@ namespace SoftNetWebII.Services
                                 string MailBody = sb_MailBody_early.ToString();
                                 if (MailBody != "")
                                 {
+                                    MailBody = $"<p>問題分析:</p>表示工作底稿中有些欄位系統無法自動產生, 請進入網頁填寫不足的資料, 若無正確資料系統無法自動處裡工作.<BR/><HR/>{MailBody}";
                                     _Fun.Mail_Send(_Fun.Config.SendMonitorMail19.Split(',')[0].Split(';'), _Fun.Config.SendMonitorMail19.Split(',')[1].Split(';'), MailSub, MailBody, null, false);
                                     _ = _SFC_Common.InsertApsEventLog(db, $"工作底稿有部份欄位不齊全通知", null, null, "WW");
                                 }
@@ -503,7 +593,7 @@ namespace SoftNetWebII.Services
                                 string sID = sb_sID.ToString();
                                 if (sID != "")
                                 {
-                                    dt_tmp = db.DB_GetData($"SELECT * from SoftNetMainDB.[dbo].[DOC3stockII] where ServerId='{_Fun.Config.ServerId}' and IsOK='0' and ArrivalDate<='{DateTime.Now.AddDays(-_Fun.Config.APS_Simulation_ErrorData_Clear_Day).ToString("yyyy-MM-dd HH:mm:ss.fff")}' and SimulationId in ({sID})");
+                                    dt_tmp = db.DB_GetData($"SELECT a.*,m.PartName,m.Specification from SoftNetMainDB.[dbo].[DOC3stockII] as a left join SoftNetMainDB.[dbo].[Material] as m on a.PartNO=m.PartNO and m.ServerId='{_Fun.Config.ServerId}' where a.ServerId='{_Fun.Config.ServerId}' and a.IsOK='0' and a.ArrivalDate<='{DateTime.Now.AddDays(-_Fun.Config.APS_Simulation_ErrorData_Clear_Day).ToString("yyyy-MM-dd HH:mm:ss.fff")}' and a.SimulationId in ({sID})");
                                     if (dt_tmp != null && dt_tmp.Rows.Count > 0)
                                     {
                                         foreach (DataRow row in dt_tmp.Rows)
@@ -512,12 +602,12 @@ namespace SoftNetWebII.Services
                                             if (row.IsNull("OUT_StoreNO") || row["OUT_StoreNO"].ToString().Trim() == "")
                                             {
                                                 _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStock] set QTY+={row["QTY"].ToString()} where ServerId='{_Fun.Config.ServerId}' and PartNO='{row["PartNO"].ToString()}' and StoreNO='{row["IN_StoreNO"].ToString()}' and StoreSpacesNO='{row["IN_StoreSpacesNO"].ToString()}'");
-                                                _ = _SFC_Common.InsertApsEventLog(db, $"生產已結束{_Fun.Config.APS_Simulation_ErrorData_Clear_Day}天,料件:{row["PartNO"].ToString()} 強制干涉入庫 數量:{row["QTY"].ToString()}", null, row["SimulationId"].ToString(), "EE");
+                                                _ = _SFC_Common.InsertApsEventLog(db, $"生產已結束{_Fun.Config.APS_Simulation_ErrorData_Clear_Day}天,料件:{row["PartNO"].ToString()} {(!row.IsNull("PartName") ? row["PartName"].ToString() : "")} {(!row.IsNull("Specification") ? row["Specification"].ToString() : "")} 強制干涉入庫 數量:{row["QTY"].ToString()}", null, row["SimulationId"].ToString(), "EE");
                                             }
                                             else
                                             {
                                                 _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[TotalStock] set QTY-={row["QTY"].ToString()} where ServerId='{_Fun.Config.ServerId}' and PartNO='{row["PartNO"].ToString()}' and StoreNO='{row["OUT_StoreNO"].ToString()}' and StoreSpacesNO='{row["OUT_StoreSpacesNO"].ToString()}'");
-                                                _ = _SFC_Common.InsertApsEventLog(db, $"生產已結束{_Fun.Config.APS_Simulation_ErrorData_Clear_Day}天,料件:{row["PartNO"].ToString()} 強制干涉出庫 數量:{row["QTY"].ToString()}", null, row["SimulationId"].ToString(), "EE");
+                                                _ = _SFC_Common.InsertApsEventLog(db, $"生產已結束{_Fun.Config.APS_Simulation_ErrorData_Clear_Day}天,料件:{row["PartNO"].ToString()} {(!row.IsNull("PartName") ? row["PartName"].ToString() : "")} {(!row.IsNull("Specification") ? row["Specification"].ToString() : "")} 強制干涉出庫 數量:{row["QTY"].ToString()}", null, row["SimulationId"].ToString(), "EE");
 
                                             }
                                             #endregion
@@ -547,20 +637,80 @@ namespace SoftNetWebII.Services
                         }
                         #endregion
 
-                        #region RAG 向量資料預先計算
-                        tmp = db.DB_GetFirstDataByDataRow("SELECT TOP 1 CreateTime FROM SoftNetLogDB.[dbo].[RAG_VectorStore] order by CreateTime desc");
-                        if (tmp != null && !tmp.IsNull("CreateTime"))
-                        {
-                            DateTime lastCreateTime = Convert.ToDateTime(tmp["CreateTime"]);
-                            await ragVectorStoreService.PrecomputeEmbeddings(lastCreateTime);
-                        }
-                        else
-                        { await ragVectorStoreService.PrecomputeEmbeddings(onedayRUN_data.AddDays(-1)); }
-                        #endregion
-
                         #region 監看工站CT 是否遠離偏離目標CT值 14
+
                         string mailSub = $"{_Fun.Config.ServerId} 警示 工站CT偏離目標值（連續3筆偏離）";
                         var sb_MailBody = new StringBuilder();
+                        var sqlParams = new List<object>
+                        {
+                            "ServerId", _Fun.Config.ServerId
+                        };
+
+                        // 已沒有遠離偏離目標CT值：依 APS_Simulation_ErrorData ErrorType='14' and ActionType='' 的 StationNO + ErrorRemark(PP_Name,IndexSN,PartNO)，
+                        // 在 SFC_StationDetail_ChangeLOG 用相同偏離規則判斷「最新 3 筆已非連續偏離」，則將該筆 UPDATE ActionType='0'（不依 dt_Warnings，避免與 INSERT 邏輯交叉導致重複 INSERT）
+                        string sql_NoLongerDeviation = @"
+                            WITH ErrorData14 AS (
+                                SELECT Id, StationNO, ErrorRemark,
+                                    CASE WHEN CHARINDEX(',', ErrorRemark) > 0 THEN LTRIM(RTRIM(SUBSTRING(ErrorRemark, 1, CHARINDEX(',', ErrorRemark) - 1))) ELSE LTRIM(RTRIM(ErrorRemark)) END AS PP_Name,
+                                    CASE WHEN (LEN(ErrorRemark) - LEN(REPLACE(ErrorRemark, ',', ''))) >= 2
+                                         THEN LTRIM(RTRIM(SUBSTRING(
+                                                ErrorRemark,
+                                                CHARINDEX(',', ErrorRemark) + 1,
+                                                LEN(ErrorRemark) - CHARINDEX(',', ErrorRemark) - CHARINDEX(',', REVERSE(ErrorRemark))
+                                            )))
+                                         ELSE '' END AS IndexSN,
+                                    CASE WHEN CHARINDEX(',', ErrorRemark) > 0
+                                         THEN LTRIM(RTRIM(REVERSE(SUBSTRING(REVERSE(ErrorRemark), 1, CHARINDEX(',', REVERSE(ErrorRemark)) - 1))))
+                                         ELSE '' END AS PartNO
+                                FROM SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData]
+                                WHERE ServerId = @ServerId AND ErrorType = '14' AND (ActionType IS NULL OR ActionType = '')
+                            ),
+                            CT_ValidData AS (
+                                SELECT a.ServerId, a.StationNO, a.PartNO, a.PP_Name, CAST(a.IndexSN AS VARCHAR(20)) AS IndexSN, a.LOGDateTimeID, a.CycleTime, a.ECT, a.LowerCT, a.UpperCT,
+                                    ROW_NUMBER() OVER (PARTITION BY a.StationNO, a.PartNO, a.PP_Name, a.IndexSN ORDER BY a.LOGDateTimeID DESC) AS RowNum
+                                FROM SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] AS a
+                                WHERE a.ServerId = @ServerId AND a.CycleTime > 0 AND a.ECT > 0
+                            ),
+                            CT_Recent3 AS (
+                                SELECT * FROM CT_ValidData WHERE RowNum <= 3
+                            ),
+                            CT_Deviation AS (
+                                SELECT *,
+                                    CASE
+                                        WHEN UpperCT IS NOT NULL AND CycleTime > UpperCT THEN 1
+                                        WHEN LowerCT IS NOT NULL AND UpperCT IS NOT NULL AND (CycleTime < LowerCT OR CycleTime > UpperCT) THEN 1
+                                        WHEN (LowerCT IS NULL) AND (UpperCT IS NULL) AND ECT > 0 AND ABS((CycleTime - ECT) * 100.0 / ECT) > 20 THEN 1
+                                        ELSE 0
+                                    END AS IsDeviation
+                                FROM CT_Recent3
+                            ),
+                            CT_ConsecutiveCheck AS (
+                                SELECT *, SUM(IsDeviation) OVER (PARTITION BY StationNO, PartNO, PP_Name, IndexSN ORDER BY LOGDateTimeID DESC ROWS BETWEEN CURRENT ROW AND 2 FOLLOWING) AS ConsecutiveDeviationCount
+                                FROM CT_Deviation
+                            ),
+                            CT_Consecutive3 AS (
+                                SELECT DISTINCT StationNO, PartNO, PP_Name, IndexSN
+                                FROM CT_ConsecutiveCheck
+                                WHERE ConsecutiveDeviationCount >= 3 AND RowNum = 1
+                            )
+                            SELECT e.Id
+                            FROM ErrorData14 e
+                            LEFT JOIN CT_Consecutive3 c ON e.StationNO = c.StationNO AND e.PP_Name = c.PP_Name AND e.PartNO = c.PartNO
+                                AND (e.IndexSN = '' OR e.IndexSN = c.IndexSN)
+                            WHERE c.StationNO IS NULL";
+                        DataTable dt_NoLongerDeviation = db.DB_GetDataByDataTable(sql_NoLongerDeviation, sqlParams);
+                        if (dt_NoLongerDeviation != null && dt_NoLongerDeviation.Rows.Count > 0)
+                        {
+                            foreach (DataRow row in dt_NoLongerDeviation.Rows)
+                            {
+                                string id = row["Id"]?.ToString() ?? "";
+                                if (!string.IsNullOrEmpty(id))
+                                {
+                                    _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] SET ActionType='0', ActionLogDate='{logdate}' WHERE Id='{id.Replace("'", "''")}'");
+                                }
+                            }
+                        }
+
                         #region sql語法
                         sql = @"
                             WITH CT_ValidData AS (
@@ -570,6 +720,7 @@ namespace SoftNetWebII.Services
                                     a.StationNO,
                                     a.PartNO,
                                     a.PP_Name,
+                                    CAST(a.IndexSN AS VARCHAR(20)) AS IndexSN,
                                     a.LOGDateTimeID,
                                     a.CycleTime,
                                     a.ECT,
@@ -581,8 +732,7 @@ namespace SoftNetWebII.Services
                                 FROM SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] as a
                                 LEFT JOIN SoftNetMainDB.[dbo].[Material] as b ON b.PartNO = a.PartNO AND b.ServerId = a.ServerId
                                 WHERE a.ServerId = @ServerId
-                                    AND a.CycleTime IS NOT NULL
-                                    AND a.ECT IS NOT NULL
+                                    AND a.CycleTime > 0
                                     AND a.ECT > 0  -- ECT 必須大於 0
                             ),
                             CT_Numbered AS (
@@ -590,7 +740,7 @@ namespace SoftNetWebII.Services
                                 SELECT 
                                     *,
                                     ROW_NUMBER() OVER (
-                                        PARTITION BY StationNO, PartNO, PP_Name 
+                                        PARTITION BY StationNO, PartNO, PP_Name, IndexSN 
                                         ORDER BY LOGDateTimeID DESC
                                     ) AS RowNum
                                 FROM CT_ValidData
@@ -633,7 +783,7 @@ namespace SoftNetWebII.Services
                                 SELECT 
                                     *,
                                     SUM(IsDeviation) OVER (
-                                        PARTITION BY StationNO, PartNO, PP_Name 
+                                        PARTITION BY StationNO, PartNO, PP_Name, IndexSN 
                                         ORDER BY LOGDateTimeID DESC
                                         ROWS BETWEEN CURRENT ROW AND 2 FOLLOWING
                                     ) AS ConsecutiveDeviationCount
@@ -642,7 +792,7 @@ namespace SoftNetWebII.Services
                             CT_Consecutive3 AS (
                                 -- 步驟6: 找出連續3筆偏離的記錄
                                 SELECT 
-                                    StationNO, PartNO, PP_Name,
+                                    StationNO, PartNO, PP_Name, IndexSN,
                                     MAX(LOGDateTimeID) AS LatestLOGDateTimeID,
                                     MAX(CASE WHEN RowNum = 1 THEN SimulationId END) AS SimulationId,
                                     MAX(CASE WHEN RowNum = 1 THEN PartName END) AS PartName,
@@ -655,6 +805,7 @@ namespace SoftNetWebII.Services
                                         WHERE c2.StationNO = c1.StationNO
                                             AND c2.PartNO = c1.PartNO
                                             AND c2.PP_Name = c1.PP_Name
+                                            AND c2.IndexSN = c1.IndexSN
                                             AND c2.RowNum <= 3
                                             AND c2.IsDeviation = 1
                                         ORDER BY c2.LOGDateTimeID DESC
@@ -663,73 +814,44 @@ namespace SoftNetWebII.Services
                                 FROM CT_ConsecutiveCheck AS c1
                                 WHERE ConsecutiveDeviationCount >= 3 
                                     AND RowNum = 1
-                                GROUP BY StationNO, PartNO, PP_Name
+                                GROUP BY StationNO, PartNO, PP_Name, IndexSN
                             )
                             SELECT * FROM CT_Consecutive3
                             ORDER BY LatestLOGDateTimeID DESC";
 
-                        var sqlParams = new List<object>
-                        {
-                            "ServerId", _Fun.Config.ServerId
-                        };
+
                         #endregion
                         DataTable dt_Warnings = db.DB_GetDataByDataTable(sql, sqlParams);
                         if (dt_Warnings != null && dt_Warnings.Rows.Count > 0)
                         {
-                            // 步驟1: 一次性取得所有 SimulationId 對應的 NeedId
-                            var simulationIds = new List<string>();
-                            foreach (DataRow dr in dt_Warnings.Rows)
-                            {
-                                string simId = dr["SimulationId"]?.ToString() ?? "";
-                                if (!string.IsNullOrEmpty(simId))
-                                    simulationIds.Add(simId.Replace("'", "''"));
-                            }
-
-                            DataTable dt_NeedIds = null;
-                            var needIdDict = new Dictionary<string, string>();
-                            if (simulationIds.Count > 0)
-                            {
-                                string simIdList = string.Join("','", simulationIds.Distinct());
-                                dt_NeedIds = db.DB_GetData(
-                                    $@"SELECT SimulationId, NeedId 
-                                       FROM SoftNetSYSDB.[dbo].[APS_Simulation] 
-                                       WHERE SimulationId IN ('{simIdList}')");
-
-                                if (dt_NeedIds != null)
-                                {
-                                    foreach (DataRow row in dt_NeedIds.Rows)
-                                    {
-                                        needIdDict[row["SimulationId"].ToString()] = row["NeedId"]?.ToString() ?? "";
-                                    }
-                                }
-                            }
-
-                            // 步驟2: 一次性檢查所有已存在的警告
+                            // 步驟1: 一次性檢查所有已存在的警告
                             var stationNOs = new List<string>();
-                            var simIdsForCheck = new List<string>();
+                            var errorRemarkKeysForCheck = new List<string>();
 
                             foreach (DataRow dr in dt_Warnings.Rows)
                             {
                                 string stationNO = dr["StationNO"]?.ToString().Replace("'", "''") ?? "";
-                                string simulationId = dr["SimulationId"]?.ToString().Replace("'", "''") ?? "";
-                                if (!string.IsNullOrEmpty(stationNO) && !string.IsNullOrEmpty(simulationId))
+                                string partNO = dr["PartNO"]?.ToString().Replace("'", "''") ?? "";
+                                string pP_Name = dr["PP_Name"]?.ToString().Replace("'", "''") ?? "";
+                                string indexSN = dr["IndexSN"]?.ToString().Replace("'", "''") ?? "";
+                                if (!string.IsNullOrEmpty(stationNO) && !string.IsNullOrEmpty(partNO))
                                 {
                                     stationNOs.Add($"'{stationNO}'");
-                                    simIdsForCheck.Add($"'{simulationId}'");
+                                    errorRemarkKeysForCheck.Add($"'{pP_Name},{indexSN},{partNO}'");
                                 }
                             }
 
                             DataTable dt_Existing = null;
                             var existingSet = new HashSet<string>();
-                            if (stationNOs.Count > 0 && simIdsForCheck.Count > 0)
+                            if (stationNOs.Count > 0 && errorRemarkKeysForCheck.Count > 0)
                             {
-                                string existingCheckSql = $@"SELECT StationNO, SimulationId 
+                                string existingCheckSql = $@"SELECT StationNO, ErrorRemark 
                                                              FROM SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] 
                                                              WHERE ServerId = '{_Fun.Config.ServerId}' 
                                                                AND ErrorType = '14'
-                                                               AND CONVERT(varchar(10), LogDate, 23) = '{onedayRUN_data:yyyy-MM-dd}'
+                                                               AND ActionType = '' 
                                                                AND StationNO IN ({string.Join(",", stationNOs.Distinct())})
-                                                               AND SimulationId IN ({string.Join(",", simIdsForCheck.Distinct())})";
+                                                               AND ErrorRemark IN ({string.Join(",", errorRemarkKeysForCheck.Distinct())})";
 
                                 dt_Existing = db.DB_GetData(existingCheckSql);
 
@@ -737,48 +859,49 @@ namespace SoftNetWebII.Services
                                 {
                                     foreach (DataRow row in dt_Existing.Rows)
                                     {
-                                        existingSet.Add($"{row["StationNO"]}|{row["SimulationId"]}");
+                                        existingSet.Add($"{row["StationNO"]}|{row["ErrorRemark"]}");
                                     }
                                 }
                             }
 
-                            // 步驟3: 保持逐筆插入（以保持錯誤處理和邏輯一致）
+                            // 步驟2: 保持逐筆插入（以保持錯誤處理和邏輯一致）
                             foreach (DataRow dr in dt_Warnings.Rows)
                             {
                                 try
                                 {
                                     string stationNO = dr["StationNO"]?.ToString() ?? "";
-                                    string partNO = dr["PartNO"]?.ToString() ?? "";
-                                    string ppName = dr["PP_Name"]?.ToString() ?? "";
-                                    string partName = dr["PartName"]?.ToString() ?? "";
-                                    string latestLogDateTime = Convert.ToDateTime(dr["LatestLOGDateTimeID"]).ToString("yyyy-MM-dd HH:mm:ss");
-                                    string simulationId = dr["SimulationId"]?.ToString() ?? "";
-                                    string deviationDetails = dr["DeviationDetails"]?.ToString() ?? "";
-                                    if (string.IsNullOrEmpty(deviationDetails))
-                                    {
-                                        deviationDetails = "連續3筆偏離（詳細資料請查詢報工記錄）";
-                                    }
-
+                                    string selectKey = dr["PP_Name"]?.ToString() ?? "";
+                                    string indexSN = dr["IndexSN"]?.ToString() ?? "";
+                                    selectKey = $"{selectKey},{indexSN},{dr["PartNO"]?.ToString().Replace("'", "''") ?? ""}";
                                     // 使用已查詢的結果檢查
-                                    string key = $"{stationNO}|{simulationId}";
+                                    string key = $"{stationNO}|{selectKey}";
                                     if (!existingSet.Contains(key))
                                     {
-                                        // 使用已查詢的 NeedId
-                                        string needId = needIdDict.ContainsKey(simulationId) ? needIdDict[simulationId] : "";
+
+                                        string partNO = dr["PartNO"]?.ToString() ?? "";
+                                        string ppName = dr["PP_Name"]?.ToString() ?? "";
+                                        string indexSNDisplay = dr["IndexSN"]?.ToString() ?? "";
+                                        string partName = dr["PartName"]?.ToString() ?? "";
+                                        string latestLogDateTime = Convert.ToDateTime(dr["LatestLOGDateTimeID"]).ToString("yyyy-MM-dd HH:mm:ss");
+
+                                        string deviationDetails = dr["DeviationDetails"]?.ToString() ?? "";
+                                        if (string.IsNullOrEmpty(deviationDetails))
+                                        {
+                                            deviationDetails = "連續3筆偏離（詳細資料請查詢報工記錄）";
+                                        }
 
                                         var paramDict = new Dictionary<string, object>
                                         {
                                             { "Id", _Str.NewId('E') },
                                             { "ServerId", _Fun.Config.ServerId },
-                                            { "SimulationId", simulationId },
+                                            { "ErrorRemark", selectKey },
                                             { "StationNO", stationNO.Replace("'", "''") },
                                             { "ErrorType", "14" },
-                                            { "LogDate", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") },
-                                            { "NeedId", needId }
+                                            { "LogDate", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") }
                                         };
-                                        if (db.DB_SetDataByParams("INSERT INTO SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] (Id,ServerId,SimulationId,StationNO,ErrorType,LogDate,NeedId) VALUES (@Id,@ServerId,@SimulationId,@StationNO,@ErrorType,@LogDate,@NeedId)", paramDict))
+                                        if (db.DB_SetDataByParams("INSERT INTO SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] (Id,ServerId,ErrorRemark,StationNO,ErrorType,LogDate) VALUES (@Id,@ServerId,@ErrorRemark,@StationNO,@ErrorType,@LogDate)", paramDict))
                                         {
-                                            sb_MailBody.Append($"<p><strong>工站: {stationNO} | 製程: {ppName} | 料號: {partNO} | 品名: {partName}</strong><br/>");
+                                            sb_MailBody.Append($"<p><strong>工站: {stationNO} 製程: {ppName} 工序編號: {indexSNDisplay} 料號: {partNO} 品名: {partName}</strong><br/>");
                                             sb_MailBody.Append($"最新報工時間: {latestLogDateTime}<br/>");
                                             sb_MailBody.Append($"連續偏離記錄: {deviationDetails}</p>");
                                         }
@@ -793,8 +916,8 @@ namespace SoftNetWebII.Services
                             // 如果有警告，發送郵件
                             if (sb_MailBody.Length > 0)
                             {
-                                //_Fun.Mail_Send(mailSub, sb_MailBody.ToString(), null, null);
-                                _Fun.Mail_Send(_Fun.Config.SendMonitorMail14.Split(',')[0].Split(';'), _Fun.Config.SendMonitorMail14.Split(',')[1].Split(';'), mailSub, sb_MailBody.ToString(), null, false);
+                                string sb_MailBody_s = $"<p>問題分析:</p>要注意生產件的目標秒數是否合理, 若合理可能要與報工人員溝通, 若不合理請修正目標值, 長久此問題將影響系統運作.<BR/><HR/>{sb_MailBody.ToString()}";
+                                _Fun.Mail_Send(_Fun.Config.SendMonitorMail14.Split(',')[0].Split(';'), _Fun.Config.SendMonitorMail14.Split(',')[1].Split(';'), mailSub, sb_MailBody_s, null, false);
                             }
                         }
                         #endregion
@@ -830,6 +953,254 @@ namespace SoftNetWebII.Services
                                 }
                             }
                         }
+                        #endregion
+
+                        #region 監看是否有計畫久未執行, 列入APS_WarningData, 等時間到主動將計畫暫停 33
+                        // 規則說明：
+                        // 1. 來源資料：APS_NeedData (State='6') 與其 APS_Simulation
+                        // 2. 報工明細：SFC_StationDetail_ChangeLOG
+                        // 3. 開工與報工：OperateLog (OperateType like '%設定工單%' or '%開工%' or '%報工%')
+                        // 4. 門檻天數：_Fun.Config.APS_PlanIdleDays (APS_PlanIdleDays)
+                        // 5. 產生異常：APS_Simulation_ErrorData.ErrorType='33'
+                        // 6. 寫入 APS_WarningData.WarningDate = 系統執行時間 + 3 天
+                        // 7. 若後續有任何開工或報工，則刪除 ErrorType='33' 的 APS_Simulation_ErrorData 與 APS_WarningData
+                        if (_Fun.Config.APS_PlanIdleDays > 0)
+                        {
+                            int idleDays = _Fun.Config.APS_PlanIdleDays;
+                            DateTime now = DateTime.Now;
+                            DateTime idleThresholdDate = now.AddDays(-idleDays);
+
+                            // 取出所有 State='6' 且 PP_WorkOrder 有對應工單的 NeedId（PP_WorkOrder.NeedId = APS_NeedData.Id）
+                            sql = $@"SELECT n.Id, n.NeedSimulationDate, n.PartNO, ISNULL(b.PartName,'') AS PartName, ISNULL(b.Specification,'') AS Specification
+                                     FROM SoftNetSYSDB.[dbo].[APS_NeedData] n
+                                     LEFT JOIN SoftNetMainDB.[dbo].[Material] b ON b.PartNO = n.PartNO AND b.ServerId = n.ServerId
+                                     WHERE n.ServerId='{_Fun.Config.ServerId}' AND n.State='6'
+                                       AND EXISTS (
+                                           SELECT 1 FROM SoftNetSYSDB.[dbo].[PP_WorkOrder] w
+                                           WHERE w.ServerId=n.ServerId AND w.NeedId=n.Id AND ISNULL(LTRIM(RTRIM(w.NeedId)),'')<>''
+                                       )";
+                            DataTable dtNeed = db.DB_GetData(sql);
+                            if (dtNeed != null && dtNeed.Rows.Count > 0)
+                            {
+                                var needIdSet = new HashSet<string>();
+                                var needIdSqlList = new List<string>();
+                                var needPlanDateDict = new Dictionary<string, DateTime?>(StringComparer.Ordinal);
+                                var needPartNODict = new Dictionary<string, string>(StringComparer.Ordinal);
+                                var needPartNameSpecDict = new Dictionary<string, string>(StringComparer.Ordinal);
+                                foreach (DataRow r in dtNeed.Rows)
+                                {
+                                    string nid = r["Id"]?.ToString() ?? "";
+                                    if (string.IsNullOrEmpty(nid)) { continue; }
+                                    if (!needIdSet.Add(nid)) { continue; }
+                                    needIdSqlList.Add($"'{nid.Replace("'", "''")}'");
+                                    DateTime? planDate = null;
+                                    if (r["NeedSimulationDate"] != DBNull.Value && r["NeedSimulationDate"] != null)
+                                    {
+                                        planDate = Convert.ToDateTime(r["NeedSimulationDate"]);
+                                    }
+                                    needPlanDateDict[nid] = planDate;
+                                    needPartNODict[nid] = r["PartNO"]?.ToString() ?? "";
+                                    string partName = r["PartName"]?.ToString() ?? "";
+                                    string spec = r["Specification"]?.ToString() ?? "";
+                                    needPartNameSpecDict[nid] = $"{partName} {spec}".Trim();
+                                }
+
+                                if (needIdSqlList.Count > 0)
+                                {
+                                    string needIdList = string.Join(",", needIdSqlList);
+
+                                    // 該批 Need 對應的 Simulation 資料（用來連接到 SFC_StationDetail_ChangeLOG）
+                                    sql = $@"SELECT SimulationId,NeedId,Apply_PP_Name,Apply_StationNO,Source_StationNO,Source_StationNO_IndexSN,IsEnd 
+                                             FROM SoftNetSYSDB.[dbo].[APS_Simulation] 
+                                             WHERE ServerId='{_Fun.Config.ServerId}' AND NeedId IN ({needIdList})";
+                                    DataTable dtSim = db.DB_GetData(sql);
+
+                                    var simToNeed = new Dictionary<string, string>(StringComparer.Ordinal);
+                                    var needHasNonOutPackStation = new HashSet<string>(StringComparer.Ordinal);
+                                    if (dtSim != null && dtSim.Rows.Count > 0)
+                                    {
+                                        foreach (DataRow s in dtSim.Rows)
+                                        {
+                                            string nid = s["NeedId"]?.ToString() ?? "";
+                                            string sid = s["SimulationId"]?.ToString() ?? "";
+                                            if (!string.IsNullOrEmpty(sid) && !string.IsNullOrEmpty(nid))
+                                            {
+                                                simToNeed[sid] = nid;
+                                            }
+
+                                            // 判斷是否有非委外加工站別（全部都是委外加工時不列入 33）
+                                            string srcStation = s["Source_StationNO"]?.ToString() ?? "";
+                                            if (!string.IsNullOrEmpty(srcStation) && srcStation != _Fun.Config.OutPackStationName)
+                                            {
+                                                needHasNonOutPackStation.Add(nid);
+                                            }
+                                        }
+                                    }
+
+                                    // 1) OperateLog：依 NeedId 撈出最後一次開工/報工時間
+                                    sql = $@"SELECT NeedId,MAX(LOGDateTime) AS LastActTime 
+                                             FROM SoftNetLogDB.[dbo].[OperateLog] 
+                                             WHERE ServerId='{_Fun.Config.ServerId}' 
+                                               AND NeedId IN ({needIdList}) 
+                                               AND (OperateType like '%設定工單%' OR OperateType like '%開工%' OR OperateType like '%報工%')
+                                             GROUP BY NeedId";
+                                    DataTable dtOp = db.DB_GetData(sql);
+                                    var lastActByNeed = new Dictionary<string, DateTime>(StringComparer.Ordinal);
+                                    if (dtOp != null)
+                                    {
+                                        foreach (DataRow r in dtOp.Rows)
+                                        {
+                                            string nid = r["NeedId"]?.ToString() ?? "";
+                                            if (string.IsNullOrEmpty(nid)) { continue; }
+                                            if (r["LastActTime"] == DBNull.Value || r["LastActTime"] == null) { continue; }
+                                            DateTime t = Convert.ToDateTime(r["LastActTime"]);
+                                            if (lastActByNeed.TryGetValue(nid, out DateTime exist))
+                                            {
+                                                if (t > exist) { lastActByNeed[nid] = t; }
+                                            }
+                                            else
+                                            {
+                                                lastActByNeed[nid] = t;
+                                            }
+                                        }
+                                    }
+
+                                    // 2) SFC_StationDetail_ChangeLOG：以 SimulationId 找到最後一次報工時間，再轉成 NeedId 維度
+                                    if (simToNeed.Count > 0)
+                                    {
+                                        var simIdSqlList = new List<string>(simToNeed.Keys.Count);
+                                        foreach (string sid in simToNeed.Keys)
+                                        {
+                                            if (!string.IsNullOrEmpty(sid))
+                                            {
+                                                simIdSqlList.Add($"'{sid.Replace("'", "''")}'");
+                                            }
+                                        }
+                                        if (simIdSqlList.Count > 0)
+                                        {
+                                            string simIdList = string.Join(",", simIdSqlList);
+                                            sql = $@"SELECT SimulationId,MAX(LOGDateTimeID) AS LastActTime 
+                                                     FROM SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG]
+                                                     WHERE ServerId='{_Fun.Config.ServerId}' AND SimulationId IN ({simIdList})
+                                                     GROUP BY SimulationId";
+                                            DataTable dtSfc = db.DB_GetData(sql);
+                                            if (dtSfc != null)
+                                            {
+                                                foreach (DataRow r in dtSfc.Rows)
+                                                {
+                                                    string sid = r["SimulationId"]?.ToString() ?? "";
+                                                    if (string.IsNullOrEmpty(sid)) { continue; }
+                                                    if (!simToNeed.TryGetValue(sid, out string nid)) { continue; }
+                                                    if (r["LastActTime"] == DBNull.Value || r["LastActTime"] == null) { continue; }
+                                                    DateTime t = Convert.ToDateTime(r["LastActTime"]);
+                                                    if (lastActByNeed.TryGetValue(nid, out DateTime exist))
+                                                    {
+                                                        if (t > exist) { lastActByNeed[nid] = t; }
+                                                    }
+                                                    else
+                                                    {
+                                                        lastActByNeed[nid] = t;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // 先處理「有活動」的計畫：刪除 ErrorType='33' 的異常與警告
+                                    var activeNeedIds = new List<string>();
+                                    foreach (string nid in needIdSet)
+                                    {
+                                        if (lastActByNeed.ContainsKey(nid))
+                                        {
+                                            activeNeedIds.Add($"'{nid.Replace("'", "''")}'");
+                                        }
+                                    }
+                                    if (activeNeedIds.Count > 0)
+                                    {
+                                        string activeNeedList = string.Join(",", activeNeedIds);
+                                        _ = db.DB_SetData($@"DELETE FROM SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] 
+                                                              WHERE ServerId='{_Fun.Config.ServerId}' AND ErrorType='33' AND ActionType='' AND NeedId IN ({activeNeedList})");
+                                        _ = db.DB_SetData($@"DELETE FROM SoftNetSYSDB.[dbo].[APS_WarningData] 
+                                                              WHERE ServerId='{_Fun.Config.ServerId}' AND ErrorType='33' AND NeedId IN ({activeNeedList})");
+                                    }
+
+                                    // 再處理「久未執行」且尚未產生 ErrorType=33 的計畫
+                                    sql = $@"SELECT NeedId 
+                                             FROM SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] 
+                                             WHERE ServerId='{_Fun.Config.ServerId}' AND ErrorType='33' AND ActionType=''";
+                                    DataTable dtExist33 = db.DB_GetData(sql);
+                                    var existNeed33 = new HashSet<string>(StringComparer.Ordinal);
+                                    if (dtExist33 != null)
+                                    {
+                                        foreach (DataRow r in dtExist33.Rows)
+                                        {
+                                            string nid = r["NeedId"]?.ToString() ?? "";
+                                            if (!string.IsNullOrEmpty(nid)) { existNeed33.Add(nid); }
+                                        }
+                                    }
+
+                                    var toInsertNeedIds = new List<string>();
+                                    foreach (string nid in needIdSet)
+                                    {
+                                        // 已有任何活動的計畫不再產生 33
+                                        if (lastActByNeed.ContainsKey(nid)) { continue; }
+                                        // 若沒有任何非委外加工站別，視為全委外加工，不列入 33
+                                        if (!needHasNonOutPackStation.Contains(nid)) { continue; }
+                                        // 需有 NeedSimulationDate，且已超過 APS_PlanIdleDays
+                                        if (!needPlanDateDict.TryGetValue(nid, out DateTime? planDate) || !planDate.HasValue) { continue; }
+                                        if (planDate.Value > idleThresholdDate) { continue; }
+                                        // 已有 33 記錄則略過，避免重複
+                                        if (existNeed33.Contains(nid)) { continue; }
+                                        toInsertNeedIds.Add(nid);
+                                    }
+
+                                    if (toInsertNeedIds.Count > 0)
+                                    {
+                                        string mailSub33 = $"{_Fun.Config.ServerId} 警示 計畫久未執行.";
+                                        var sb_mailBody33 = new StringBuilder();
+                                        foreach (string nid in toInsertNeedIds)
+                                        {
+                                            string newEId = _Str.NewId('E');
+                                            string newWId = _Str.NewId('W');
+                                            string remark = $"計畫久未執行(超過{idleDays}天)";
+                                            // 寫入 APS_Simulation_ErrorData (ErrorType=33)
+                                            _ = db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData]
+                                                                (Id,ServerId,SimulationId,StationNO,ErrorType,ErrorKey,ErrorRemark,LogDate,NeedId,DOCNumberNO)
+                                                                VALUES
+                                                                ('{newEId}','{_Fun.Config.ServerId}','','','33','',N'{remark}','{logdate}','{nid}','')");
+                                            // 寫入 APS_WarningData，WarningDate = 系統時間 + 3 天
+                                            DateTime wdate = now.AddDays(3);
+                                            _ = db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData]
+                                                                ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate],[DATA_Remark])
+                                                                VALUES
+                                                                ('{newWId}','{_Fun.Config.ServerId}','33','{nid}','','','','','',
+                                                                 '{wdate.ToString("yyyy-MM-dd HH:mm:ss.fff")}',N'{remark}')");
+                                            string partNO = needPartNODict.TryGetValue(nid, out string p) ? p : "";
+                                            string partNameSpec = needPartNameSpecDict.TryGetValue(nid, out string s) ? s : "";
+                                            string planDateStr = needPlanDateDict.TryGetValue(nid, out DateTime? pd) && pd.HasValue ? pd.Value.ToString("yyyy-MM-dd") : "";
+                                            sb_mailBody33.Append($"<p>排程編號:{nid} 生產件:{partNO} 品名規格:{partNameSpec} 原本完成計劃日:{planDateStr}</p>");
+
+                                        }
+                                        string mailBody = $"<p>問題分析:</p>下列執行中的計畫長時間未生產,系統將於3日後將這些計畫暫時列為暫停工單, 若日後有生產行為發生系統會自動取消暫停並從新計算預計完成日.<BR/><HR/>{sb_mailBody33.ToString()}";
+                                        if (mailBody != "")
+                                        { _Fun.Mail_Send(_Fun.Config.SendMonitorMail33.Split(',')[0].Split(';'), _Fun.Config.SendMonitorMail33.Split(',')[1].Split(';'), mailSub33, mailBody, null, false); }
+
+                                    }
+                                }
+                            }
+                        }
+                        #endregion
+
+                        #region RAG 向量資料預先計算
+                        tmp = db.DB_GetFirstDataByDataRow("SELECT TOP 1 CreateTime FROM SoftNetLogDB.[dbo].[RAG_VectorStore] order by CreateTime desc");
+                        if (tmp != null && !tmp.IsNull("CreateTime"))
+                        {
+                            DateTime lastCreateTime = Convert.ToDateTime(tmp["CreateTime"]);
+                            await ragVectorStoreService.PrecomputeEmbeddings(lastCreateTime);
+                        }
+                        else
+                        { await ragVectorStoreService.PrecomputeEmbeddings(onedayRUN_data.AddDays(-6)); }
+                        await ragVectorStoreService.PurgeOldDataAsync();
                         #endregion
 
                         onedayRUN_data = onedayRUN_data.AddDays(1);
@@ -1164,7 +1535,7 @@ namespace SoftNetWebII.Services
                             sql = $@"SELECT a.*,c.IS_WorkingPaper,c.IS_Store_Test FROM SoftNetSYSDB.[dbo].[APS_Simulation] as a
                                     join SoftNetSYSDB.[dbo].[APS_NeedData] as b on b.Id=a.NeedId and b.State='6'
                                     join SoftNetMainDB.[dbo].[Material] as c on c.PartNO=a.PartNO and c.IS_WorkingPaper='1' and c.ServerId='{_Fun.Config.ServerId}'
-                                    where a.IsWPaper='0' and a.StartDate<='{logdate_offset}' and (a.DOCNumberNO is null or a.DOCNumberNO='') and (a.NeedQTY+a.SafeQTY)>(a.Math_TotalStock_HasUseQTY+a.Math_Online_SurplusQTY) order by a.StartDate,a.NeedId,a.PartNO";
+                                    where a.IsWPaper='0' and a.StartDate<='{logdate_offset}' and (a.DOCNumberNO is null or a.DOCNumberNO='') order by a.StartDate,a.NeedId,a.PartNO";
                             dt_tmp = db.DB_GetData(sql);
                             if (dt_tmp != null && dt_tmp.Rows.Count > 0)
                             {
@@ -1179,12 +1550,15 @@ namespace SoftNetWebII.Services
                                 DataRow tmp_02 = null;
                                 foreach (DataRow dr in dt_tmp.Rows)
                                 {
+                                    int effectiveNeedQTY = _SFC_Common.GetEffectiveNeedQTYBySimulation(db, dr["NeedId"].ToString(), dr["SimulationId"].ToString(), int.Parse(dr["NeedQTY"].ToString()));
+                                    int demandQTY = effectiveNeedQTY + int.Parse(dr["SafeQTY"].ToString());
+                                    if (demandQTY <= (int.Parse(dr["Math_TotalStock_HasUseQTY"].ToString()) + int.Parse(dr["Math_Online_SurplusQTY"].ToString()))) { continue; }
                                     if (db.DB_GetQueryCount($"select * from SoftNetMainDB.[dbo].[DOC1BuyII] where SimulationId='{dr["SimulationId"].ToString()}'") <= 0)
                                     {
                                         if (dr["Class"].ToString() != "4" && dr["Class"].ToString() != "5")
                                         {
                                             mFNO = "";
-                                            tmp_i = (int.Parse(dr["NeedQTY"].ToString()) + int.Parse(dr["SafeQTY"].ToString())) - (int.Parse(dr["Math_TotalStock_HasUseQTY"].ToString()) + int.Parse(dr["Math_Online_SurplusQTY"].ToString()));
+                                            tmp_i = demandQTY - (int.Parse(dr["Math_TotalStock_HasUseQTY"].ToString()) + int.Parse(dr["Math_Online_SurplusQTY"].ToString()));
                                             if (tmp_i > 0)
                                             {
                                                 tmp = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_Simulation] where NeedId='{dr["NeedId"].ToString()}' and PartNO='{dr["Master_PartNO"].ToString()}' and Source_StationNO='{dr["Apply_StationNO"].ToString()}' and Source_StationNO_IndexSN='{dr["IndexSN"].ToString()}' and PartSN<{dr["PartSN"].ToString()} and (Class='4' or Class='5') order by PartSN desc");
@@ -1199,6 +1573,29 @@ namespace SoftNetWebII.Services
 
                                                 if (_SFC_Common.Create_DOC1stock(db, dr, mFNO, price, in_StoreNO, in_StoreSpacesNO, in_NO, tmp_i, "", "", "排程物料需求不足", logdate, Convert.ToDateTime(dr["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss"), "系統指派", ref docNumberNO))
                                                 {
+                                                    // DOC1 建單成功後，若供應商有設定 SCM_ServerId，則建立 CreateNeed 訊息
+                                                    if (_Fun.Config.SCM_IsEnabled && mFNO.Trim() != "")
+                                                    {
+                                                        DataRow scmMf = db.DB_GetFirstDataByDataRow($@"SELECT SCM_ServerId 
+FROM SoftNetMainDB.[dbo].[MFData] 
+WHERE ServerId='{_Fun.Config.ServerId}' AND MFNO='{mFNO.Replace("'", "''")}'");
+                                                        string scmToServerId = scmMf?["SCM_ServerId"]?.ToString().Trim() ?? "";
+                                                        if (scmToServerId != "")
+                                                        {
+                                                            _scmMailBridgeService.EnqueueCreateNeed(
+                                                                db,
+                                                                "DOC1",
+                                                                docNumberNO,
+                                                                _Fun.Config.ServerId,
+                                                                scmToServerId,
+                                                                dr["NeedId"].ToString(),
+                                                                dr["SimulationId"].ToString(),
+                                                                dr["PartNO"].ToString(),
+                                                                tmp_i,
+                                                                Convert.ToDateTime(dr["SimulationDate"]).ToString("yyyy-MM-ddTHH:mm:sszzz"),
+                                                                "排程物料需求不足");
+                                                        }
+                                                    }
                                                     tmp_02 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[APS_WorkingPaper] where PartNO='{dr["PartNO"].ToString()}' and WorkType='1' and SimulationId='{dr["SimulationId"].ToString()}' and MFNO='{mFNO}' and DOCNumberNO='{docNumberNO}'");
                                                     if (tmp_02 == null)
                                                     {
@@ -1230,6 +1627,9 @@ namespace SoftNetWebII.Services
                                 {
                                     if (_Fun.Config.OutPackStationName == dr["Source_StationNO"].ToString())
                                     {
+                                        int effectiveNeedQTY = _SFC_Common.GetEffectiveNeedQTYBySimulation(db, dr["NeedId"].ToString(), dr["SimulationId"].ToString(), int.Parse(dr["NeedQTY"].ToString()));
+                                        int demandQTY = effectiveNeedQTY + int.Parse(dr["SafeQTY"].ToString());
+                                        if (demandQTY <= (int.Parse(dr["Math_TotalStock_HasUseQTY"].ToString()) + int.Parse(dr["Math_Online_SurplusQTY"].ToString()))) { continue; }
                                         mFNO = "";
                                         tmp_down_SID = "NULL";
                                         tmp_down_Source_StationNO = "NULL";
@@ -1238,7 +1638,7 @@ namespace SoftNetWebII.Services
 
 
                                         tmp_down_ArrivalDate = Convert.ToDateTime(dr["SimulationDate"]).ToString("yyyy-MM-dd HH:mm:ss");
-                                        tmp_i = int.Parse(dr["NeedQTY"].ToString()) + int.Parse(dr["SafeQTY"].ToString());
+                                        tmp_i = demandQTY;
                                         //if (int.Parse(dr["Source_StationNO_IndexSN"].ToString()) == 1) { tmp_i = int.Parse(dr["NeedQTY"].ToString())+ int.Parse(dr["SafeQTY"].ToString()); }
                                         tmp_up = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_Simulation] where NeedId='{dr["NeedId"].ToString()}' and Master_PartNO='{dr["PartNO"].ToString()}' and Apply_StationNO='{dr["Source_StationNO"].ToString()}' and IndexSN='{dr["Source_StationNO_IndexSN"].ToString()}'");
                                         tmp_down = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_Simulation] where NeedId='{dr["NeedId"].ToString()}' and PartNO='{dr["Master_PartNO"].ToString()}' and Source_StationNO='{dr["Apply_StationNO"].ToString()}' and Source_StationNO_IndexSN='{dr["IndexSN"].ToString()}' and PartSN<{dr["PartSN"].ToString()} and (Class='4' or Class='5') order by PartSN desc");
@@ -1256,6 +1656,29 @@ namespace SoftNetWebII.Services
                                         #endregion
                                         if (_SFC_Common.Create_DOC4stock(db, dr, mFNO, price, in_StoreNO, in_StoreSpacesNO, in_NO, tmp_i, "", "", "監測到排程委外加工需求", tmp_down_StartTime, tmp_down_ArrivalDate, "系統指派", ref docNumberNO))
                                         {
+                                            // DOC4 建單成功後，若供應商有設定 SCM_ServerId，則建立 CreateNeed 訊息
+                                            if (_Fun.Config.SCM_IsEnabled && mFNO.Trim() != "")
+                                            {
+                                                DataRow scmMf = db.DB_GetFirstDataByDataRow($@"SELECT SCM_ServerId 
+FROM SoftNetMainDB.[dbo].[MFData] 
+WHERE ServerId='{_Fun.Config.ServerId}' AND MFNO='{mFNO.Replace("'", "''")}'");
+                                                string scmToServerId = scmMf?["SCM_ServerId"]?.ToString().Trim() ?? "";
+                                                if (scmToServerId != "")
+                                                {
+                                                    _scmMailBridgeService.EnqueueCreateNeed(
+                                                        db,
+                                                        "DOC4",
+                                                        docNumberNO,
+                                                        _Fun.Config.ServerId,
+                                                        scmToServerId,
+                                                        dr["NeedId"].ToString(),
+                                                        dr["SimulationId"].ToString(),
+                                                        dr["PartNO"].ToString(),
+                                                        tmp_i,
+                                                        Convert.ToDateTime(tmp_down_ArrivalDate).ToString("yyyy-MM-ddTHH:mm:sszzz"),
+                                                        "監測到排程委外加工需求");
+                                                }
+                                            }
                                             tmp_02 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[APS_WorkingPaper] where PartNO='{dr["PartNO"].ToString()}' and WorkType='2' and SimulationId='{dr["SimulationId"].ToString()}' and MFNO='{mFNO}' and DOCNumberNO='{docNumberNO}'");
                                             if (tmp_02 == null)
                                             {
@@ -1279,9 +1702,9 @@ namespace SoftNetWebII.Services
                             dt_tmp = db.DB_GetData(sql);
                             if (dt_tmp != null && dt_tmp.Rows.Count > 0)
                             {
-                                // 優化：批量查詢所有料號的庫存資訊
-                                var allPartNOs = dt_tmp.Rows.Cast<DataRow>().Select(r => $"'{r["PartNO"].ToString().Replace("'", "''")}'").ToList();
-                                string partNOList = string.Join(",", allPartNOs.Distinct());
+                                // 優化：批量查詢所有料號的庫存資訊（PartNO 統一 Trim 避免與 APS_WorkingPaper 等表比對時因空白導致 tmp_i 少算）
+                                var allPartNOs = dt_tmp.Rows.Cast<DataRow>().Select(r => $"'{r["PartNO"].ToString().Trim().Replace("'", "''")}'").Distinct().ToList();
+                                string partNOList = string.Join(",", allPartNOs);
 
                                 // 批量查詢在倉可用量
                                 DataTable dt_stockQTY = db.DB_GetData(
@@ -1295,12 +1718,12 @@ namespace SoftNetWebII.Services
                                          AND A.PartNO IN ({partNOList})
                                        GROUP BY A.PartNO");
 
-                                var stockQTYDict = new Dictionary<string, (int mQTY, int kQTY)>();//料件可用量
+                                var stockQTYDict = new Dictionary<string, (int mQTY, int kQTY)>(StringComparer.Ordinal);//料件可用量
                                 if (dt_stockQTY != null)
                                 {
                                     foreach (DataRow row in dt_stockQTY.Rows)
                                     {
-                                        string partNO = row["PartNO"].ToString();
+                                        string partNO = row["PartNO"].ToString().Trim();
                                         int mQTY = row["mQTY"] != DBNull.Value ? Convert.ToInt32(row["mQTY"]) : 0;
                                         int kQTY = row["kQTY"] != DBNull.Value ? Convert.ToInt32(row["kQTY"]) : 0;
                                         stockQTYDict[partNO] = (mQTY, kQTY);
@@ -1316,28 +1739,28 @@ namespace SoftNetWebII.Services
                                          AND PartNO IN ({partNOList})
                                        GROUP BY PartNO");
 
-                                var doc1BuyQTYDict = new Dictionary<string, int>();
+                                var doc1BuyQTYDict = new Dictionary<string, int>(StringComparer.Ordinal);
                                 if (dt_doc1BuyQTY != null)
                                 {
                                     foreach (DataRow row in dt_doc1BuyQTY.Rows)
                                     {
-                                        doc1BuyQTYDict[row["PartNO"].ToString()] = Convert.ToInt32(row["mQTY"]);
+                                        doc1BuyQTYDict[row["PartNO"].ToString().Trim()] = Convert.ToInt32(row["mQTY"]);
                                     }
                                 }
 
-                                // 批量查詢已在底稿量
+                                // 批量查詢已在底稿量（LTRIM(RTRIM(PartNO)) 確保與 partNOList 比對一致，避免空白導致少算 tmp_i）
                                 DataTable dt_workingPaperQTY = db.DB_GetData(
-                                    $@"SELECT PartNO, SUM(NeedQTY) as pQTY 
+                                    $@"SELECT LTRIM(RTRIM(PartNO)) AS PartNO, SUM(NeedQTY) AS pQTY 
                                        FROM SoftNetSYSDB.[dbo].[APS_WorkingPaper] 
-                                       WHERE PartNO IN ({partNOList})
-                                       GROUP BY PartNO");
+                                       WHERE LTRIM(RTRIM(PartNO)) IN ({partNOList})
+                                       GROUP BY LTRIM(RTRIM(PartNO))");
 
-                                var workingPaperQTYDict = new Dictionary<string, int>();
+                                var workingPaperQTYDict = new Dictionary<string, int>(StringComparer.Ordinal);
                                 if (dt_workingPaperQTY != null)
                                 {
                                     foreach (DataRow row in dt_workingPaperQTY.Rows)
                                     {
-                                        workingPaperQTYDict[row["PartNO"].ToString()] = Convert.ToInt32(row["pQTY"]);
+                                        workingPaperQTYDict[row["PartNO"].ToString().Trim()] = Convert.ToInt32(row["pQTY"]);
                                     }
                                 }
 
@@ -1363,20 +1786,20 @@ namespace SoftNetWebII.Services
                                     }
                                 }
 
-                                // 批量查詢已存在的 APS_WorkingPaper
+                                // 批量查詢已存在的 APS_WorkingPaper（PartNO 以 LTRIM(RTRIM) 與 partNOList 一致）
                                 DataTable dt_existingWorkingPaper = db.DB_GetData(
-                                    $@"SELECT PartNO, MFNO, IN_StoreNO, IN_StoreSpacesNO, Id, NeedQTY
+                                    $@"SELECT LTRIM(RTRIM(PartNO)) AS PartNO, MFNO, IN_StoreNO, IN_StoreSpacesNO, Id, NeedQTY
                                        FROM SoftNetSYSDB.[dbo].[APS_WorkingPaper] 
-                                       WHERE PartNO IN ({partNOList}) 
+                                       WHERE LTRIM(RTRIM(PartNO)) IN ({partNOList}) 
                                          AND WorkType='3' 
                                        ORDER BY PartNO, ArrivalDate DESC");
 
-                                var existingWorkingPaperDict = new Dictionary<string, DataRow>();
+                                var existingWorkingPaperDict = new Dictionary<string, DataRow>(StringComparer.Ordinal);
                                 if (dt_existingWorkingPaper != null)
                                 {
                                     foreach (DataRow row in dt_existingWorkingPaper.Rows)
                                     {
-                                        string key = $"{row["PartNO"]}|{row["MFNO"]}|{row["IN_StoreNO"]}|{row["IN_StoreSpacesNO"]}";
+                                        string key = $"{row["PartNO"].ToString().Trim()}|{row["MFNO"]}|{row["IN_StoreNO"]}|{row["IN_StoreSpacesNO"]}";
                                         if (!existingWorkingPaperDict.ContainsKey(key))
                                         {
                                             existingWorkingPaperDict[key] = row;
@@ -1394,7 +1817,7 @@ namespace SoftNetWebII.Services
                                 {
                                     mFNO = "";
                                     tmp_i = 0;
-                                    string partNO = dr["PartNO"].ToString();
+                                    string partNO = dr["PartNO"].ToString().Trim();
                                     //if (partNO== "AR16-R01-23")
                                     //{
                                     //    int _s1 = stockQTYDict[partNO].mQTY;
@@ -1427,14 +1850,17 @@ namespace SoftNetWebII.Services
                                         _SFC_Common.SelectINStore(db, partNO, ref in_StoreNO, ref in_StoreSpacesNO, "");
                                         mFNO = _SFC_Common.SelectDOC1BuyMFNO(db, partNO, "", "", ref price);
 
+                                        // 安全存量 WorkType='3' 的 ArrivalDate 至少設為明日，避免同輪或下一輪被 2172 行「清除 ArrivalDate 已過期」刪除
                                         string ArrivalDate = "NULL";
+                                        DateTime minArrival = DateTime.Now.AddDays(1);
                                         if (efficientCTDict.ContainsKey(partNO))
                                         {
-                                            ArrivalDate = DateTime.Now.AddSeconds(efficientCTDict[partNO]).ToString("yyyy-MM-dd HH:mm:ss.fff");
+                                            DateTime byCT = DateTime.Now.AddSeconds(efficientCTDict[partNO]);
+                                            ArrivalDate = (byCT > minArrival ? byCT : minArrival).ToString("yyyy-MM-dd HH:mm:ss.fff");
                                         }
                                         else
                                         {
-                                            ArrivalDate = DateTime.Now.AddDays(7).ToString("yyyy-MM-dd HH:mm:ss.fff");
+                                            ArrivalDate = (DateTime.Now.AddDays(7) > minArrival ? DateTime.Now.AddDays(7) : minArrival).ToString("yyyy-MM-dd HH:mm:ss.fff");
                                         }
 
                                         tmp_i = int.Parse(dr["SafeQTY"].ToString()) - tmp_i;
@@ -1452,10 +1878,10 @@ namespace SoftNetWebII.Services
                                                 VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('P')}','3','{partNO}','{dr["Class"].ToString()}','0','','','','',{tmp_i},0,'PCS','{mFNO}','{in_StoreNO}','{in_StoreSpacesNO}','',
                                                 '','','','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{ArrivalDate}',NULL,'{logdate}')";
                                             _ = db.DB_SetData(sql);
+                                            if (isWW)
+                                            { _ = _SFC_Common.InsertApsEventLog(db, $"安全存量非生產件發現不足,已列入工作底稿等待處理,料號:{partNO} 數量:{tmp_i}", null, null, "WW"); }
+                                            else { _ = _SFC_Common.InsertApsEventLog(db, $"安全存量非生產件發現不足,已列入工作底稿等待處理,料號:{partNO} 數量:{tmp_i}", null, null, "99"); }
                                         }
-                                        if (isWW)
-                                        { _ = _SFC_Common.InsertApsEventLog(db, $"安全存量非生產件發現不足,已列入工作底稿等待處理,料號:{partNO} 數量:{tmp_i}", null, null, "WW"); }
-                                        else { _ = _SFC_Common.InsertApsEventLog(db, $"安全存量非生產件發現不足,已列入工作底稿等待處理,料號:{partNO} 數量:{tmp_i}", null, null, "99"); }
                                     }
                                 }
                             }
@@ -1516,21 +1942,27 @@ namespace SoftNetWebII.Services
 
                                 // 批量查詢多報工量
                                 DataTable dt_overReportQTY = db.DB_GetData(
-                                    $@"SELECT a.PartNO, SUM(Detail_QTY-a.NeedQTY) as sQTY 
+                                    $@"SELECT a.SimulationId, a.PartNO, a.NeedId, a.NeedQTY, a.Detail_QTY, s.Apply_PP_Name, s.IndexSN 
                                        FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] as a
+                                       INNER JOIN SoftNetSYSDB.[dbo].[APS_Simulation] as s ON a.SimulationId=s.SimulationId
                                        JOIN SoftNetSYSDB.[dbo].[APS_NeedData] as b ON a.NeedId=b.Id AND b.State='6'
                                        WHERE a.APS_StationNO!='' 
                                          AND a.NoStation='0' 
-                                         AND a.PartNO IN ({partNOList})
-                                       GROUP BY a.PartNO
-                                       HAVING SUM(Detail_QTY-a.NeedQTY) > 0");
+                                         AND a.PartNO IN ({partNOList})");
 
                                 var overReportQTYDict = new Dictionary<string, int>();
                                 if (dt_overReportQTY != null)
                                 {
                                     foreach (DataRow row in dt_overReportQTY.Rows)
                                     {
-                                        overReportQTYDict[row["PartNO"].ToString()] = Convert.ToInt32(row["sQTY"]);
+                                        int effectiveNeed = _SFC_Common.GetEffectiveNeedQTY(int.Parse(row["NeedQTY"].ToString()), _SFC_Common.SumPriorDetailFailQTY(db, row["NeedId"].ToString(), row["Apply_PP_Name"].ToString(), int.Parse(row["IndexSN"].ToString())));
+                                        int surplus = int.Parse(row["Detail_QTY"].ToString()) - effectiveNeed;
+                                        if (surplus > 0)
+                                        {
+                                            string partNOKey = row["PartNO"].ToString();
+                                            if (overReportQTYDict.ContainsKey(partNOKey)) { overReportQTYDict[partNOKey] += surplus; }
+                                            else { overReportQTYDict[partNOKey] = surplus; }
+                                        }
                                     }
                                 }
 
@@ -1812,7 +2244,7 @@ namespace SoftNetWebII.Services
                                 foreach (DataRow d in dt_APS_PartNOTimeNote.Rows)
                                 {
                                     is_run = true;
-                                    tmp_int = int.Parse(d["NeedQTY"].ToString()); //需求數量
+                                    tmp_int = _SFC_Common.GetEffectiveNeedQTYBySimulation(db, d["NeedId"].ToString(), d["SimulationId"].ToString(), int.Parse(d["NeedQTY"].ToString())); //有效需求量
 
                                     #region 先檢查DOC3stockII是否已有單據（使用批量查詢結果）
                                     int stockQTY = 0;
@@ -1991,7 +2423,7 @@ namespace SoftNetWebII.Services
                                 foreach (DataRow d in dt_APS_PartNOTimeNote.Rows)
                                 {
                                     is_run = true;
-                                    tmp_int = int.Parse(d["NeedQTY"].ToString()); //需求數量
+                                    tmp_int = _SFC_Common.GetEffectiveNeedQTYBySimulation(db, d["NeedId"].ToString(), d["SimulationId"].ToString(), int.Parse(d["NeedQTY"].ToString())); //有效需求量
 
                                     #region 先檢查DOC3stockII是否已有單據
                                     int stockQTY = 0;
@@ -2180,12 +2612,12 @@ namespace SoftNetWebII.Services
                     if (!IsWork && _stoppingToken.CanBeCanceled) { break; }
                     if (!_Fun.Is_Thread_ForceClose)
                     {
-                        #region 處理被記錄時間到的干涉 APS_WarningData 已寫 12工單未關,18工站未停止, 19計畫日期已超過,00工單關閉正常檢查 21工單已關閉強制檢查(加 22 , 23, 24, 25 的資料寫入)
+                        #region 處理被記錄時間到的干涉 APS_WarningData 已寫 12工單未關,18工站未停止, 19計畫日期已超過,00工單關閉正常檢查 21工單已關閉強制檢查(加 22 , 23, 24, 25 的資料寫入) 33
                         sql = $"SELECT * FROM SoftNetSYSDB.[dbo].[APS_WarningData] where IsDEL='0' and ServerId='{_Fun.Config.ServerId}' and WarningDate<='{logdate}'";
                         dt_tmp = db.DB_GetData(sql);
                         if (dt_tmp != null && dt_tmp.Rows.Count > 0)
                         {
-                            string MailSub = $"{_Fun.Config.ServerId} 系統主動 干涉 通知";
+                            string MailSub = $"{_Fun.Config.ServerId} 系統主動 干涉通知";
                             var sb_MailBody = new StringBuilder();
                             List<string> run_HasWeb_Id_Change = new List<string>();
                             foreach (DataRow d_Error in dt_tmp.Rows)
@@ -2196,13 +2628,14 @@ namespace SoftNetWebII.Services
                                         {
                                             DataRow dr_PP_Station = null;
                                             #region 干涉修正報工數量
-                                            tmp_dt = db.DB_GetData($@"SELECT b.PartNO,b.PartSN,b.BOMQTY,b.DOCNumberNO as wo,b.Apply_PP_Name,b.IsWPaper,b.Source_StationNO,b.Source_StationNO_IndexSN,b.Master_PartNO,b.Apply_StationNO,a.*  FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] as a
+                                            tmp_dt = db.DB_GetData($@"SELECT b.PartNO,b.PartSN,b.BOMQTY,b.DOCNumberNO as wo,b.Apply_PP_Name,b.IndexSN,b.IsWPaper,b.Source_StationNO,b.Source_StationNO_IndexSN,b.Master_PartNO,b.Apply_StationNO,a.*,m.PartName,m.Specification  FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] as a
                                                                                         join SoftNetSYSDB.[dbo].[APS_Simulation] as b on a.NeedId=b.NeedId and a.SimulationId=b.SimulationId
+                                                                                        left join SoftNetMainDB.[dbo].[Material] as m on b.PartNO=m.PartNO and m.ServerId='{_Fun.Config.ServerId}'
                                                                                         where a.NeedId='{d_Error["NeedId"].ToString()}' and a.NoStation='0' and a.NeedQTY!=0 order by b.PartSN desc,b.Class desc");
                                             if (tmp_dt != null && tmp_dt.Rows.Count > 0)
                                             {
                                                 int qty = 0;
-                                                tmp = db.DB_GetFirstDataByDataRow($@"SELECT a.* FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] as a
+                                                tmp = db.DB_GetFirstDataByDataRow($@"SELECT a.*,b.Apply_PP_Name,b.IndexSN FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] as a
                                                                                         join SoftNetSYSDB.[dbo].[APS_Simulation] as b on a.NeedId=b.NeedId and a.SimulationId=b.SimulationId and b.PartSN=0
                                                                                         where a.NeedId='{d_Error["NeedId"].ToString()}' and a.NoStation='0' and a.NeedQTY!=0");
                                                 if (tmp != null)
@@ -2211,13 +2644,16 @@ namespace SoftNetWebII.Services
                                                 }
                                                 if (qty > 0)
                                                 {
-                                                    int offset = int.Parse(tmp["NeedQTY"].ToString()) - qty;
+                                                    int priorFailRoot = _SFC_Common.SumPriorDetailFailQTY(db, tmp["NeedId"].ToString(), tmp["Apply_PP_Name"].ToString(), int.Parse(tmp["IndexSN"].ToString()));
+                                                    int offset = _SFC_Common.GetEffectiveNeedQTY(int.Parse(tmp["NeedQTY"].ToString()), priorFailRoot) - qty;
                                                     if (offset < 0) { offset = 0; }
                                                     int detail_qty = 0;
                                                     foreach (DataRow d in tmp_dt.Rows)
                                                     {
                                                         if (int.Parse(d["PartSN"].ToString()) == 0) { continue; }
-                                                        detail_qty = (int.Parse(d["NeedQTY"].ToString()) - offset) - (int.Parse(d["Detail_QTY"].ToString()) + int.Parse(d["Detail_Fail_QTY"].ToString()));
+                                                        int priorFail = _SFC_Common.SumPriorDetailFailQTY(db, d["NeedId"].ToString(), d["Apply_PP_Name"].ToString(), int.Parse(d["IndexSN"].ToString()));
+                                                        int effectiveNeedQTY = _SFC_Common.GetEffectiveNeedQTY(int.Parse(d["NeedQTY"].ToString()), priorFail);
+                                                        detail_qty = (effectiveNeedQTY - offset) - (int.Parse(d["Detail_QTY"].ToString()) + int.Parse(d["Detail_Fail_QTY"].ToString()));
                                                         if (detail_qty > 0 || d["APS_StationNO"].ToString() == _Fun.Config.OutPackStationName)
                                                         {
                                                             if (d["APS_StationNO"].ToString() == _Fun.Config.OutPackStationName)
@@ -2280,7 +2716,7 @@ namespace SoftNetWebII.Services
                                                                                 if (db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate],DATA_Remark) VALUES
                                                                                     ('{_Str.NewId('W')}','{_Fun.Config.ServerId}','23','{d_Error["NeedId"].ToString()}','{d["SimulationId"].ToString()}','{d["APS_StationNO"].ToString()}','{d["DOCNumberNO"].ToString().Trim()}','{d["PartNO"].ToString()}','','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{detail_qty.ToString()}')"))
                                                                                 {
-                                                                                    sb_MailBody.Append($"<p>疑似委外加工單數量多下 委外加工單:{d["wo"].ToString()} 工站:{d["APS_StationNO"].ToString()} 數量多出:{Math.Abs(detail_qty).ToString()}</p>");
+                                                                                    sb_MailBody.Append($"<p>疑似委外加工單數量多下 委外加工單:{d["wo"].ToString()} 料件:{d["PartNO"].ToString()} {(!d.IsNull("PartName") ? d["PartName"].ToString() : "")} {(!d.IsNull("Specification") ? d["Specification"].ToString() : "")} 工站:{d["APS_StationNO"].ToString()} 數量多出:{Math.Abs(detail_qty).ToString()}</p>");
                                                                                 }
                                                                             }
                                                                         }
@@ -2315,7 +2751,7 @@ namespace SoftNetWebII.Services
                                                                     else
                                                                     {
                                                                         _SFC_Common.InsertSimulationError(db, "25", "0", d["SimulationId"].ToString(), d_Error["NeedId"].ToString(), null, null, d["APS_StationNO"].ToString(), null, null, logdate);
-                                                                        sb_MailBody.Append($"<p>工單:{d["wo"].ToString()} 工站:{d["APS_StationNO"].ToString()} 系統自動補報工, 數量補:{detail_qty.ToString()}</p>");
+                                                                        sb_MailBody.Append($"<p>工單:{d["wo"].ToString()} 料件:{d["PartNO"].ToString()} {(!d.IsNull("PartName") ? d["PartName"].ToString() : "")} {(!d.IsNull("Specification") ? d["Specification"].ToString() : "")} 工站:{d["APS_StationNO"].ToString()} 系統自動補報工, 數量補:{detail_qty.ToString()}</p>");
                                                                     }
                                                                 }
                                                                 else
@@ -2339,21 +2775,26 @@ namespace SoftNetWebII.Services
                                                                     else
                                                                     {
                                                                         _SFC_Common.InsertSimulationError(db, "25", "0", d["SimulationId"].ToString(), d_Error["NeedId"].ToString(), null, null, d["APS_StationNO"].ToString(), null, null, logdate);
-                                                                        sb_MailBody.Append($"<p>工單:{d["wo"].ToString()} 工站:{d["APS_StationNO"].ToString()} 系統自動補報工, 數量補:{detail_qty.ToString()} ,須至網頁功能自行修正</p>");
+                                                                        sb_MailBody.Append($"<p>工單:{d["wo"].ToString()} 料件:{d["PartNO"].ToString()} {(!d.IsNull("PartName") ? d["PartName"].ToString() : "")} {(!d.IsNull("Specification") ? d["Specification"].ToString() : "")} 工站:{d["APS_StationNO"].ToString()} 系統自動補報工, 數量補:{detail_qty.ToString()}</p>");
                                                                     }
                                                                 }
                                                                 #endregion
                                                             }
                                                         }
-                                                        else
+                                                        else if (detail_qty < 0)
                                                         {
-                                                            #region 判斷是否要減少報工數量
-                                                            if (db.DB_GetQueryCount($"select Id from SoftNetSYSDB.[dbo].[APS_WarningData] where NeedId='{d_Error["NeedId"].ToString()}' and SimulationId='{d["SimulationId"].ToString()}' and DOCNumberNO='{d["wo"].ToString().Trim()}' and ErrorType='22'") <= 0)
+                                                            // detail_qty<0 表示已報工量超過計畫；detail_qty==0 不視為重複報工
+                                                            #region 判斷是否要減少報工數量（疑似重複報工）
+                                                            if (d["wo"].ToString().Trim() != "")
                                                             {
-                                                                if (db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate],DATA_Remark) VALUES
-                                                                    ('{_Str.NewId('W')}','{_Fun.Config.ServerId}','22','{d_Error["NeedId"].ToString()}','{d["SimulationId"].ToString()}','{d["APS_StationNO"].ToString()}','{d["wo"].ToString().Trim()}','{d["PartNO"].ToString()}','','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{Math.Abs(detail_qty).ToString()}')"))
+                                                                int excess_qty = -detail_qty;
+                                                                if (db.DB_GetQueryCount($"select Id from SoftNetSYSDB.[dbo].[APS_WarningData] where NeedId='{d_Error["NeedId"].ToString()}' and SimulationId='{d["SimulationId"].ToString()}' and DOCNumberNO='{d["wo"].ToString().Trim()}' and ErrorType='22'") <= 0)
                                                                 {
-                                                                    sb_MailBody.Append($"<p>疑似重複報工 工單:{d["wo"].ToString()} 工站:{d["APS_StationNO"].ToString()} 數量多出:{Math.Abs(detail_qty).ToString()}</p>");
+                                                                    if (db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate],DATA_Remark) VALUES
+                                                                    ('{_Str.NewId('W')}','{_Fun.Config.ServerId}','22','{d_Error["NeedId"].ToString()}','{d["SimulationId"].ToString()}','{d["APS_StationNO"].ToString()}','{d["wo"].ToString().Trim()}','{d["PartNO"].ToString()}','','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{excess_qty.ToString()}')"))
+                                                                    {
+                                                                        sb_MailBody.Append($"<p>疑似重複報工 工單:{d["wo"].ToString()} 料件:{d["PartNO"].ToString()} {(!d.IsNull("PartName") ? d["PartName"].ToString() : "")} {(!d.IsNull("Specification") ? d["Specification"].ToString() : "")} 工站:{d["APS_StationNO"].ToString()} 數量多出:{excess_qty.ToString()}</p>");
+                                                                    }
                                                                 }
                                                             }
                                                             #endregion
@@ -2452,10 +2893,16 @@ namespace SoftNetWebII.Services
                                                                     {
                                                                         if (bool.Parse(dr_tmp["IsChackQTY"].ToString()))
                                                                         {
-                                                                            DataRow dr_tmp4 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where NeedId='{needId}' and SimulationId='{dr_tmp["SimulationId"].ToString()}' and NeedQTY>Detail_QTY");
+                                                                            DataRow dr_tmp4 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where NeedId='{needId}' and SimulationId='{dr_tmp["SimulationId"].ToString()}'");
                                                                             if (dr_tmp4 != null)
                                                                             {
-                                                                                isrun = true; break;
+                                                                                int priorFailCk = _SFC_Common.SumPriorDetailFailQTY(db, needId, pP_Name, int.Parse(dr_tmp["IndexSN"].ToString()));
+                                                                                int effectiveNeedCk = _SFC_Common.GetEffectiveNeedQTY(int.Parse(dr_tmp4["NeedQTY"].ToString()), priorFailCk);
+                                                                                int reportedQty = int.Parse(dr_tmp4["Detail_QTY"].ToString()) + int.Parse(dr_tmp4["Detail_Fail_QTY"].ToString());
+                                                                                if (effectiveNeedCk > reportedQty)
+                                                                                {
+                                                                                    isrun = true; break;
+                                                                                }
                                                                             }
                                                                         }
                                                                         if (bool.Parse(dr_tmp["IsChackIsOK"].ToString()) && !bool.Parse(dr_tmp["IsOK"].ToString()))
@@ -2550,13 +2997,13 @@ namespace SoftNetWebII.Services
                                                         {
                                                             DataRow dr_PP_Station = null;
                                                             #region 干涉修正報工數量
-                                                            tmp_dt = db.DB_GetData($@"SELECT b.PartSN,b.BOMQTY,b.DOCNumberNO as wo,b.Source_StationNO_IndexSN,b.Apply_PP_Name,a.*  FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] as a
+                                                            tmp_dt = db.DB_GetData($@"SELECT b.PartSN,b.BOMQTY,b.DOCNumberNO as wo,b.Source_StationNO_IndexSN,b.Apply_PP_Name,b.IndexSN,a.*  FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] as a
                                                                                         join SoftNetSYSDB.[dbo].[APS_Simulation] as b on a.NeedId=b.NeedId and a.SimulationId=b.SimulationId
                                                                                         where a.NeedId='{d_Error["NeedId"].ToString()}' and a.NoStation='0' and a.NeedQTY!=0 order by b.PartSN desc,b.Class desc");
                                                             if (tmp_dt != null && tmp_dt.Rows.Count > 0)
                                                             {
                                                                 int qty = 0;
-                                                                tmp = db.DB_GetFirstDataByDataRow($@"SELECT a.* FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] as a
+                                                                tmp = db.DB_GetFirstDataByDataRow($@"SELECT a.*,b.Apply_PP_Name,b.IndexSN FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] as a
                                                                                         join SoftNetSYSDB.[dbo].[APS_Simulation] as b on a.NeedId=b.NeedId and a.SimulationId=b.SimulationId and b.PartSN=0
                                                                                         where a.NeedId='{d_Error["NeedId"].ToString()}' and a.NoStation='0' and a.NeedQTY!=0");
                                                                 if (tmp != null)
@@ -2565,13 +3012,16 @@ namespace SoftNetWebII.Services
                                                                 }
                                                                 if (qty > 0)
                                                                 {
-                                                                    int offset = int.Parse(tmp["NeedQTY"].ToString()) - qty;
+                                                                    int priorFailRoot = _SFC_Common.SumPriorDetailFailQTY(db, tmp["NeedId"].ToString(), tmp["Apply_PP_Name"].ToString(), int.Parse(tmp["IndexSN"].ToString()));
+                                                                    int offset = _SFC_Common.GetEffectiveNeedQTY(int.Parse(tmp["NeedQTY"].ToString()), priorFailRoot) - qty;
                                                                     if (offset < 0) { offset = 0; }
                                                                     int detail_qty = 0;
                                                                     foreach (DataRow d in tmp_dt.Rows)
                                                                     {
                                                                         if (int.Parse(d["PartSN"].ToString()) == 0) { continue; }
-                                                                        detail_qty = (int.Parse(d["NeedQTY"].ToString()) - offset) - (int.Parse(d["Detail_QTY"].ToString()) + int.Parse(d["Detail_Fail_QTY"].ToString()));
+                                                                        int priorFail = _SFC_Common.SumPriorDetailFailQTY(db, d["NeedId"].ToString(), d["Apply_PP_Name"].ToString(), int.Parse(d["IndexSN"].ToString()));
+                                                                        int effectiveNeedQTY = _SFC_Common.GetEffectiveNeedQTY(int.Parse(d["NeedQTY"].ToString()), priorFail);
+                                                                        detail_qty = (effectiveNeedQTY - offset) - (int.Parse(d["Detail_QTY"].ToString()) + int.Parse(d["Detail_Fail_QTY"].ToString()));
                                                                         if (detail_qty > 0)
                                                                         {
                                                                             if (d["APS_StationNO"].ToString() == _Fun.Config.OutPackStationName)
@@ -2876,6 +3326,7 @@ namespace SoftNetWebII.Services
                                                                                 _ = db.DB_SetData($"DELETE FROM SoftNetMainDB.[dbo].[ManufactureII] where SimulationId in ({ii_ID})");
                                                                             }
                                                                         }
+                                                                        _SFC_Common.CloseOrphanManufactureIIForNeed(db, needId);
 
                                                                         continue;
                                                                     }
@@ -2985,7 +3436,7 @@ namespace SoftNetWebII.Services
                                                 if (dr_tmp["Station_Type"].ToString() == "8")
                                                 {
                                                     #region 多工單
-                                                    DataTable dt_ManufactureII = db.DB_GetData($"select * from SoftNetMainDB.[dbo].[ManufactureII] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d_Error["StationNO"].ToString()}' and StartTime is not NULL and EndTime is NULL and RemarkTimeS is not NULL and RemarkTimeE is NULL");
+                                                    DataTable dt_ManufactureII = db.DB_GetData($"select a.*,m.PartName,m.Specification from SoftNetMainDB.[dbo].[ManufactureII] as a left join SoftNetMainDB.[dbo].[Material] as m on a.PartNO=m.PartNO and m.ServerId='{_Fun.Config.ServerId}' where a.ServerId='{_Fun.Config.ServerId}' and a.StationNO='{d_Error["StationNO"].ToString()}' and a.StartTime is not NULL and a.EndTime is NULL and a.RemarkTimeS is not NULL and a.RemarkTimeE is NULL");
                                                     if (dt_ManufactureII != null && dt_ManufactureII.Rows.Count > 0)
                                                     {
                                                         foreach (DataRow d2 in dt_ManufactureII.Rows)
@@ -3021,7 +3472,7 @@ namespace SoftNetWebII.Services
                                                                 ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{d_Error["NeedId"].ToString()}','{d2["SimulationId"].ToString()}','{wedate}','RUNTimeServer','干涉停工','{d2["PP_Name"].ToString()}','{d_Error["StationNO"].ToString()}','{d2["PartNO"].ToString()}','{d2["OrderNO"].ToString()}','',{d2["IndexSN"].ToString()})");
                                                             if (sb_station_List.Length > 0) { sb_station_List.Append(" "); }
                                                             sb_station_List.Append(d_Error["StationNO"].ToString());
-                                                            sb_MailBody.Append($"<p>非工作時間已強制設定停工,  工站:{d_Error["StationNO"].ToString()}  工序編號:{d2["IndexSN"].ToString()} 製程:{d2["PP_Name"].ToString()}  料號:{d2["PartNO"].ToString()}</p>");
+                                                            sb_MailBody.Append($"<p>非工作時間已強制設定停工,  工站:{d_Error["StationNO"].ToString()} 工單:{d2["OrderNO"].ToString()} 製程:{d2["PP_Name"].ToString()} 工序編號:{d2["IndexSN"].ToString()} 料號:{d2["PartNO"].ToString()} {(!d2.IsNull("PartName") ? d2["PartName"].ToString() : "")} {(!d2.IsNull("Specification") ? d2["Specification"].ToString() : "")}</p>");
                                                             #region 通知網頁更新
                                                             _ = SendWebSocketClent_INFO($"SendALLClient,StationStateChangEvent,8,{d2["Id"].ToString()},2");
                                                             //if (WebSocketServiceOJB != null)
@@ -3047,7 +3498,7 @@ namespace SoftNetWebII.Services
                                                     #region 單工單
                                                     var ledrgb = "0";
                                                     string meg = "";
-                                                    DataRow dr_M = db.DB_GetFirstDataByDataRow($"SELECT * from SoftNetMainDB.[dbo].[Manufacture] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d_Error["StationNO"].ToString()}'");
+                                                    DataRow dr_M = db.DB_GetFirstDataByDataRow($"SELECT a.*,m.PartName as M_PartName,m.Specification as M_Specification from SoftNetMainDB.[dbo].[Manufacture] as a left join SoftNetMainDB.[dbo].[Material] as m on a.PartNO=m.PartNO and m.ServerId='{_Fun.Config.ServerId}' where a.ServerId='{_Fun.Config.ServerId}' and a.StationNO='{d_Error["StationNO"].ToString()}'");
                                                     if (dr_M != null)
                                                     {
                                                         // var webSocketService = (SNWebSocketService)_Fun.DiBox.GetService(typeof(SNWebSocketService));
@@ -3076,7 +3527,7 @@ namespace SoftNetWebII.Services
                                                                 {
                                                                     if (sb_station_List.Length > 0) { sb_station_List.Append(" "); }
                                                                     sb_station_List.Append(d_Error["StationNO"].ToString());
-                                                                    sb_MailBody.Append($"<p>非工作時間已強制設定停工,  工站:{d_Error["StationNO"].ToString()}  工序編號:{dr_M["IndexSN"].ToString()} 製程:{dr_M["PP_Name"].ToString()}  料號:{dr_M["PartNO"].ToString()}</p>");
+                                                                    sb_MailBody.Append($"<p>非工作時間已強制設定停工,  工站:{d_Error["StationNO"].ToString()} 工單:{dr_M["OrderNO"].ToString()} 製程:{dr_M["PP_Name"].ToString()} 工序編號:{dr_M["IndexSN"].ToString()} 料號:{dr_M["PartNO"].ToString()} {(!dr_M.IsNull("M_PartName") ? dr_M["M_PartName"].ToString() : "")} {(!dr_M.IsNull("M_Specification") ? dr_M["M_Specification"].ToString() : "")}</p>");
                                                                 }
                                                             }
                                                         }
@@ -3114,7 +3565,43 @@ namespace SoftNetWebII.Services
                                             //}
                                         }
                                         break;
-                                        //###??? 其他未寫
+                                    case "33"://有計畫久未執行處理
+                                        {
+                                            string wo = "";
+                                            #region 工單標記 PauseTime
+                                            tmp_dt = db.DB_GetData($@"SELECT a.DOCNumberNO,a.NeedId,a.SimulationId,a.NeedQTY,a.Detail_QTY,a.Detail_Fail_QTY,b.Apply_PP_Name,b.IndexSN FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] as a 
+                                                                    join SoftNetSYSDB.[dbo].[PP_WorkOrder] as b2 on a.DOCNumberNO=b2.OrderNO
+                                                                    join SoftNetSYSDB.[dbo].[APS_Simulation] as b on a.NeedId=b.NeedId and a.SimulationId=b.SimulationId
+                                                                    where a.NeedId='{d_Error["NeedId"].ToString()}' and a.NoStation='0' and a.APS_StationNO is not NULL and a.DOCNumberNO!=''");
+                                            if (tmp_dt != null && tmp_dt.Rows.Count > 0)
+                                            {
+                                                var pausedOrders = new HashSet<string>(StringComparer.Ordinal);
+                                                foreach (DataRow d2 in tmp_dt.Rows)
+                                                {
+                                                    int baseNeed = int.Parse(d2["NeedQTY"].ToString());
+                                                    int reported = int.Parse(d2["Detail_QTY"].ToString()) + int.Parse(d2["Detail_Fail_QTY"].ToString());
+                                                    int effectiveNeed = _SFC_Common.GetEffectiveNeedQTY(baseNeed, _SFC_Common.SumPriorDetailFailQTY(db, d2["NeedId"].ToString(), d2["Apply_PP_Name"].ToString(), int.Parse(d2["IndexSN"].ToString())));
+                                                    if (effectiveNeed <= reported) { continue; }
+                                                    string docNo = d2["DOCNumberNO"].ToString();
+                                                    if (!pausedOrders.Add(docNo)) { continue; }
+                                                    wo = $@"{wo} {docNo}";
+                                                    _ = db.DB_SetData($"update SoftNetSYSDB.[dbo].[PP_WorkOrder] set PauseTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and OrderNO='{docNo}'");
+                                                }
+                                            }
+                                            #endregion
+
+                                            #region 釋放 APS_WorkTimeNote 預計排程工作時間
+                                            _ = db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_WorkTimeNote] set Time1_C=1,Time2_C=0,Time3_C=0,Time4_C=0 where NeedId='{d_Error["NeedId"].ToString()}' and (Time1_C!=0 or Time2_C!=0 or Time3_C!=0 or Time4_C!=0)");
+                                            #endregion
+
+                                            _ = db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_NeedData] set State='P' where ServerId='{_Fun.Config.ServerId}' and Id='{d_Error["NeedId"].ToString()}'");
+                                            _ = db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_WarningData] SET IsDEL='1' where Id='{d_Error["Id"].ToString()}'");
+                                            _ = db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] SET ActionType='0' where NeedId='{d_Error["NeedId"].ToString()}' AND ErrorType='33' AND ActionType=''");
+                                            DataRow dr_need33 = db.DB_GetFirstDataByDataRow($"SELECT a.PartNO,m.PartName,m.Specification FROM SoftNetSYSDB.[dbo].[APS_NeedData] as a left join SoftNetMainDB.[dbo].[Material] as m on a.PartNO=m.PartNO and m.ServerId='{_Fun.Config.ServerId}' where a.ServerId='{_Fun.Config.ServerId}' and a.Id='{d_Error["NeedId"].ToString()}'");
+                                            string need33Info = dr_need33 != null ? $" 料號:{dr_need33["PartNO"].ToString()} {(!dr_need33.IsNull("PartName") ? dr_need33["PartName"].ToString() : "")} {(!dr_need33.IsNull("Specification") ? dr_need33["Specification"].ToString() : "")}" : "";
+                                            sb_MailBody.Append($"<p>需求碼:{d_Error["NeedId"].ToString()} {need33Info} 暫停生產, 影響工單:{wo}</p>");
+                                        }
+                                        break;
                                 }
                             }
                             string MailBody = sb_MailBody.ToString();
@@ -3518,11 +4005,13 @@ namespace SoftNetWebII.Services
                             string top_flag = $" TOP {_Fun.Config.AdminKey03} ";
                             foreach (DataRow d in dt_tmp.Rows)
                             {
-                                DataRow dr_tmp_Note = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where ((Class!='4' and Class!='5') or NoStation='1') and Next_StationQTY>=NeedQTY and SimulationId='{d["SimulationId"].ToString()}' and DOCNumberNO='{d["DOCNumberNO"].ToString()}' and PartNO='{d["PartNO"].ToString()}'");
+                                DataRow dr_tmp_Note = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where ((Class!='4' and Class!='5') or NoStation='1') and SimulationId='{d["SimulationId"].ToString()}' and DOCNumberNO='{d["DOCNumberNO"].ToString()}' and PartNO='{d["PartNO"].ToString()}'");
                                 if (dr_tmp_Note != null)
                                 {
-                                    IsOKQTY = 0;
+                                    int effectiveNeedQTY = _SFC_Common.GetEffectiveNeedQTYBySimulation(db, dr_tmp_Note["NeedId"].ToString(), d["SimulationId"].ToString(), int.Parse(dr_tmp_Note["NeedQTY"].ToString()));
                                     int next_StationQTY = int.Parse(dr_tmp_Note["Next_StationQTY"].ToString());
+                                    if (next_StationQTY < effectiveNeedQTY) { continue; }
+                                    IsOKQTY = 0;
                                     dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT sum(QTY) as OKQTY FROM SoftNetMainDB.[dbo].[DOC3stockII] where SimulationId='{d["SimulationId"].ToString()}' and DOCNumberNO='{d["DOCNumberNO"].ToString()}' and PartNO='{d["PartNO"].ToString()}' and IsOK='1'");
                                     if (dr_tmp != null && !dr_tmp.IsNull("OKQTY")) { IsOKQTY = int.Parse(dr_tmp["OKQTY"].ToString()); }
                                     if ((next_StationQTY - IsOKQTY) > 0)
@@ -3634,7 +4123,7 @@ namespace SoftNetWebII.Services
                     if (!_Fun.Is_Thread_ForceClose)
                     {
                         #region 監測APS_Simulation, 生產備料是否無作為無單據發起)  05
-                        string mailSub = $"{_Fun.Config.ServerId} 警示 工作站生產物,無單據發起.";
+                        string mailSub = $"{_Fun.Config.ServerId} 警示 工站生產備料,無單據發起.";
                         var sb_mailBody05 = new StringBuilder();
                         if (db.DB_GetQueryCount($"select TOP 1 * from SoftNetSYSDB.[dbo].APS_Simulation_ErrorData where ServerId='{_Fun.Config.ServerId}' and ErrorType='05' and ActionType=''") > 0)
                         {
@@ -3728,8 +4217,8 @@ namespace SoftNetWebII.Services
                                         dr_tmp = db.DB_GetFirstDataByDataRow(sql);
                                         if (dr_tmp != null)
                                         {
-                                            dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where SimulationId='{dr_tmp["SimulationId"].ToString()}' and Detail_QTY>=NeedQTY");
-                                            if (dr_tmp != null)
+                                            dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where SimulationId='{dr_tmp["SimulationId"].ToString()}'");
+                                            if (dr_tmp != null && _SFC_Common.IsStationOkReportingComplete(db, dr_tmp["NeedId"].ToString(), dr_tmp["SimulationId"].ToString(), int.Parse(dr_tmp["Detail_QTY"].ToString()), int.Parse(dr_tmp["NeedQTY"].ToString())))
                                             {
                                                 if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].APS_Simulation_ErrorData SET ActionType='1',ActionLogDate='{logdate}' where Id='{eID}'"))
                                                 {
@@ -3759,7 +4248,10 @@ namespace SoftNetWebII.Services
                             }
                             string mailBody05 = sb_mailBody05.ToString();
                             if (mailBody05 != "")
-                            { _Fun.Mail_Send(_Fun.Config.SendMonitorMail05.Split(',')[0].Split(';'), _Fun.Config.SendMonitorMail05.Split(',')[1].Split(';'), mailSub, mailBody05, null, false); }
+                            {
+                                mailBody05 = $"<p>問題分析:</p>生產排程會主動備料, 有此警示表示工站目前開工的工單並不是計劃排定工單, 當有報工行為系統會自動開單補料, 警示會自動消除.<BR/>若警示多時表示工站沒依照計畫執行工單, 長此作業會影響排程計畫的正確性, 請與報工人員溝通不要太隨性生產.<BR/><HR/>{mailBody05}";
+                                _Fun.Mail_Send(_Fun.Config.SendMonitorMail05.Split(',')[0].Split(';'), _Fun.Config.SendMonitorMail05.Split(',')[1].Split(';'), mailSub, mailBody05, null, false);
+                            }
 
                             #endregion
                         }
@@ -3856,8 +4348,8 @@ namespace SoftNetWebII.Services
                                         {
                                             string eID = dr_tmp["Id"].ToString();
                                             #region 已逾時解除 (條件=工站已生產超過的數量)
-                                            dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where SimulationId='{d["SimulationId"].ToString()}' and Detail_QTY>=NeedQTY");
-                                            if (dr_tmp != null)
+                                            dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where SimulationId='{d["SimulationId"].ToString()}'");
+                                            if (dr_tmp != null && _SFC_Common.IsStationOkReportingComplete(db, dr_tmp["NeedId"].ToString(), d["SimulationId"].ToString(), int.Parse(dr_tmp["Detail_QTY"].ToString()), int.Parse(dr_tmp["NeedQTY"].ToString())))
                                             {
                                                 if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].APS_Simulation_ErrorData SET ActionType='1',ActionLogDate='{logdate}' where Id='{eID}'"))
                                                 {
@@ -3919,8 +4411,8 @@ namespace SoftNetWebII.Services
                                         {
                                             string eID = dr_tmp["Id"].ToString();
                                             #region 已逾時解除 (條件=工站已生產超過的數量)
-                                            dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where SimulationId='{d["SimulationId"].ToString()}' and Detail_QTY>=NeedQTY");
-                                            if (dr_tmp != null)
+                                            dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where SimulationId='{d["SimulationId"].ToString()}'");
+                                            if (dr_tmp != null && _SFC_Common.IsStationOkReportingComplete(db, dr_tmp["NeedId"].ToString(), d["SimulationId"].ToString(), int.Parse(dr_tmp["Detail_QTY"].ToString()), int.Parse(dr_tmp["NeedQTY"].ToString())))
                                             {
                                                 if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].APS_Simulation_ErrorData SET ActionType='1',ActionLogDate='{logdate}' where Id='{eID}' and ErrorType='02'"))
                                                 {
@@ -3951,9 +4443,15 @@ namespace SoftNetWebII.Services
                             string mailBody01 = sb_mailBody01.ToString();
                             string mailBody02 = sb_mailBody02.ToString();
                             if (mailBody01 != "")
-                            { _Fun.Mail_Send(_Fun.Config.SendMonitorMail01.Split(',')[0].Split(';'), _Fun.Config.SendMonitorMail01.Split(',')[1].Split(';'), mailSub, mailBody01, null, false); }
+                            {
+                                mailBody01 = $"<p>問題分析:</p>非生產件計畫預留量被動用, 生產排程計畫時已將原本庫存可用的原物料保留給計劃使用, 但卻發生保留量不足夠, 表示庫存使用有混亂的現象.<BR/>若此警示不是經常性收到, 您可以暫時不用理會, 若有多次收到您可能要確認倉儲管理是否有不當, 倉儲的領用沒有依照計畫處理請重視此問題.<BR/><HR/>{mailBody01}";
+                                _Fun.Mail_Send(_Fun.Config.SendMonitorMail01.Split(',')[0].Split(';'), _Fun.Config.SendMonitorMail01.Split(',')[1].Split(';'), mailSub, mailBody01, null, false);
+                            }
                             if (mailBody02 != "")
-                            { _Fun.Mail_Send(_Fun.Config.SendMonitorMail02.Split(',')[0].Split(';'), _Fun.Config.SendMonitorMail02.Split(',')[1].Split(';'), mailSub, mailBody02, null, false); }
+                            {
+                                mailBody02 = $"<p>問題分析:</p>生產件計畫預留量被動用, 生產排程計畫時已將原本庫存可用的生產件保留給計劃使用, 但卻發生保留量不足夠, 表示庫存使用有混亂的現象.<BR/>若此警示不是經常性收到, 您可以暫時不用理會, 若有多次收到您可能要確認倉儲管理是否有不當, 倉儲的領用沒有依照計畫處理請重視此問題.<BR/><HR/>{mailBody02}";
+                                _Fun.Mail_Send(_Fun.Config.SendMonitorMail02.Split(',')[0].Split(';'), _Fun.Config.SendMonitorMail02.Split(',')[1].Split(';'), mailSub, mailBody02, null, false);
+                            }
                         }
                         #endregion
                         _Fun._a05 = threadLoopTime.ElapsedMilliseconds;
@@ -3962,7 +4460,7 @@ namespace SoftNetWebII.Services
                     if (!_Fun.Is_Thread_ForceClose)
                     {
                         #region 監測監測工作站生產物料應領用,而未領用  04 
-                        string mailSub = $"{_Fun.Config.ServerId} 警示 工作站生產物料應領料,而未領料.";
+                        string mailSub = $"{_Fun.Config.ServerId} 警示 工站生產物料應領料,而未領料.";
                         var sb_mailBody04 = new StringBuilder();
                         if (db.DB_GetQueryCount($"select * from SoftNetSYSDB.[dbo].APS_Simulation_ErrorData where ErrorType='04' and ActionType=''") > 0)
                         {
@@ -4162,10 +4660,13 @@ namespace SoftNetWebII.Services
                                     {
                                         //下一階的工站
                                         //dr_tmp = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_Simulation] where NeedId='{dr_tmp["NeedId"].ToString()}' and PartNO='{dr_tmp["Master_PartNO"].ToString()}' and Source_StationNO='{dr_tmp["Apply_StationNO"].ToString()}' and Source_StationNO_IndexSN={dr_tmp["IndexSN"].ToString()} and (Class='4' or Class='5') and Source_StationNO is not null");
-                                        APS_PartNOTimeNote = db.DB_GetFirstDataByDataRow($@"select a.SimulationId,b.NeedQTY,(b.Detail_QTY+b.Detail_Fail_QTY) as okQTY from SoftNetSYSDB.[dbo].[APS_Simulation] as a
+                                        APS_PartNOTimeNote = db.DB_GetFirstDataByDataRow($@"select a.SimulationId,a.NeedId,a.Apply_PP_Name,a.IndexSN,b.NeedQTY,(b.Detail_QTY+b.Detail_Fail_QTY) as okQTY from SoftNetSYSDB.[dbo].[APS_Simulation] as a
                                                         join SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] as b on a.SimulationId=b.SimulationId
                                                         where a.NeedId='{dr_tmp["NeedId"].ToString()}' and a.PartNO='{dr_tmp["Master_PartNO"].ToString()}' and a.Source_StationNO='{dr_tmp["Apply_StationNO"].ToString()}' and a.Source_StationNO_IndexSN={dr_tmp["IndexSN"].ToString()} and a.Source_StationNO is not null");
-                                        if (APS_PartNOTimeNote != null && int.Parse(APS_PartNOTimeNote["okQTY"].ToString()) >= int.Parse(APS_PartNOTimeNote["NeedQTY"].ToString()))
+                                        if (APS_PartNOTimeNote != null)
+                                        {
+                                            int effectiveNeed = _SFC_Common.GetEffectiveNeedQTY(int.Parse(APS_PartNOTimeNote["NeedQTY"].ToString()), _SFC_Common.SumPriorDetailFailQTY(db, APS_PartNOTimeNote["NeedId"].ToString(), APS_PartNOTimeNote["Apply_PP_Name"].ToString(), int.Parse(APS_PartNOTimeNote["IndexSN"].ToString())));
+                                            if (int.Parse(APS_PartNOTimeNote["okQTY"].ToString()) >= effectiveNeed)
                                         {
                                             if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].APS_Simulation_ErrorData SET ActionType='0',ActionLogDate='{logdate}' where DOCNumberNO='{d["DOCNumberNO"].ToString()}' and ErrorKey='{d["ErrorKey"].ToString()}' and ErrorType='08'"))
                                             {
@@ -4221,6 +4722,7 @@ namespace SoftNetWebII.Services
                                                 }
                                                 #endregion
                                             }
+                                        }
                                         }
                                         if (isrun)
                                         {
@@ -4493,8 +4995,8 @@ namespace SoftNetWebII.Services
                                 {
                                     foreach (DataRow d in dt_tmp.Rows)
                                     {
-                                        dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT * from SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where APS_StationNO='{d["StationNO"].ToString()}' and SimulationId='{d["SimulationId"].ToString()}' and Detail_QTY>=NeedQTY");
-                                        if (dr_tmp != null)
+                                        dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT * from SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where APS_StationNO='{d["StationNO"].ToString()}' and SimulationId='{d["SimulationId"].ToString()}'");
+                                        if (dr_tmp != null && _SFC_Common.IsStationOkReportingComplete(db, dr_tmp["NeedId"].ToString(), d["SimulationId"].ToString(), int.Parse(dr_tmp["Detail_QTY"].ToString()), int.Parse(dr_tmp["NeedQTY"].ToString())))
                                         {
                                             _ = db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_WorkTimeNote] set Time1_C=0,Time2_C=0,Time3_C=0,Time4_C=0 where StationNO='{d["StationNO"].ToString()}' and SimulationId='{d["SimulationId"].ToString()}'");
                                             _ = db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_Simulation] set IsOK='1' where SimulationId='{d["SimulationId"].ToString()}'");
@@ -4509,9 +5011,11 @@ namespace SoftNetWebII.Services
                         #region 監測工站每日執行工單明細的開工狀態, 是否如預期  03
                         string mailSub = $"{_Fun.Config.ServerId} 警示 工單開工狀態,沒如預期.";
                         var sb_mailBody03 = new StringBuilder();
-                        sql = $@"SELECT a.*,c.PartNO,c.Source_StationNO_IndexSN,c.Source_StationNO_Custom_IndexSN FROM SoftNetSYSDB.[dbo].[APS_WorkTimeNote] as a
+                        var notified03Keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        sql = $@"SELECT a.*,c.PartNO,c.Source_StationNO_IndexSN,c.Source_StationNO_Custom_IndexSN,mt.PartName,mt.Specification FROM SoftNetSYSDB.[dbo].[APS_WorkTimeNote] as a
                             join SoftNetSYSDB.[dbo].[PP_WorkOrder] as b on b.OrderNO=a.DOCNumberNO and (b.CloseType='0' or b.EndTime is NULL)
                             join SoftNetSYSDB.[dbo].[APS_Simulation] as c on c.SimulationId=a.SimulationId
+                            left join SoftNetMainDB.[dbo].[Material] as mt on mt.ServerId='{_Fun.Config.ServerId}' and c.PartNO=mt.PartNO
                             join SoftNetSYSDB.[dbo].[APS_NeedData] as d on d.State='6' and a.NeedId=d.Id
                             join SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] as e on a.SimulationId=e.SimulationId and e.DOCNumberNO!=''
                             where b.ServerId='{_Fun.Config.ServerId}' and a.DOCNumberNO!='' and CONVERT(varchar(10), a.CalendarDate, 23)='{DateTime.Now.ToString("yyyy-MM-dd")}' and (a.Time1_C>=1 or a.Time2_C>0 or a.Time3_C>0 or a.Time4_C>0) order by a.StationNO,a.CalendarDate";
@@ -4540,10 +5044,11 @@ namespace SoftNetWebII.Services
                                 has_data = false;
                                 #region 判斷工站狀態, 是否正常開工, 解除.
                                 PP_Station = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[PP_Station] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}'");
-                                dr_ErrorData = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] where ServerId='{_Fun.Config.ServerId}' and SimulationId='{d["SimulationId"].ToString()}' and StationNO='{d["StationNO"].ToString()}' and ErrorType='03' and ActionType=''");
+                                dr_ErrorData = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] where ServerId='{_Fun.Config.ServerId}' and NeedId='{d["NeedId"].ToString()}' and SimulationId='{d["SimulationId"].ToString()}' and StationNO='{d["StationNO"].ToString()}' and ErrorType='03' and ActionType=''");
                                 if (dr_ErrorData != null)
                                 {
-                                    if (int.Parse(d["Time1_C"].ToString()) <= 1 && d["Time2_C"].ToString() == "0" && d["Time3_C"].ToString() == "0" && d["Time4_C"].ToString() == "0")
+                                    // 僅在整日排程負荷皆為 0 時解除；Time1_C=1 仍屬有效排程，不可刪除否則下一輪會重複寄 Mail
+                                    if (int.Parse(d["Time1_C"].ToString()) == 0 && d["Time2_C"].ToString() == "0" && d["Time3_C"].ToString() == "0" && d["Time4_C"].ToString() == "0")
                                     {
                                         _ = db.DB_SetData($"delete from SoftNetSYSDB.[dbo].APS_Simulation_ErrorData where Id='{dr_ErrorData["Id"].ToString()}'");
                                         _ = SendWebSocketClent_INFO($"SendALLClient,SimulatioStatusChange,'03',{d["SimulationId"].ToString()},0");
@@ -4577,7 +5082,8 @@ namespace SoftNetWebII.Services
                                             {
                                                 if (has_data)
                                                 {
-                                                    _ = db.DB_SetData($"delete from SoftNetSYSDB.[dbo].APS_Simulation_ErrorData where Id='{dr_ErrorData["Id"].ToString()}'"); is_INFO = true;
+                                                    _ = db.DB_SetData($"delete from SoftNetSYSDB.[dbo].APS_Simulation_ErrorData where Id='{dr_ErrorData["Id"].ToString()}'");
+                                                    is_INFO = true;
                                                 }
                                                 else { continue; }
                                             }
@@ -4585,7 +5091,8 @@ namespace SoftNetWebII.Services
                                             {
                                                 if (has_data)
                                                 {
-                                                    _ = db.DB_SetData($"delete from SoftNetSYSDB.[dbo].APS_Simulation_ErrorData where Id='{dr_ErrorData["Id"].ToString()}'"); is_INFO = true;
+                                                    _ = db.DB_SetData($"delete from SoftNetSYSDB.[dbo].APS_Simulation_ErrorData where Id='{dr_ErrorData["Id"].ToString()}'");
+                                                    is_INFO = true;
                                                 }
                                                 else { continue; }
                                             }
@@ -4597,11 +5104,14 @@ namespace SoftNetWebII.Services
                                         if (dr_tmp2 == null) { continue; }
                                         else
                                         {
-                                            if (dr_tmp2["State"].ToString() != "2" && dr_tmp2["State"].ToString() != "3")
+                                            // 0=待機(未開工) 應保留異常；僅 1=已開工、4=關站 視為已排除未開工問題
+                                            string mfgState = dr_tmp2["State"].ToString();
+                                            if (mfgState == "1" || mfgState == "4")
                                             {
                                                 if (has_data)
                                                 {
-                                                    _ = db.DB_SetData($"delete from SoftNetSYSDB.[dbo].APS_Simulation_ErrorData where Id='{dr_ErrorData["Id"].ToString()}'"); is_INFO = true;
+                                                    _ = db.DB_SetData($"delete from SoftNetSYSDB.[dbo].APS_Simulation_ErrorData where Id='{dr_ErrorData["Id"].ToString()}'");
+                                                    is_INFO = true;
                                                 }
                                                 else { continue; }
                                             }
@@ -4610,7 +5120,7 @@ namespace SoftNetWebII.Services
                                 }
                                 else
                                 {
-                                    if (int.Parse(d["Time1_C"].ToString()) <= 1 && d["Time2_C"].ToString() == "0" && d["Time3_C"].ToString() == "0" && d["Time4_C"].ToString() == "0") { continue; }
+                                    if (int.Parse(d["Time1_C"].ToString()) == 0 && d["Time2_C"].ToString() == "0" && d["Time3_C"].ToString() == "0" && d["Time4_C"].ToString() == "0") { continue; }
                                 }
                                 #endregion
 
@@ -4869,20 +5379,28 @@ namespace SoftNetWebII.Services
 
                                     if (isrun)
                                     {
-                                        if (_Fun.Config.SendMonitorMail03.Trim() != ",")
+                                        string key03 = $"{d["NeedId"]}|{d["SimulationId"]}|{d["StationNO"]}";
+                                        string today03 = DateTime.Now.ToString("yyyy-MM-dd");
+                                        string warnDate03 = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
+                                        // Mail 去重：APS_WarningData(32) 同日同排程任一筆即視為已寄（含 IsDEL=1，避免清除畫面異常後誤判可再寄）
+                                        int mail03Sent = db.DB_GetQueryCount($@"SELECT COUNT(1) FROM SoftNetSYSDB.[dbo].[APS_WarningData] where ServerId='{_Fun.Config.ServerId}' and NeedId='{d["NeedId"].ToString()}' and SimulationId='{d["SimulationId"].ToString()}' and StationNO='{d["StationNO"].ToString()}' and ErrorType='32' and CONVERT(varchar(10), WarningDate, 23)='{today03}'");
+                                        if (mail03Sent <= 0)
                                         {
-                                            sb_mailBody03.Append($"<p>排程碼:{d["NeedId"].ToString()} {d["SimulationId"].ToString()} 工站:{d["StationNO"].ToString()} 未開工</p>");
+                                            if (db.DB_SetData($@"INSERT INTO SoftNetSYSDB.[dbo].[APS_WarningData] ([Id],[ServerId],[ErrorType],[NeedId],[SimulationId],[StationNO],[DOCNumberNO],[PartNO],[OP_NO],[WarningDate],[DATA_Remark]) VALUES
+                                                ('{_Str.NewId('W')}','{_Fun.Config.ServerId}','32','{d["NeedId"].ToString()}','{d["SimulationId"].ToString()}','{d["StationNO"].ToString()}','{d["DOCNumberNO"].ToString()}','{d["PartNO"].ToString()}','','{warnDate03}','未開工')"))
+                                            {
+                                                if (_Fun.Config.SendMonitorMail03.Trim() != "," && notified03Keys.Add(key03))
+                                                {
+                                                    sb_mailBody03.Append($"<p>排程碼:{d["NeedId"].ToString()} {d["SimulationId"].ToString()} 工站:{d["StationNO"].ToString()} 生產件:{d["PartNO"].ToString()} {(!d.IsNull("PartName") ? d["PartName"].ToString() : "")} {(!d.IsNull("Specification") ? d["Specification"].ToString() : "")} 未開工</p>");
+                                                }
+                                            }
                                         }
-                                        _ = db.DB_SetData($"INSERT INTO SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] (Id,ServerId,SimulationId,ErrorType,LogDate,NeedId,Count,StationNO,DOCNumberNO) VALUES ('{_Str.NewId('E')}','{_Fun.Config.ServerId}','{d["SimulationId"].ToString()}','03','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','{d["NeedId"].ToString()}',1,'{d["StationNO"].ToString()}','{d["DOCNumberNO"].ToString()}')");
-                                    }
-                                    else
-                                    {
-                                        dr_tmp2 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] where ServerId='{_Fun.Config.ServerId}' and SimulationId='{d["SimulationId"].ToString()}' and StationNO='{d["StationNO"].ToString()}' and ErrorType='03' and ActionType=''");
-                                        if (dr_tmp2 != null)
+                                        if (db.DB_GetQueryCount($"SELECT COUNT(1) FROM SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] where ServerId='{_Fun.Config.ServerId}' and NeedId='{d["NeedId"].ToString()}' and SimulationId='{d["SimulationId"].ToString()}' and StationNO='{d["StationNO"].ToString()}' and ErrorType='03' and ActionType=''") <= 0)
                                         {
-                                            if (db.DB_SetData($"delete from SoftNetSYSDB.[dbo].APS_Simulation_ErrorData where Id='{dr_tmp2["Id"].ToString()}'")) { is_INFO = true; }
+                                            _ = db.DB_SetData($"INSERT INTO SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] (Id,ServerId,SimulationId,ErrorType,LogDate,NeedId,Count,StationNO,DOCNumberNO) VALUES ('{_Str.NewId('E')}','{_Fun.Config.ServerId}','{d["SimulationId"].ToString()}','03','{warnDate03}','{d["NeedId"].ToString()}',1,'{d["StationNO"].ToString()}','{d["DOCNumberNO"].ToString()}')");
                                         }
                                     }
+                                    // isrun=false 時不刪除 ErrorType=03，避免班別邊界或 isrun 抖動導致同日重複寄 Mail
                                 }
                                 if (is_INFO)
                                 {
@@ -4906,7 +5424,10 @@ namespace SoftNetWebII.Services
                             }
                             string mailBody03 = sb_mailBody03.ToString();
                             if (mailBody03 != "")
-                            { _Fun.Mail_Send(_Fun.Config.SendMonitorMail03.Split(',')[0].Split(';'), _Fun.Config.SendMonitorMail03.Split(',')[1].Split(';'), mailSub, mailBody03, null, false); }
+                            {
+                                mailBody03 = $" <p>問題分析:</p>工站未依生產排程計畫的時間開工, 請至工站現場確認若沒開工表示排程計畫可能會延期<BR/><HR/>{mailBody03}";
+                                _Fun.Mail_Send(_Fun.Config.SendMonitorMail03.Split(',')[0].Split(';'), _Fun.Config.SendMonitorMail03.Split(',')[1].Split(';'), mailSub, mailBody03, null, false);
+                            }
                         }
                         #endregion
 
@@ -4994,8 +5515,10 @@ namespace SoftNetWebII.Services
                         //###???將來要加參數定義那些WO單據別不處理
                         string mailSub = $"{_Fun.Config.ServerId} 警示 工單應關而未關.";
                         var sb_mailBody12 = new StringBuilder();
-                        dt_tmp = db.DB_GetData($@"SELECT b.StationNO,a.* FROM SoftNetSYSDB.[dbo].PP_WorkOrder as a, SoftNetSYSDB.[dbo].[PP_WorkOrder_Settlement] as b
-                                            WHERE a.ServerId='{_Fun.Config.ServerId}' AND a.OrderNO=b.OrderNO and a.EndTime IS NULL and b.IsLastStation='1' and a.Quantity>0 and b.TotalInput>=a.Quantity");
+                        dt_tmp = db.DB_GetData($@"SELECT b.StationNO,a.*,m.PartName,m.Specification FROM SoftNetSYSDB.[dbo].PP_WorkOrder as a
+                                            join SoftNetSYSDB.[dbo].[PP_WorkOrder_Settlement] as b on a.OrderNO=b.OrderNO
+                                            left join SoftNetMainDB.[dbo].[Material] as m on a.PartNO=m.PartNO and m.ServerId='{_Fun.Config.ServerId}'
+                                            WHERE a.ServerId='{_Fun.Config.ServerId}' and a.EndTime IS NULL and b.IsLastStation='1' and a.Quantity>0 and b.TotalInput>=a.Quantity");
                         if (dt_tmp != null && dt_tmp.Rows.Count > 0)
                         {
                             DataRow dr_PP_Station = null;
@@ -5005,7 +5528,6 @@ namespace SoftNetWebII.Services
                                 {
                                     if (db.DB_SetData($"INSERT INTO SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] (Id,ServerId,SimulationId,DOCNumberNO,ErrorType,LogDate) VALUES ('{_Str.NewId('E')}','{_Fun.Config.ServerId}','','{d["OrderNO"].ToString()}','12','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}')"))
                                     {
-                                        //###???還不知要通知誰
                                         #region 寫入 主動干涉檔,等時間到自動關閉
                                         DateTime intime = DateTime.Now;
                                         dr_PP_Station = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[PP_Station] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}'");
@@ -5087,7 +5609,7 @@ namespace SoftNetWebII.Services
                                         #endregion
                                         if (_Fun.Config.SendMonitorMail12.Trim() != ",")
                                         {
-                                            sb_mailBody12.Append($"<p>工單編號:{d["OrderNO"].ToString()}</p>");
+                                            sb_mailBody12.Append($"<p>工單編號:{d["OrderNO"].ToString()} 料號:{d["PartNO"].ToString()} {(!d.IsNull("PartName") ? d["PartName"].ToString() : "")} {(!d.IsNull("Specification") ? d["Specification"].ToString() : "")} 系統將於 {intime.ToString("yyyy-MM-dd HH:mm")} 自動關閉工單並結算</p>");
                                         }
                                     }
                                 }
@@ -5110,7 +5632,6 @@ namespace SoftNetWebII.Services
                                 {
                                     if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].APS_Simulation_ErrorData SET ActionType='0',ActionLogDate='{logdate}' where Id='{d["Id"].ToString()}'"))
                                     {
-                                        //###???還不知要通知誰
                                         dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[APS_WarningData] where ErrorType='12' and IsDEL='0' and ServerId='{_Fun.Config.ServerId}' and DOCNumberNO='{d["DOCNumberNO"].ToString()}'");
                                         if (dr_tmp != null)
                                         {
@@ -5155,12 +5676,12 @@ namespace SoftNetWebII.Services
                                     #region 判斷該站是否有派工 
                                     if (d["Station_Type"].ToString() == "1")
                                     {
-                                        dr_tmp2 = db.DB_GetFirstDataByDataRow($"SELECT * from SoftNetMainDB.[dbo].[Manufacture] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and PartNO!='' and OrderNO!='' and RemarkTimeS is not NULL");
+                                        dr_tmp2 = db.DB_GetFirstDataByDataRow($"SELECT a.*,mt.PartName,mt.Specification from SoftNetMainDB.[dbo].[Manufacture] as a left join SoftNetMainDB.[dbo].[Material] as mt on a.PartNO=mt.PartNO and mt.ServerId='{_Fun.Config.ServerId}' where a.ServerId='{_Fun.Config.ServerId}' and a.StationNO='{d["StationNO"].ToString()}' and a.PartNO!='' and a.OrderNO!='' and a.RemarkTimeS is not NULL");
                                         if (dr_tmp2 == null) { continue; }
                                     }
                                     else
                                     {
-                                        dr_tmp2 = db.DB_GetFirstDataByDataRow($"SELECT * from SoftNetMainDB.[dbo].[ManufactureII] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and PartNO!='' and OrderNO!='' and RemarkTimeS is not NULL and EndTime is NULL");
+                                        dr_tmp2 = db.DB_GetFirstDataByDataRow($"SELECT a.*,mt.PartName,mt.Specification from SoftNetMainDB.[dbo].[ManufactureII] as a left join SoftNetMainDB.[dbo].[Material] as mt on a.PartNO=mt.PartNO and mt.ServerId='{_Fun.Config.ServerId}' where a.ServerId='{_Fun.Config.ServerId}' and a.StationNO='{d["StationNO"].ToString()}' and a.PartNO!='' and a.OrderNO!='' and a.RemarkTimeS is not NULL and a.EndTime is NULL");
                                         if (dr_tmp2 == null) { continue; }
                                     }
                                     #endregion
@@ -5211,7 +5732,7 @@ namespace SoftNetWebII.Services
                                                         if (d["Station_Type"].ToString() == "8")
                                                         {
                                                             #region 多工單工站
-                                                            DataTable dt_tmp2 = db.DB_GetData($"SELECT * from SoftNetMainDB.[dbo].[ManufactureII] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and RemarkTimeS is not NULL and RemarkTimeS<='{tmp_edate.ToString("yyyy-MM-dd HH:mm:ss")}' and EndTime is NULL");
+                                                            DataTable dt_tmp2 = db.DB_GetData($"SELECT a.*,mt.PartName,mt.Specification from SoftNetMainDB.[dbo].[ManufactureII] as a left join SoftNetMainDB.[dbo].[Material] as mt on a.PartNO=mt.PartNO and mt.ServerId='{_Fun.Config.ServerId}' where a.ServerId='{_Fun.Config.ServerId}' and a.StationNO='{d["StationNO"].ToString()}' and a.RemarkTimeS is not NULL and a.RemarkTimeS<='{tmp_edate.ToString("yyyy-MM-dd HH:mm:ss")}' and a.EndTime is NULL");
                                                             if (dt_tmp2 != null && dt_tmp2.Rows.Count > 0)
                                                             {
                                                                 DataRow dr_tmp3 = null;
@@ -5228,7 +5749,7 @@ namespace SoftNetWebII.Services
                                                                                 dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetLogDB.[dbo].[SFC_StationProjectDetail_Log] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and LOGDateTime>'{Convert.ToDateTime(d2["RemarkTimeS"]).ToString("yyyy-MM-dd HH:mm:ss")}' and LOGDateTime<='{tmp_date.ToString("yyyy-MM-dd HH:mm:ss")}' and PP_Name='{d2["PP_Name"].ToString()}' and IndexSN={d2["IndexSN"].ToString()}  and PartNO='{d2["PartNO"].ToString()}'");
                                                                                 if (dr_tmp3 == null)
                                                                                 {
-                                                                                    sb_MailBody4.Append($"<p>工站:{d["StationNO"].ToString()}  工序編號:{d2["IndexSN"].ToString()} 製程:{d2["PP_Name"].ToString()}  料號:{d2["PartNO"].ToString()}</p>");
+                                                                                    sb_MailBody4.Append($"<p>工站:{d["StationNO"].ToString()} 製程:{d2["PP_Name"].ToString()} 工序編號:{d2["IndexSN"].ToString()}  料號:{d2["PartNO"].ToString()} {(!d2.IsNull("PartName") ? d2["PartName"].ToString() : "")} {(!d2.IsNull("Specification") ? d2["Specification"].ToString() : "")}</p>");
                                                                                     string needId = "";
                                                                                     dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT NeedId FROM SoftNetSYSDB.[dbo].[PP_WorkOrder] where ServerId='{_Fun.Config.ServerId}' and OrderNO='{d2["OrderNO"].ToString()}'");
                                                                                     if (dr_tmp3 != null) { needId = dr_tmp3["NeedId"].ToString(); }
@@ -5257,7 +5778,7 @@ namespace SoftNetWebII.Services
                                                                         dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetLogDB.[dbo].[SFC_StationProjectDetail_Log] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and LOGDateTimeID>'{Convert.ToDateTime(dr_tmp2["RemarkTimeS"]).ToString("yyyy-MM-dd HH:mm:ss")}' and LOGDateTimeID<='{tmp_date.ToString("yyyy-MM-dd HH:mm:ss")}' and PP_Name='{dr_tmp2["PP_Name"].ToString()}' and IndexSN={dr_tmp2["IndexSN"].ToString()}  and PartNO='{dr_tmp2["PartNO"].ToString()}'");
                                                                         if (dr_tmp3 == null)
                                                                         {
-                                                                            sb_MailBody4.Append($"<p>工站:{d["StationNO"].ToString()}  工序編號:{dr_tmp2["IndexSN"].ToString()} 製程:{dr_tmp2["PP_Name"].ToString()}  料號:{dr_tmp2["PartNO"].ToString()}</p>");
+                                                                            sb_MailBody4.Append($"<p>工站:{d["StationNO"].ToString()} 製程:{dr_tmp2["PP_Name"].ToString()} 工序編號:{dr_tmp2["IndexSN"].ToString()} 料號:{dr_tmp2["PartNO"].ToString()} {(!dr_tmp2.IsNull("PartName") ? dr_tmp2["PartName"].ToString() : "")} {(!dr_tmp2.IsNull("Specification") ? dr_tmp2["Specification"].ToString() : "")}</p>");
                                                                             if (_SFC_Common.InsertSimulationError(db, "15", "", dr_tmp2["SimulationId"].ToString(), stationNo: d["StationNO"].ToString(), timeNType: "4", logDate: tmp_date.ToString("yyyy-MM-dd HH:mm:ss.fff")))
                                                                             {
                                                                             }
@@ -5273,7 +5794,7 @@ namespace SoftNetWebII.Services
                                                         if (d["Station_Type"].ToString() == "8")
                                                         {
                                                             #region 多工單工站
-                                                            DataTable dt_tmp2 = db.DB_GetData($"SELECT * from SoftNetMainDB.[dbo].[ManufactureII] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and RemarkTimeS is not NULL and RemarkTimeS<='{tmp_edate.ToString("yyyy-MM-dd HH:mm:ss")}' and EndTime is NULL");
+                                                            DataTable dt_tmp2 = db.DB_GetData($"SELECT a.*,mt.PartName,mt.Specification from SoftNetMainDB.[dbo].[ManufactureII] as a left join SoftNetMainDB.[dbo].[Material] as mt on a.PartNO=mt.PartNO and mt.ServerId='{_Fun.Config.ServerId}' where a.ServerId='{_Fun.Config.ServerId}' and a.StationNO='{d["StationNO"].ToString()}' and a.RemarkTimeS is not NULL and a.RemarkTimeS<='{tmp_edate.ToString("yyyy-MM-dd HH:mm:ss")}' and a.EndTime is NULL");
                                                             if (dt_tmp2 != null && dt_tmp2.Rows.Count > 0)
                                                             {
                                                                 DataRow dr_tmp3 = null;
@@ -5290,7 +5811,7 @@ namespace SoftNetWebII.Services
                                                                                 dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and LOGDateTimeID>'{Convert.ToDateTime(d2["RemarkTimeS"]).ToString("yyyy-MM-dd HH:mm:ss")}' and LOGDateTimeID<='{tmp_date.ToString("yyyy-MM-dd HH:mm:ss")}' and PP_Name='{d2["PP_Name"].ToString()}' and IndexSN={d2["IndexSN"].ToString()}  and PartNO='{d2["PartNO"].ToString()}'");
                                                                                 if (dr_tmp3 == null)
                                                                                 {
-                                                                                    sb_MailBody4.Append($"<p>工站:{d["StationNO"].ToString()}  工序編號:{d2["IndexSN"].ToString()} 製程:{d2["PP_Name"].ToString()}  料號:{d2["PartNO"].ToString()}</p>");
+                                                                                    sb_MailBody4.Append($"<p>工站:{d["StationNO"].ToString()} 製程:{d2["PP_Name"].ToString()} 工序編號:{d2["IndexSN"].ToString()} 料號:{d2["PartNO"].ToString()} {(!d2.IsNull("PartName") ? d2["PartName"].ToString() : "")} {(!d2.IsNull("Specification") ? d2["Specification"].ToString() : "")}</p>");
                                                                                     string needId = "";
                                                                                     dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT NeedId FROM SoftNetSYSDB.[dbo].[PP_WorkOrder] where ServerId='{_Fun.Config.ServerId}' and OrderNO='{d2["OrderNO"].ToString()}'");
                                                                                     if (dr_tmp3 != null) { needId = dr_tmp3["NeedId"].ToString(); }
@@ -5319,7 +5840,7 @@ namespace SoftNetWebII.Services
                                                                         dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and LOGDateTimeID>'{Convert.ToDateTime(dr_tmp2["RemarkTimeS"]).ToString("yyyy-MM-dd HH:mm:ss")}' and LOGDateTimeID<='{tmp_date.ToString("yyyy-MM-dd HH:mm:ss")}' and PP_Name='{dr_tmp2["PP_Name"].ToString()}' and IndexSN={dr_tmp2["IndexSN"].ToString()}  and PartNO='{dr_tmp2["PartNO"].ToString()}'");
                                                                         if (dr_tmp3 == null)
                                                                         {
-                                                                            sb_MailBody4.Append($"<p>工站:{d["StationNO"].ToString()}  工序編號:{dr_tmp2["IndexSN"].ToString()} 製程:{dr_tmp2["PP_Name"].ToString()}  料號:{dr_tmp2["PartNO"].ToString()}</p>");
+                                                                            sb_MailBody4.Append($"<p>工站:{d["StationNO"].ToString()} 製程:{dr_tmp2["PP_Name"].ToString()} 工序編號:{dr_tmp2["IndexSN"].ToString()} 料號:{dr_tmp2["PartNO"].ToString()} {(!dr_tmp2.IsNull("PartName") ? dr_tmp2["PartName"].ToString() : "")} {(!dr_tmp2.IsNull("Specification") ? dr_tmp2["Specification"].ToString() : "")}</p>");
                                                                             string needId = "";
                                                                             dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT NeedId FROM SoftNetSYSDB.[dbo].[PP_WorkOrder] where ServerId='{_Fun.Config.ServerId}' and OrderNO='{dr_tmp2["OrderNO"].ToString()}'");
                                                                             if (dr_tmp3 != null) { needId = dr_tmp3["NeedId"].ToString(); }
@@ -5368,7 +5889,7 @@ namespace SoftNetWebII.Services
                                                         if (d["Station_Type"].ToString() == "8")
                                                         {
                                                             #region 多工單工站
-                                                            DataTable dt_tmp2 = db.DB_GetData($"SELECT * from SoftNetMainDB.[dbo].[ManufactureII] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and RemarkTimeS is not NULL and RemarkTimeS<='{tmp_edate.ToString("yyyy-MM-dd HH:mm:ss")}' and EndTime is NULL");
+                                                            DataTable dt_tmp2 = db.DB_GetData($"SELECT a.*,mt.PartName,mt.Specification from SoftNetMainDB.[dbo].[ManufactureII] as a left join SoftNetMainDB.[dbo].[Material] as mt on a.PartNO=mt.PartNO and mt.ServerId='{_Fun.Config.ServerId}' where a.ServerId='{_Fun.Config.ServerId}' and a.StationNO='{d["StationNO"].ToString()}' and a.RemarkTimeS is not NULL and a.RemarkTimeS<='{tmp_edate.ToString("yyyy-MM-dd HH:mm:ss")}' and a.EndTime is NULL");
                                                             if (dt_tmp2 != null && dt_tmp2.Rows.Count > 0)
                                                             {
                                                                 DataRow dr_tmp3 = null;
@@ -5385,7 +5906,7 @@ namespace SoftNetWebII.Services
                                                                                 dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetLogDB.[dbo].[SFC_StationProjectDetail_Log] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and LOGDateTime>'{Convert.ToDateTime(d2["RemarkTimeS"]).ToString("yyyy-MM-dd HH:mm:ss")}' and LOGDateTime<='{tmp_date.ToString("yyyy-MM-dd HH:mm:ss")}' and PP_Name='{d2["PP_Name"].ToString()}' and IndexSN={d2["IndexSN"].ToString()}  and PartNO='{d2["PartNO"].ToString()}'");
                                                                                 if (dr_tmp3 == null)
                                                                                 {
-                                                                                    sb_MailBody3.Append($"<p>工站:{d["StationNO"].ToString()}  工序編號:{d2["IndexSN"].ToString()} 製程:{d2["PP_Name"].ToString()}  料號:{d2["PartNO"].ToString()}</p>");
+                                                                                    sb_MailBody3.Append($"<p>工站:{d["StationNO"].ToString()} 製程:{d2["PP_Name"].ToString()} 工序編號:{d2["IndexSN"].ToString()} 料號:{d2["PartNO"].ToString()} {(!d2.IsNull("PartName") ? d2["PartName"].ToString() : "")} {(!d2.IsNull("Specification") ? d2["Specification"].ToString() : "")}</p>");
                                                                                     string needId = "";
                                                                                     dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT NeedId FROM SoftNetSYSDB.[dbo].[PP_WorkOrder] where ServerId='{_Fun.Config.ServerId}' and OrderNO='{d2["OrderNO"].ToString()}'");
                                                                                     if (dr_tmp3 != null) { needId = dr_tmp3["NeedId"].ToString(); }
@@ -5414,7 +5935,7 @@ namespace SoftNetWebII.Services
                                                                         dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetLogDB.[dbo].[SFC_StationProjectDetail_Log] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and LOGDateTimeID>'{Convert.ToDateTime(dr_tmp2["RemarkTimeS"]).ToString("yyyy-MM-dd HH:mm:ss")}' and LOGDateTimeID<='{tmp_date.ToString("yyyy-MM-dd HH:mm:ss")}' and PP_Name='{dr_tmp2["PP_Name"].ToString()}' and IndexSN={dr_tmp2["IndexSN"].ToString()}  and PartNO='{dr_tmp2["PartNO"].ToString()}'");
                                                                         if (dr_tmp3 == null)
                                                                         {
-                                                                            sb_MailBody3.Append($"<p>工站:{d["StationNO"].ToString()}  工序編號:{dr_tmp2["IndexSN"].ToString()} 製程:{dr_tmp2["PP_Name"].ToString()}  料號:{dr_tmp2["PartNO"].ToString()}</p>");
+                                                                            sb_MailBody3.Append($"<p>工站:{d["StationNO"].ToString()} 製程:{dr_tmp2["PP_Name"].ToString()} 工序編號:{dr_tmp2["IndexSN"].ToString()} 料號:{dr_tmp2["PartNO"].ToString()} {(!dr_tmp2.IsNull("PartName") ? dr_tmp2["PartName"].ToString() : "")} {(!dr_tmp2.IsNull("Specification") ? dr_tmp2["Specification"].ToString() : "")}</p>");
                                                                             if (db.DB_SetData($"INSERT INTO SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] (Id,ServerId,SimulationId,ErrorType,LogDate,NeedId,Time_N_Type,StationNO) VALUES ('{_Str.NewId('E')}','{_Fun.Config.ServerId}','{dr_tmp2["SimulationId"].ToString()}','15','{tmp_date.ToString("yyyy-MM-dd HH:mm:ss.fff")}','','3','{d["StationNO"].ToString()}')"))
                                                                             {
                                                                             }
@@ -5430,7 +5951,7 @@ namespace SoftNetWebII.Services
                                                         if (d["Station_Type"].ToString() == "8")
                                                         {
                                                             #region 多工單工站
-                                                            DataTable dt_tmp2 = db.DB_GetData($"SELECT * from SoftNetMainDB.[dbo].[ManufactureII] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and RemarkTimeS is not NULL and RemarkTimeS<='{tmp_edate.ToString("yyyy-MM-dd HH:mm:ss")}' and EndTime is NULL");
+                                                            DataTable dt_tmp2 = db.DB_GetData($"SELECT a.*,mt.PartName,mt.Specification from SoftNetMainDB.[dbo].[ManufactureII] as a left join SoftNetMainDB.[dbo].[Material] as mt on a.PartNO=mt.PartNO and mt.ServerId='{_Fun.Config.ServerId}' where a.ServerId='{_Fun.Config.ServerId}' and a.StationNO='{d["StationNO"].ToString()}' and a.RemarkTimeS is not NULL and a.RemarkTimeS<='{tmp_edate.ToString("yyyy-MM-dd HH:mm:ss")}' and a.EndTime is NULL");
                                                             if (dt_tmp2 != null && dt_tmp2.Rows.Count > 0)
                                                             {
                                                                 DataRow dr_tmp3 = null;
@@ -5447,7 +5968,7 @@ namespace SoftNetWebII.Services
                                                                                 dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and LOGDateTimeID>'{Convert.ToDateTime(d2["RemarkTimeS"]).ToString("yyyy-MM-dd HH:mm:ss")}' and LOGDateTimeID<='{tmp_date.ToString("yyyy-MM-dd HH:mm:ss")}' and PP_Name='{d2["PP_Name"].ToString()}' and IndexSN={d2["IndexSN"].ToString()}  and PartNO='{d2["PartNO"].ToString()}'");
                                                                                 if (dr_tmp3 == null)
                                                                                 {
-                                                                                    sb_MailBody3.Append($"<p>工站:{d["StationNO"].ToString()}  工序編號:{d2["IndexSN"].ToString()} 製程:{d2["PP_Name"].ToString()}  料號:{d2["PartNO"].ToString()}</p>");
+                                                                                    sb_MailBody3.Append($"<p>工站:{d["StationNO"].ToString()} 製程:{d2["PP_Name"].ToString()} 工序編號:{d2["IndexSN"].ToString()} 料號:{d2["PartNO"].ToString()} {(!d2.IsNull("PartName") ? d2["PartName"].ToString() : "")} {(!d2.IsNull("Specification") ? d2["Specification"].ToString() : "")}</p>");
                                                                                     string needId = "";
                                                                                     dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT NeedId FROM SoftNetSYSDB.[dbo].[PP_WorkOrder] where ServerId='{_Fun.Config.ServerId}' and OrderNO='{d2["OrderNO"].ToString()}'");
                                                                                     if (dr_tmp3 != null) { needId = dr_tmp3["NeedId"].ToString(); }
@@ -5476,7 +5997,7 @@ namespace SoftNetWebII.Services
                                                                         dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and LOGDateTimeID>'{Convert.ToDateTime(dr_tmp2["RemarkTimeS"]).ToString("yyyy-MM-dd HH:mm:ss")}' and LOGDateTimeID<='{tmp_date.ToString("yyyy-MM-dd HH:mm:ss")}' and PP_Name='{dr_tmp2["PP_Name"].ToString()}' and IndexSN={dr_tmp2["IndexSN"].ToString()}  and PartNO='{dr_tmp2["PartNO"].ToString()}'");
                                                                         if (dr_tmp3 == null)
                                                                         {
-                                                                            sb_MailBody3.Append($"<p>工站:{d["StationNO"].ToString()}  工序編號:{dr_tmp2["IndexSN"].ToString()} 製程:{dr_tmp2["PP_Name"].ToString()}  料號:{dr_tmp2["PartNO"].ToString()}</p>");
+                                                                            sb_MailBody3.Append($"<p>工站:{d["StationNO"].ToString()} 製程:{dr_tmp2["PP_Name"].ToString()} 工序編號:{dr_tmp2["IndexSN"].ToString()} 料號:{dr_tmp2["PartNO"].ToString()} {(!dr_tmp2.IsNull("PartName") ? dr_tmp2["PartName"].ToString() : "")} {(!dr_tmp2.IsNull("Specification") ? dr_tmp2["Specification"].ToString() : "")}</p>");
                                                                             string needId = "";
                                                                             dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT NeedId FROM SoftNetSYSDB.[dbo].[PP_WorkOrder] where ServerId='{_Fun.Config.ServerId}' and OrderNO='{dr_tmp2["OrderNO"].ToString()}'");
                                                                             if (dr_tmp3 != null) { needId = dr_tmp3["NeedId"].ToString(); }
@@ -5518,7 +6039,7 @@ namespace SoftNetWebII.Services
                                                         if (d["Station_Type"].ToString() == "8")
                                                         {
                                                             #region 多工單工站
-                                                            DataTable dt_tmp2 = db.DB_GetData($"SELECT * from SoftNetMainDB.[dbo].[ManufactureII] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and RemarkTimeS is not NULL and RemarkTimeS<='{tmp_edate.ToString("yyyy-MM-dd HH:mm:ss")}' and EndTime is NULL");
+                                                            DataTable dt_tmp2 = db.DB_GetData($"SELECT a.*,mt.PartName,mt.Specification from SoftNetMainDB.[dbo].[ManufactureII] as a left join SoftNetMainDB.[dbo].[Material] as mt on a.PartNO=mt.PartNO and mt.ServerId='{_Fun.Config.ServerId}' where a.ServerId='{_Fun.Config.ServerId}' and a.StationNO='{d["StationNO"].ToString()}' and a.RemarkTimeS is not NULL and a.RemarkTimeS<='{tmp_edate.ToString("yyyy-MM-dd HH:mm:ss")}' and a.EndTime is NULL");
                                                             if (dt_tmp2 != null && dt_tmp2.Rows.Count > 0)
                                                             {
                                                                 DataRow dr_tmp3 = null;
@@ -5535,7 +6056,7 @@ namespace SoftNetWebII.Services
                                                                                 dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetLogDB.[dbo].[SFC_StationProjectDetail_Log] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and LOGDateTime>'{Convert.ToDateTime(d2["RemarkTimeS"]).ToString("yyyy-MM-dd HH:mm:ss")}' and LOGDateTime<='{tmp_date.ToString("yyyy-MM-dd HH:mm:ss")}' and PP_Name='{d2["PP_Name"].ToString()}' and IndexSN={d2["IndexSN"].ToString()}  and PartNO='{d2["PartNO"].ToString()}'");
                                                                                 if (dr_tmp3 == null)
                                                                                 {
-                                                                                    sb_MailBody2.Append($"<p>工站:{d["StationNO"].ToString()}  工序編號:{d2["IndexSN"].ToString()} 製程:{d2["PP_Name"].ToString()}  料號:{d2["PartNO"].ToString()}</p>");
+                                                                                    sb_MailBody2.Append($"<p>工站:{d["StationNO"].ToString()} 製程:{d2["PP_Name"].ToString()} 工序編號:{d2["IndexSN"].ToString()} 料號:{d2["PartNO"].ToString()} {(!d2.IsNull("PartName") ? d2["PartName"].ToString() : "")} {(!d2.IsNull("Specification") ? d2["Specification"].ToString() : "")}</p>");
                                                                                     string needId = "";
                                                                                     dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT NeedId FROM SoftNetSYSDB.[dbo].[PP_WorkOrder] where ServerId='{_Fun.Config.ServerId}' and OrderNO='{d2["OrderNO"]}'");
                                                                                     if (dr_tmp3 != null) { needId = dr_tmp3["NeedId"].ToString(); }
@@ -5564,7 +6085,7 @@ namespace SoftNetWebII.Services
                                                                         dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetLogDB.[dbo].[SFC_StationProjectDetail_Log] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and LOGDateTimeID>'{Convert.ToDateTime(dr_tmp2["RemarkTimeS"]).ToString("yyyy-MM-dd HH:mm:ss")}' and LOGDateTimeID<='{tmp_date.ToString("yyyy-MM-dd HH:mm:ss")}' and PP_Name='{dr_tmp2["PP_Name"].ToString()}' and IndexSN={dr_tmp2["IndexSN"].ToString()}  and PartNO='{dr_tmp2["PartNO"].ToString()}'");
                                                                         if (dr_tmp3 == null)
                                                                         {
-                                                                            sb_MailBody2.Append($"<p>工站:{d["StationNO"].ToString()}  工序編號:{dr_tmp2["IndexSN"].ToString()} 製程:{dr_tmp2["PP_Name"].ToString()}  料號:{dr_tmp2["PartNO"].ToString()}</p>");
+                                                                            sb_MailBody2.Append($"<p>工站:{d["StationNO"].ToString()} 製程:{dr_tmp2["PP_Name"].ToString()} 工序編號:{dr_tmp2["IndexSN"].ToString()} 料號:{dr_tmp2["PartNO"].ToString()} {(!dr_tmp2.IsNull("PartName") ? dr_tmp2["PartName"].ToString() : "")} {(!dr_tmp2.IsNull("Specification") ? dr_tmp2["Specification"].ToString() : "")}</p>");
                                                                             if (db.DB_SetData($"INSERT INTO SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] (Id,ServerId,SimulationId,ErrorType,LogDate,NeedId,Time_N_Type,StationNO) VALUES ('{_Str.NewId('E')}','{_Fun.Config.ServerId}','{dr_tmp2["SimulationId"].ToString()}','15','{tmp_date.ToString("yyyy-MM-dd HH:mm:ss.fff")}','','2','{d["StationNO"].ToString()}')"))
                                                                             {
                                                                             }
@@ -5580,7 +6101,7 @@ namespace SoftNetWebII.Services
                                                         if (d["Station_Type"].ToString() == "8")
                                                         {
                                                             #region 多工單工站
-                                                            DataTable dt_tmp2 = db.DB_GetData($"SELECT * from SoftNetMainDB.[dbo].[ManufactureII] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and RemarkTimeS is not NULL and RemarkTimeS<='{tmp_edate.ToString("yyyy-MM-dd HH:mm:ss")}' and EndTime is NULL");
+                                                            DataTable dt_tmp2 = db.DB_GetData($"SELECT a.*,mt.PartName,mt.Specification from SoftNetMainDB.[dbo].[ManufactureII] as a left join SoftNetMainDB.[dbo].[Material] as mt on a.PartNO=mt.PartNO and mt.ServerId='{_Fun.Config.ServerId}' where a.ServerId='{_Fun.Config.ServerId}' and a.StationNO='{d["StationNO"].ToString()}' and a.RemarkTimeS is not NULL and a.RemarkTimeS<='{tmp_edate.ToString("yyyy-MM-dd HH:mm:ss")}' and a.EndTime is NULL");
                                                             if (dt_tmp2 != null && dt_tmp2.Rows.Count > 0)
                                                             {
                                                                 DataRow dr_tmp3 = null;
@@ -5597,7 +6118,7 @@ namespace SoftNetWebII.Services
                                                                                 dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and LOGDateTimeID>'{Convert.ToDateTime(d2["RemarkTimeS"]).ToString("yyyy-MM-dd HH:mm:ss")}' and LOGDateTimeID<='{tmp_date.ToString("yyyy-MM-dd HH:mm:ss")}' and PP_Name='{d2["PP_Name"].ToString()}' and IndexSN={d2["IndexSN"].ToString()}  and PartNO='{d2["PartNO"].ToString()}'");
                                                                                 if (dr_tmp3 == null)
                                                                                 {
-                                                                                    sb_MailBody2.Append($"<p>工站:{d["StationNO"].ToString()}  工序編號:{d2["IndexSN"].ToString()} 製程:{d2["PP_Name"].ToString()}  料號:{d2["PartNO"].ToString()}</p>");
+                                                                                    sb_MailBody2.Append($"<p>工站:{d["StationNO"].ToString()} 製程:{d2["PP_Name"].ToString()} 工序編號:{d2["IndexSN"].ToString()} 料號:{d2["PartNO"].ToString()} {(!d2.IsNull("PartName") ? d2["PartName"].ToString() : "")} {(!d2.IsNull("Specification") ? d2["Specification"].ToString() : "")}</p>");
                                                                                     string needId = "";
                                                                                     dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT NeedId FROM SoftNetSYSDB.[dbo].[PP_WorkOrder] where ServerId='{_Fun.Config.ServerId}' and OrderNO='{d2["OrderNO"].ToString()}'");
                                                                                     if (dr_tmp3 != null) { needId = dr_tmp3["NeedId"].ToString(); }
@@ -5626,7 +6147,7 @@ namespace SoftNetWebII.Services
                                                                         dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and LOGDateTimeID>'{Convert.ToDateTime(dr_tmp2["RemarkTimeS"]).ToString("yyyy-MM-dd HH:mm:ss")}' and LOGDateTimeID<='{tmp_date.ToString("yyyy-MM-dd HH:mm:ss")}' and PP_Name='{dr_tmp2["PP_Name"].ToString()}' and IndexSN={dr_tmp2["IndexSN"].ToString()}  and PartNO='{dr_tmp2["PartNO"].ToString()}'");
                                                                         if (dr_tmp3 == null)
                                                                         {
-                                                                            sb_MailBody2.Append($"<p>工站:{d["StationNO"].ToString()}  工序編號:{dr_tmp2["IndexSN"].ToString()} 製程:{dr_tmp2["PP_Name"].ToString()}  料號:{dr_tmp2["PartNO"].ToString()}</p>");
+                                                                            sb_MailBody2.Append($"<p>工站:{d["StationNO"].ToString()} 製程:{dr_tmp2["PP_Name"].ToString()} 工序編號:{dr_tmp2["IndexSN"].ToString()} 料號:{dr_tmp2["PartNO"].ToString()} {(!dr_tmp2.IsNull("PartName") ? dr_tmp2["PartName"].ToString() : "")} {(!dr_tmp2.IsNull("Specification") ? dr_tmp2["Specification"].ToString() : "")}</p>");
                                                                             string needId = "";
                                                                             dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT NeedId FROM SoftNetSYSDB.[dbo].[PP_WorkOrder] where ServerId='{_Fun.Config.ServerId}' and OrderNO='{dr_tmp2["OrderNO"].ToString()}'");
                                                                             if (dr_tmp3 != null) { needId = dr_tmp3["NeedId"].ToString(); }
@@ -5668,7 +6189,7 @@ namespace SoftNetWebII.Services
                                                         if (d["Station_Type"].ToString() == "8")
                                                         {
                                                             #region 多工單工站
-                                                            DataTable dt_tmp2 = db.DB_GetData($"SELECT * from SoftNetMainDB.[dbo].[ManufactureII] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and RemarkTimeS is not NULL and RemarkTimeS<='{tmp_edate.ToString("yyyy-MM-dd HH:mm:ss")}' and EndTime is NULL");
+                                                            DataTable dt_tmp2 = db.DB_GetData($"SELECT a.*,mt.PartName,mt.Specification from SoftNetMainDB.[dbo].[ManufactureII] as a left join SoftNetMainDB.[dbo].[Material] as mt on a.PartNO=mt.PartNO and mt.ServerId='{_Fun.Config.ServerId}' where a.ServerId='{_Fun.Config.ServerId}' and a.StationNO='{d["StationNO"].ToString()}' and a.RemarkTimeS is not NULL and a.RemarkTimeS<='{tmp_edate.ToString("yyyy-MM-dd HH:mm:ss")}' and a.EndTime is NULL");
                                                             if (dt_tmp2 != null && dt_tmp2.Rows.Count > 0)
                                                             {
                                                                 DataRow dr_tmp3 = null;
@@ -5685,7 +6206,7 @@ namespace SoftNetWebII.Services
                                                                                 dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetLogDB.[dbo].[SFC_StationProjectDetail_Log] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and LOGDateTime>'{Convert.ToDateTime(d2["RemarkTimeS"]).ToString("yyyy-MM-dd HH:mm:ss")}' and LOGDateTime<='{tmp_date.ToString("yyyy-MM-dd HH:mm:ss")}' and PP_Name='{d2["PP_Name"].ToString()}' and IndexSN={d2["IndexSN"].ToString()}  and PartNO='{d2["PartNO"].ToString()}'");
                                                                                 if (dr_tmp3 == null)
                                                                                 {
-                                                                                    sb_MailBody1.Append($"<p>工站:{d["StationNO"].ToString()}  工序編號:{d2["IndexSN"]} 製程:{d2["PP_Name"]}  料號:{d2["PartNO"]}</p>");
+                                                                                    sb_MailBody1.Append($"<p>工站:{d["StationNO"].ToString()} 製程:{d2["PP_Name"]} 工序編號:{d2["IndexSN"]} 料號:{d2["PartNO"]} {(!d2.IsNull("PartName") ? d2["PartName"].ToString() : "")} {(!d2.IsNull("Specification") ? d2["Specification"].ToString() : "")}</p>");
                                                                                     string needId = "";
                                                                                     dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT NeedId FROM SoftNetSYSDB.[dbo].[PP_WorkOrder] where ServerId='{_Fun.Config.ServerId}' and OrderNO='{d2["OrderNO"]}'");
                                                                                     if (dr_tmp3 != null) { needId = dr_tmp3["NeedId"].ToString(); }
@@ -5714,7 +6235,7 @@ namespace SoftNetWebII.Services
                                                                         dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetLogDB.[dbo].[SFC_StationProjectDetail_Log] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and LOGDateTimeID>'{Convert.ToDateTime(dr_tmp2["RemarkTimeS"]).ToString("yyyy-MM-dd HH:mm:ss")}' and LOGDateTimeID<='{tmp_date.ToString("yyyy-MM-dd HH:mm:ss")}' and PP_Name='{dr_tmp2["PP_Name"].ToString()}' and IndexSN={dr_tmp2["IndexSN"].ToString()}  and PartNO='{dr_tmp2["PartNO"].ToString()}'");
                                                                         if (dr_tmp3 == null)
                                                                         {
-                                                                            sb_MailBody1.Append($"<p>工站:{d["StationNO"].ToString()}  工序編號:{dr_tmp2["IndexSN"].ToString()} 製程:{dr_tmp2["PP_Name"].ToString()}  料號:{dr_tmp2["PartNO"].ToString()}</p>");
+                                                                            sb_MailBody1.Append($"<p>工站:{d["StationNO"].ToString()} 製程:{dr_tmp2["PP_Name"].ToString()} 工序編號:{dr_tmp2["IndexSN"].ToString()} 料號:{dr_tmp2["PartNO"].ToString()} {(!dr_tmp2.IsNull("PartName") ? dr_tmp2["PartName"].ToString() : "")} {(!dr_tmp2.IsNull("Specification") ? dr_tmp2["Specification"].ToString() : "")}</p>");
                                                                             if (db.DB_SetData($"INSERT INTO SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] (Id,ServerId,SimulationId,ErrorType,LogDate,NeedId,Time_N_Type,StationNO) VALUES ('{_Str.NewId('E')}','{_Fun.Config.ServerId}','{dr_tmp2["SimulationId"].ToString()}','15','{tmp_date.ToString("yyyy-MM-dd HH:mm:ss.fff")}','','1','{d["StationNO"].ToString()}')"))
                                                                             {
                                                                             }
@@ -5730,7 +6251,7 @@ namespace SoftNetWebII.Services
                                                         if (d["Station_Type"].ToString() == "8")
                                                         {
                                                             #region 多工單工站
-                                                            DataTable dt_tmp2 = db.DB_GetData($"SELECT * from SoftNetMainDB.[dbo].[ManufactureII] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and RemarkTimeS is not NULL and RemarkTimeS<='{tmp_edate.ToString("yyyy-MM-dd HH:mm:ss")}' and EndTime is NULL");
+                                                            DataTable dt_tmp2 = db.DB_GetData($"SELECT a.*,mt.PartName,mt.Specification from SoftNetMainDB.[dbo].[ManufactureII] as a left join SoftNetMainDB.[dbo].[Material] as mt on a.PartNO=mt.PartNO and mt.ServerId='{_Fun.Config.ServerId}' where a.ServerId='{_Fun.Config.ServerId}' and a.StationNO='{d["StationNO"].ToString()}' and a.RemarkTimeS is not NULL and a.RemarkTimeS<='{tmp_edate.ToString("yyyy-MM-dd HH:mm:ss")}' and a.EndTime is NULL");
                                                             if (dt_tmp2 != null && dt_tmp2.Rows.Count > 0)
                                                             {
                                                                 DataRow dr_tmp3 = null;
@@ -5747,7 +6268,7 @@ namespace SoftNetWebII.Services
                                                                                 dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and LOGDateTimeID>'{Convert.ToDateTime(d2["RemarkTimeS"]).ToString("yyyy-MM-dd HH:mm:ss")}' and LOGDateTimeID<='{tmp_date.ToString("yyyy-MM-dd HH:mm:ss")}' and PP_Name='{d2["PP_Name"].ToString()}' and IndexSN={d2["IndexSN"].ToString()}  and PartNO='{d2["PartNO"].ToString()}'");
                                                                                 if (dr_tmp3 == null)
                                                                                 {
-                                                                                    sb_MailBody1.Append($"<p>工站:{d["StationNO"].ToString()}  工序編號:{d2["IndexSN"].ToString()} 製程:{d2["PP_Name"].ToString()}  料號:{d2["PartNO"].ToString()}</p>");
+                                                                                    sb_MailBody1.Append($"<p>工站:{d["StationNO"].ToString()} 製程:{d2["PP_Name"].ToString()} 工序編號:{d2["IndexSN"].ToString()} 料號:{d2["PartNO"].ToString()} {(!d2.IsNull("PartName") ? d2["PartName"].ToString() : "")} {(!d2.IsNull("Specification") ? d2["Specification"].ToString() : "")}</p>");
                                                                                     string needId = "";
                                                                                     dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT NeedId FROM SoftNetSYSDB.[dbo].[PP_WorkOrder] where ServerId='{_Fun.Config.ServerId}' and OrderNO='{d2["OrderNO"].ToString()}'");
                                                                                     if (dr_tmp3 != null) { needId = dr_tmp3["NeedId"].ToString(); }
@@ -5776,7 +6297,7 @@ namespace SoftNetWebII.Services
                                                                         dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["StationNO"].ToString()}' and LOGDateTimeID>'{Convert.ToDateTime(dr_tmp2["RemarkTimeS"]).ToString("yyyy-MM-dd HH:mm:ss")}' and LOGDateTimeID<='{tmp_date.ToString("yyyy-MM-dd HH:mm:ss")}' and PP_Name='{dr_tmp2["PP_Name"].ToString()}' and IndexSN={dr_tmp2["IndexSN"].ToString()}  and PartNO='{dr_tmp2["PartNO"].ToString()}'");
                                                                         if (dr_tmp3 == null)
                                                                         {
-                                                                            sb_MailBody1.Append($"<p>工站:{d["StationNO"].ToString()}  工序編號:{dr_tmp2["IndexSN"].ToString()} 製程:{dr_tmp2["PP_Name"].ToString()}  料號:{dr_tmp2["PartNO"].ToString()}</p>");
+                                                                            sb_MailBody1.Append($"<p>工站:{d["StationNO"].ToString()} 製程:{dr_tmp2["PP_Name"].ToString()} 工序編號:{dr_tmp2["IndexSN"].ToString()} 料號:{dr_tmp2["PartNO"].ToString()} {(!dr_tmp2.IsNull("PartName") ? dr_tmp2["PartName"].ToString() : "")} {(!dr_tmp2.IsNull("Specification") ? dr_tmp2["Specification"].ToString() : "")}</p>");
                                                                             string needId = "";
                                                                             dr_tmp3 = db.DB_GetFirstDataByDataRow($"SELECT NeedId FROM SoftNetSYSDB.[dbo].[PP_WorkOrder] where ServerId='{_Fun.Config.ServerId}' and OrderNO='{dr_tmp2["OrderNO"].ToString()}'");
                                                                             if (dr_tmp3 != null) { needId = dr_tmp3["NeedId"].ToString(); }
@@ -5835,6 +6356,7 @@ namespace SoftNetWebII.Services
                     if (!IsWork && _stoppingToken.CanBeCanceled) { break; }
                     if (!_Fun.Is_Thread_ForceClose)
                     {
+                        //###???
                         #region 監看工站是否如計畫 16  //###??? 同19 取消
                         /*
                         #region 解除
@@ -5949,7 +6471,7 @@ namespace SoftNetWebII.Services
                                 }
                             }
 
-                            sql = $@"SELECT a.Id,a.NeedId,a.SimulationId,a.StationNO,a.ErrorType,s.IsOK,p.NeedQTY,p.Detail_QTY,p.Detail_Fail_QTY,p.Next_StationQTY,p.Next_StoreQTY FROM SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] as a
+                            sql = $@"SELECT a.Id,a.NeedId,a.SimulationId,a.StationNO,a.ErrorType,s.IsOK,s.Apply_PP_Name,s.IndexSN,p.NeedQTY,p.Detail_QTY,p.Detail_Fail_QTY,p.Next_StationQTY,p.Next_StoreQTY FROM SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] as a
                                     INNER JOIN SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] p ON p.SimulationId=a.SimulationId AND p.ServerId=a.ServerId
                                     INNER JOIN SoftNetSYSDB.[dbo].[APS_Simulation] s ON s.SimulationId=a.SimulationId AND s.ServerId=a.ServerId
                                     WHERE a.ServerId='{_Fun.Config.ServerId}' AND a.ActionType='' AND (a.ErrorType='17' OR a.ErrorType='26' OR a.ErrorType='27' OR a.ErrorType='28' OR a.ErrorType='29' OR a.ErrorType='30') order by a.ErrorType";
@@ -5966,8 +6488,9 @@ namespace SoftNetWebII.Services
                                     else
                                     {
                                         int needQTY = pl["NeedQTY"] == DBNull.Value ? 0 : Convert.ToInt32(pl["NeedQTY"]);
+                                        needQTY = _SFC_Common.GetEffectiveNeedQTY(needQTY, _SFC_Common.SumPriorDetailFailQTY(db, pl["NeedId"].ToString(), pl["Apply_PP_Name"].ToString(), int.Parse(pl["IndexSN"].ToString())));
                                         int detailQTY = pl["Detail_QTY"] == DBNull.Value ? 0 : Convert.ToInt32(pl["Detail_QTY"]);
-                                        int dDetail_Fail_QTY = pl["Detail_Fail_QTY"] == DBNull.Value ? 0 : Convert.ToInt32(pl["Detail_QTY"]);
+                                        int dDetail_Fail_QTY = pl["Detail_Fail_QTY"] == DBNull.Value ? 0 : Convert.ToInt32(pl["Detail_Fail_QTY"]);
                                         int nextStQTY = pl["Next_StationQTY"] == DBNull.Value ? 0 : Convert.ToInt32(pl["Next_StationQTY"]);
                                         int nextStoreQTY = pl["Next_StoreQTY"] == DBNull.Value ? 0 : Convert.ToInt32(pl["Next_StoreQTY"]);
                                         int totalMove = detailQTY + nextStQTY + nextStoreQTY + dDetail_Fail_QTY;
@@ -6017,10 +6540,11 @@ namespace SoftNetWebII.Services
                                 {
                                     string needIdList = string.Join(",", needIds);
                                     sql = $@"SELECT w.NeedId,w.SimulationId,w.StationNO,CONVERT(varchar(10),w.CalendarDate,23) AS PlanDate,w.Time_TOT,
-                                            p.CalendarDate AS PartNoteCalendarDate,p.DOCNumberNO,p.NeedQTY,p.Detail_QTY,p.Detail_Fail_QTY,p.Next_StationQTY,p.Next_StoreQTY,ISNULL(p.PartNO,s.PartNO) AS PartNO,s.SimulationDate
+                                            p.CalendarDate AS PartNoteCalendarDate,p.DOCNumberNO,p.PartNO,p.NeedQTY,p.Detail_QTY,p.Detail_Fail_QTY,p.Next_StationQTY,p.Next_StoreQTY,ISNULL(p.PartNO,s.PartNO) AS PartNO,s.SimulationDate,s.Apply_PP_Name,s.IndexSN,mt.PartName,mt.Specification
                                             FROM SoftNetSYSDB.[dbo].[APS_WorkTimeNote] w
-                                            INNER JOIN SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] p ON p.SimulationId=w.SimulationId AND p.ServerId=w.ServerId AND (p.APS_StationNO=w.StationNO OR (p.APS_StationNO IS NULL AND w.StationNO IS NULL)) AND p.IsDEL='0' AND p.NoStation='0'
+                                            INNER JOIN SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] p ON p.SimulationId=w.SimulationId AND p.ServerId=w.ServerId AND (p.APS_StationNO=w.StationNO OR (p.APS_StationNO IS NULL AND w.StationNO IS NULL)) AND p.IsDEL='0' AND p.NoStation='0' AND p.DOCNumberNO!=''
                                             INNER JOIN SoftNetSYSDB.[dbo].[APS_Simulation] s ON s.IsOK='0' AND s.SimulationId=w.SimulationId AND s.ServerId=w.ServerId
+                                            LEFT JOIN SoftNetMainDB.[dbo].[Material] mt ON mt.PartNO=ISNULL(p.PartNO,s.PartNO) AND mt.ServerId='{_Fun.Config.ServerId}'
                                             WHERE w.ServerId='{_Fun.Config.ServerId}' AND w.NeedId IN ({needIdList})";
                                     DataTable dt_Plan = db.DB_GetData(sql);
                                     if (dt_Plan == null || dt_Plan.Rows.Count == 0) { }
@@ -6075,20 +6599,24 @@ namespace SoftNetWebII.Services
                                                 if (!string.IsNullOrEmpty(sim)) doc3BySim[sim] = dr;
                                             }
                                         string todayStr = DateTime.Now.ToString("yyyy-MM-dd");
-                                        var toInsert = new List<(string needId, string simId, string stationNO, string remark, string errorType, string errorKey, string orderNO)>();
+                                        var toInsert = new List<(string needId, string simId, string stationNO, string remark, string errorType, string errorKey, string orderNO, string partNO, string partName, string specification)>();
                                         foreach (DataRow pl in planKeyToRow.Values)
                                         {
                                             string errorKey = "";
                                             string errType = "17";
                                             string needId = pl["NeedId"]?.ToString() ?? "";
+                                            string partNO = pl["PartNO"]?.ToString() ?? "";
+                                            string partName = pl.Table.Columns.Contains("PartName") && pl["PartName"] != DBNull.Value ? pl["PartName"]?.ToString() ?? "" : "";
+                                            string specification = pl.Table.Columns.Contains("Specification") && pl["Specification"] != DBNull.Value ? pl["Specification"]?.ToString() ?? "" : "";
                                             string orderNO = pl["DOCNumberNO"]?.ToString() ?? "";
                                             string simId = pl["SimulationId"]?.ToString() ?? "";
                                             string stationNO = pl["StationNO"]?.ToString() ?? "";
                                             string planDate = pl["PlanDate"]?.ToString() ?? "";
                                             double timeTOT = pl["Time_TOT"] == DBNull.Value || pl["Time_TOT"] == null ? 0 : Convert.ToDouble(pl["Time_TOT"]);
                                             int needQTY = pl["NeedQTY"] == DBNull.Value ? 0 : Convert.ToInt32(pl["NeedQTY"]);
+                                            needQTY = _SFC_Common.GetEffectiveNeedQTY(needQTY, _SFC_Common.SumPriorDetailFailQTY(db, needId, pl["Apply_PP_Name"].ToString(), int.Parse(pl["IndexSN"].ToString())));
                                             int detailQTY = pl["Detail_QTY"] == DBNull.Value ? 0 : Convert.ToInt32(pl["Detail_QTY"]);
-                                            int dDetail_Fail_QTY = pl["Detail_Fail_QTY"] == DBNull.Value ? 0 : Convert.ToInt32(pl["Detail_QTY"]);
+                                            int dDetail_Fail_QTY = pl["Detail_Fail_QTY"] == DBNull.Value ? 0 : Convert.ToInt32(pl["Detail_Fail_QTY"]);
                                             int nextStQTY = pl["Next_StationQTY"] == DBNull.Value ? 0 : Convert.ToInt32(pl["Next_StationQTY"]);
                                             int nextStoreQTY = pl["Next_StoreQTY"] == DBNull.Value ? 0 : Convert.ToInt32(pl["Next_StoreQTY"]);
                                             string remark = "";
@@ -6154,7 +6682,7 @@ namespace SoftNetWebII.Services
                                                 if (!exist17Keys.Contains(key17))
                                                 {
                                                     exist17Keys.Add(key17);
-                                                    toInsert.Add((needId, simId, stationNO, remark, errType, errorKey, orderNO));
+                                                    toInsert.Add((needId, simId, stationNO, remark, errType, errorKey, orderNO, partNO, partName, specification));
                                                 }
                                             }
                                         }
@@ -6171,31 +6699,31 @@ namespace SoftNetWebII.Services
                                                 sb.Append($"('{_Str.NewId('E')}','{_Fun.Config.ServerId}','{t.simId.Replace("'", "''")}','{t.stationNO.Replace("'", "''")}','{t.errorType}','{t.errorKey}','{t.remark.Replace("'", "''")}','{logdate}','{t.needId.Replace("'", "''")}','{t.orderNO}')");
                                                 if (_Fun.Config.SendMonitorMail17.Trim() != "," && t.errorType == "17")
                                                 {
-                                                    sb_mailBody17.Append($"<p>工單編號:{t.orderNO} 工站:{t.stationNO} 工站數量移轉量不合理</p>");
+                                                    sb_mailBody17.Append($"<p>工單編號:{t.orderNO} 生產件:{t.partNO} {t.partName} {t.specification} 工站:{t.stationNO} 工站數量移轉量不合理</p>");
                                                 }
                                                 else if (_Fun.Config.SendMonitorMail29.Trim() != "," && t.errorType == "29")
                                                 {
-                                                    sb_mailBody29.Append($"<p>工單編號:{t.orderNO} 工站:{t.stationNO} 工站移轉或在制數量為負</p>");
+                                                    sb_mailBody29.Append($"<p>工單編號:{t.orderNO} 生產件:{t.partNO} {t.partName} {t.specification} 工站:{t.stationNO} 工站移轉或在制數量為負</p>");
                                                 }
                                                 else if (_Fun.Config.SendMonitorMail30.Trim() != "," && t.errorType == "30")
                                                 {
-                                                    sb_mailBody30.Append($"<p>工單編號:{t.orderNO} 工站:{t.stationNO} 報工時間遠超計畫工時</p>");
+                                                    sb_mailBody30.Append($"<p>工單編號:{t.orderNO} 生產件:{t.partNO} {t.partName} {t.specification} 工站:{t.stationNO} 報工時間遠超計畫工時</p>");
                                                 }
                                                 else if (_Fun.Config.SendMonitorMail28.Trim() != "," && t.errorType == "28")
                                                 {
-                                                    sb_mailBody28.Append($"<p>工單編號:{t.orderNO} 工站:{t.stationNO} 計畫日已過,報工明顯不足</p>");
+                                                    sb_mailBody28.Append($"<p>工單編號:{t.orderNO} 生產件:{t.partNO} {t.partName} {t.specification} 工站:{t.stationNO} 計畫日已過期,報工明顯不足</p>");
                                                 }
                                                 else if (_Fun.Config.SendMonitorMail31.Trim() != "," && t.errorType == "31")
                                                 {
-                                                    sb_mailBody31.Append($"<p>工單編號:{t.orderNO} 工站:{t.stationNO} 領料或入庫數量為負</p>");
+                                                    sb_mailBody31.Append($"<p>工單編號:{t.orderNO} 生產件:{t.partNO} {t.partName} {t.specification} 工站:{t.stationNO} 領料或入庫數量為負</p>");
                                                 }
                                                 else if (_Fun.Config.SendMonitorMail26.Trim() != "," && t.errorType == "26")
                                                 {
-                                                    sb_mailBody26.Append($"<p>工單編號:{t.orderNO} 工站:{t.stationNO} 領入庫單據時間晚於計畫逾7天</p>");
+                                                    sb_mailBody26.Append($"<p>工單編號:{t.orderNO} 生產件:{t.partNO} {t.partName} {t.specification} 工站:{t.stationNO} 領入庫單據時間晚於計畫逾7天</p>");
                                                 }
                                                 else if (_Fun.Config.SendMonitorMail27.Trim() != "," && t.errorType == "27")
                                                 {
-                                                    sb_mailBody27.Append($"<p>工單編號:{t.orderNO} 工站:{t.stationNO} 領入庫單據時間早於計畫逾7天</p>");
+                                                    sb_mailBody27.Append($"<p>工單編號:{t.orderNO} 生產件:{t.partNO} {t.partName} {t.specification} 工站:{t.stationNO} 領入庫單據時間早於計畫逾7天</p>");
                                                 }
                                             }
                                             _ = db.DB_SetData(sb.ToString());
@@ -6653,6 +7181,43 @@ namespace SoftNetWebII.Services
             return;
         }
 
+        private async Task SystemAsk_LogQuery(string userNO, string question, string provider, int retrievedDataCount,
+    string answer, int responseTime, bool success, string error)
+        {
+            try
+            {
+                using (DBADO db = new DBADO("1", _Fun.Config.Db))
+                {
+                    string sql = @"
+                        INSERT INTO SoftNetLogDB.[dbo].[RAG_QueryLog]
+                        ([IsSystemAsk], [ServerId], [UserNO], [Question], [Provider], [RetrievedDataCount], 
+                         [Answer], [ResponseTime], [Success], [Error], [CreateTime])
+                        VALUES ('1',@ServerId, @UserNO, @Question, @Provider, @RetrievedDataCount,
+                                @Answer, @ResponseTime, @Success, @Error, GETDATE())
+                    ";
+
+                    var args = new List<object>
+                    {
+                        "ServerId", _Fun.Config.ServerId,
+                        "UserNO", userNO,
+                        "Question", question,
+                        "Provider", provider,
+                        "RetrievedDataCount", retrievedDataCount,
+                        "Answer", answer ?? "",
+                        "ResponseTime", responseTime,
+                        "Success", success ? 1 : 0,
+                        "Error", error ?? ""
+                    };
+
+                    db.DB_SetDataByParams(sql, args);
+                }
+            }
+            catch (Exception ex)
+            {
+                await _Log.ErrorAsync($"LogQuery 錯誤: {ex.Message}", true);
+            }
+        }
+
         /// <summary>
         /// StopAsync 可攔截服務停止時機，在此可進行結束前的資源釋放、紀錄與通知等清理作業。
         /// 
@@ -6766,7 +7331,7 @@ namespace SoftNetWebII.Services
                     #region 自動派工監測 工站的第一次自動派工, 只針對主站派工
                     if (_Fun.Config.IsAutoDispatch)
                     {
-                        sql = $@"SELECT a.NeedId,a.PartNO,a.CalendarDate,a.SimulationId,a.macID,a.NeedQTY as QTY,b.Apply_PP_Name,b.Math_EfficientCT,b.Math_StandardCT,b.DOCNumberNO,b.Source_StationNO,b.Source_StationNO_IndexSN,b.Source_StationNO_Custom_IndexSN,b.Source_StationNO_Custom_DisplayName,c.PartName FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] as a
+                            sql = $@"SELECT a.NeedId,a.PartNO,a.CalendarDate,a.SimulationId,a.macID,a.NeedQTY as QTY,b.Apply_PP_Name,b.IndexSN,b.Math_EfficientCT,b.Math_StandardCT,b.DOCNumberNO,b.Source_StationNO,b.Source_StationNO_IndexSN,b.Source_StationNO_Custom_IndexSN,b.Source_StationNO_Custom_DisplayName,c.PartName FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] as a
                             join SoftNetSYSDB.[dbo].[APS_Simulation] as b on b.SimulationId=a.SimulationId and b.DOCNumberNO!='' and b.Source_StationNO is not NULL and b.Source_StationNO!='{_Fun.Config.OutPackStationName}' 
                             join SoftNetMainDB.[dbo].[Material] as c on c.PartNO=a.PartNO
                             join SoftNetSYSDB.[dbo].[APS_NeedData] as d on d.State='6' and a.NeedId=d.Id
@@ -6789,16 +7354,18 @@ namespace SoftNetWebII.Services
                                     {
                                         if (tmp_dr["SimulationId"].ToString() != "")
                                         {
-                                            if (db.DB_GetQueryCount($"SELECT * from SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where (Detail_QTY+Detail_Fail_QTY)>=NeedQTY and SimulationId='{tmp_dr["SimulationId"].ToString()}'") < 0)
+                                            DataRow curNote = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where SimulationId='{tmp_dr["SimulationId"].ToString()}'");
+                                            if (curNote == null || !_SFC_Common.IsStationReportingComplete(db, curNote["NeedId"].ToString(), tmp_dr["SimulationId"].ToString(), int.Parse(curNote["Detail_QTY"].ToString()), int.Parse(curNote["Detail_Fail_QTY"].ToString()), int.Parse(curNote["NeedQTY"].ToString())))
                                             { continue; }
                                         }
+                                        int dispatchPNQTY = _SFC_Common.GetEffectiveNeedQTYBySimulation(db, d["NeedId"].ToString(), d["SimulationId"].ToString(), int.Parse(d["QTY"].ToString()));
                                         _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] SET APS_StationNO='{d["Source_StationNO"].ToString()}',DOCNumberNO='{d["DOCNumberNO"].ToString()}' where SimulationId='{d["SimulationId"].ToString()}'");
                                         if (!bool.Parse(tmp_dr["Config_MutiWO"].ToString()))
                                         { _ = db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[Manufacture] SET OrderNO='{d["DOCNumberNO"].ToString()}',IndexSN={d["Source_StationNO_IndexSN"].ToString()},OP_NO='排程指派',Station_Custom_IndexSN='{d["Source_StationNO_Custom_IndexSN"].ToString()}',StationNO_Custom_DisplayName='{d["Source_StationNO_Custom_DisplayName"].ToString()}',Master_PP_Name='{d["Apply_PP_Name"].ToString()}',PP_Name='{d["Apply_PP_Name"].ToString()}',PartNO='{d["PartNO"].ToString()}',SimulationId='{d["SimulationId"].ToString()}' where ServerId='{_Fun.Config.ServerId}' and StationNO='{d["Source_StationNO"].ToString()}'"); }
                                         else
                                         {
                                             if (db.DB_SetData($@"INSERT INTO SoftNetMainDB.[dbo].[ManufactureII] ([Id],[StationNO],[ServerId],[OrderNO],[Master_PP_Name],[PP_Name],[IndexSN],[Station_Custom_IndexSN],[StationNO_Custom_DisplayName],[PartNO],[SimulationId],PNQTY)
-                                                    VALUES ('{_Str.NewId('C')}','{d["Source_StationNO"].ToString()}','{_Fun.Config.ServerId}','{d["DOCNumberNO"].ToString()}','{d["Apply_PP_Name"].ToString()}','{d["Apply_PP_Name"].ToString()}',{d["Source_StationNO_IndexSN"].ToString()},'{d["Source_StationNO_Custom_IndexSN"].ToString()}','{d["Source_StationNO_Custom_DisplayName"].ToString()}','{d["PartNO"].ToString()}','{d["SimulationId"].ToString()}',{d["QTY"].ToString()})"))
+                                                    VALUES ('{_Str.NewId('C')}','{d["Source_StationNO"].ToString()}','{_Fun.Config.ServerId}','{d["DOCNumberNO"].ToString()}','{d["Apply_PP_Name"].ToString()}','{d["Apply_PP_Name"].ToString()}',{d["Source_StationNO_IndexSN"].ToString()},'{d["Source_StationNO_Custom_IndexSN"].ToString()}','{d["Source_StationNO_Custom_DisplayName"].ToString()}','{d["PartNO"].ToString()}','{d["SimulationId"].ToString()}',{dispatchPNQTY})"))
                                             {
                                                 _ = SendWebSocketClent_INFO($"SendALLClient,HasWeb_Id_Change,STView2Work_PageReload,{tmp_logStaion}");
                                                 //#region 通知網頁更新
@@ -6831,7 +7398,7 @@ namespace SoftNetWebII.Services
                                         }
                                         _ = _SFC_Common.InsertApsEventLog(
                                             db,
-                                            $"依排程需求, 自動派工. 工單:{d["DOCNumberNO"].ToString()} 工站:{d["Source_StationNO"].ToString()} 需求量:{d["QTY"].ToString()}",
+                                            $"依排程需求, 自動派工. 工單:{d["DOCNumberNO"].ToString()} 工站:{d["Source_StationNO"].ToString()} 需求量:{dispatchPNQTY}",
                                              d["NeedId"].ToString(),
                                             simulationId: d["SimulationId"].ToString(), "99"
                                         );
@@ -7068,8 +7635,7 @@ namespace SoftNetWebII.Services
                 $@"UPDATE SoftNetSYSDB.[dbo].[PP_WorkOrder] SET [EndTime]='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}',[CloseType]='2',TmpClose='1',[ActualQuantity] = {woCloseInfo.Item2}
                 {(woCloseInfo.Item1[0] == "NULL" ? "" : $",[FirstInTime] = {woCloseInfo.Item1[0]}")}
                 {(woCloseInfo.Item1[1] == "NULL" ? "" : $",[LastOutTime] = {woCloseInfo.Item1[1]}")}
-                WHERE ServerId='{_Fun.Config.ServerId}' and OrderNO=N'{wo}' 
-                DELETE FROM SoftNetSYSDB.[dbo].PP_WorkOrder_Dispatch_Item WHERE OrderNO=N'{wo}'"))//2.正常關工單3.異常關工單
+                WHERE ServerId='{_Fun.Config.ServerId}' and OrderNO=N'{wo}'"))//2.正常關工單3.異常關工單
             {
                 DataTable dataTable = DBMaster.DB_GetData(
                     $@"SELECT DISTINCT A.IndexSN,B.StationNO,B.IsTrack FROM
@@ -7639,6 +8205,7 @@ namespace SoftNetWebII.Services
                     }
                 }
                 DateTime baseDate = lastActivity ?? DateTime.Now;
+                DataRow drSimQty = db.DB_GetFirstDataByDataRow($"SELECT NeedId,Apply_PP_Name,IndexSN FROM SoftNetSYSDB.[dbo].[APS_Simulation] WHERE SimulationId='{simId.Replace("'", "''")}'");
 
                 sql = $@"SELECT APS_StationNO,NeedQTY,Detail_QTY,Detail_Fail_QTY FROM SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] WHERE ServerId='{_Fun.Config.ServerId}' AND SimulationId='{simId.Replace("'", "''")}' AND IsDEL='0' AND NoStation='0'";
                 DataTable dt_Part = db.DB_GetData(sql);
@@ -7648,6 +8215,10 @@ namespace SoftNetWebII.Services
                 foreach (DataRow rp in dt_Part.Rows)
                 {
                     int needQTY = rp["NeedQTY"] == DBNull.Value ? 0 : Convert.ToInt32(rp["NeedQTY"]);
+                    if (drSimQty != null)
+                    {
+                        needQTY = _SFC_Common.GetEffectiveNeedQTY(needQTY, _SFC_Common.SumPriorDetailFailQTY(db, drSimQty["NeedId"].ToString(), drSimQty["Apply_PP_Name"].ToString(), int.Parse(drSimQty["IndexSN"].ToString())));
+                    }
                     int detailQTY = rp["Detail_QTY"] == DBNull.Value ? 0 : Convert.ToInt32(rp["Detail_QTY"]);
                     int detailFail = rp["Detail_Fail_QTY"] == DBNull.Value ? 0 : Convert.ToInt32(rp["Detail_Fail_QTY"]);
                     int remaining = needQTY - detailQTY - detailFail;

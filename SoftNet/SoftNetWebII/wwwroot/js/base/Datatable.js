@@ -74,11 +74,17 @@ function Datatable(selector, url, dtConfig, findJson, fnOk, tbarHtml) {
             filter: false,      //find string            
             paginate: true,     //paging          
             lengthChange: true, //set page rows
+            pageLength: (typeof SYS_PageLength !== 'undefined') ? SYS_PageLength : 20,
+            lengthMenu: [10, 15, 20, 25, 30, 50, 100],
             info: true,         //show page info, include now page, total pages
             sorting: [],        //default not sorting, or datatable will sort by first column !!
             pagingType: "full_numbers",
-            //stateSave: true,
-            //ordering: false,
+            createdRow: function (row) {
+                $(row).find('td').css({ 'padding': '0.3rem 0.5rem', 'line-height': '1.3', 'font-size': '0.88rem' });
+            },
+            headerCallback: function (thead) {
+                $(thead).find('th').css({ 'padding': '0.4rem 0.5rem', 'line-height': '1.3', 'font-size': '0.88rem' });
+            },
 
             //set locale file
             language: {

@@ -42,14 +42,14 @@ namespace SoftNetWebII.Controllers
                 System.Threading.Tasks.Task task = _Log.ErrorAsync($"TagResult_EnterKeyController.cs 接收標籤按鈕 keys=NULL", true);
                 return StatusCode(200);
             }
-            //_Fun.test.Add($"Time={DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")} mac={input.mac} result={input.result}");
+            //_Fun.test.Add($"Time={DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")} mac={input.mac} result={input.result}");
             bool isOK = false;
             using (DBADO db = new DBADO("1", _Fun.Config.Db))
             {
                 if (input.mac != null)
                 {
                     DateTime now = DateTime.Now;
-                    db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[LabelStateLog] ([Id],[macID],[LOGDateTime],[ReceiveType],[INFO]) VALUES ('{_Str.NewId('L')}','{input.mac}','{now.ToString("yyyy/MM/dd HH:mm:ss.fff")}','接收按鈕訊號','{input.result.ToString()}')");
+                    db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[LabelStateLog] ([Id],[macID],[LOGDateTime],[ReceiveType],[INFO]) VALUES ('{_Str.NewId('L')}','{input.mac}','{now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','接收按鈕訊號','{input.result.ToString()}')");
 
                     DataRow dr = db.DB_GetFirstDataByDataRow($"select * from SoftNetMainDB.[dbo].[LabelStateINFO] where ServerId='{_Fun.Config.ServerId}' and macID='{input.mac.Trim()}'");
                     if (dr != null)
@@ -139,7 +139,7 @@ namespace SoftNetWebII.Controllers
                                                                     {
                                                                         simulationId = tmp_dr["SimulationId"].ToString();
                                                                         typevalue = $"2;{simulationId}";
-                                                                        num = int.Parse(tmp_dr["NeedQTY"].ToString()) + int.Parse(tmp_dr["SafeQTY"].ToString());
+                                                                        num = _SFC_Common.GetEffectiveNeedQTYBySimulation(db, sfcdr["NeedId"].ToString(), simulationId, int.Parse(tmp_dr["NeedQTY"].ToString())) + int.Parse(tmp_dr["SafeQTY"].ToString());
                                                                         ct = int.Parse(tmp_dr["Math_EfficientCT"].ToString());
                                                                         partNO = tmp_dr["PartNO"].ToString();
                                                                         tmp_dr = db.DB_GetFirstDataByDataRow($"select * from SoftNetMainDB.[dbo].[Material] where ServerId='{_Fun.Config.ServerId}' and PartNO='{tmp_dr["PartNO"].ToString()}'");
@@ -283,8 +283,8 @@ namespace SoftNetWebII.Controllers
                                                                                 int typeTotalTime = 0;
                                                                                 string writeSQL = "";
                                                                                 if (!dr_DOC3stockII.IsNull("StartTime")) { typeTotalTime = _SFC_Common.TimeCompute2Seconds_BY_Calendar(db, _Fun.Config.DefaultCalendarName, Convert.ToDateTime(dr_DOC3stockII["StartTime"].ToString()), DateTime.Now); }
-                                                                                else { writeSQL = $",StartTime='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}'"; }
-                                                                                db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC3stockII] set IsOK='1',EndTime='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}',CT={typeTotalTime}{writeSQL} where Id='{dr_DOC3stockII["Id"].ToString()}' and DOCNumberNO='{dr_DOC3stockII["DOCNumberNO"].ToString()}' and IsOK='0'");
+                                                                                else { writeSQL = $",StartTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}'"; }
+                                                                                db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC3stockII] set IsOK='1',EndTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}',CT={typeTotalTime}{writeSQL} where Id='{dr_DOC3stockII["Id"].ToString()}' and DOCNumberNO='{dr_DOC3stockII["DOCNumberNO"].ToString()}' and IsOK='0'");
                                                                                 string partNO = dr_DOC3stockII["PartNO"].ToString();
                                                                                 string pp_Name = "";
                                                                                 string E_stationNO = "";
@@ -319,7 +319,7 @@ namespace SoftNetWebII.Controllers
                                                                                 }
                                                                             }
                                                                             #endregion
-                                                                            db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[LabelStateLog] ([Id],[macID],[LOGDateTime],[ActionType]) VALUES ('{_Str.NewId('L')}','{d["macID"].ToString()}','{now.ToString("yyyy/MM/dd HH:mm:ss.fff")}','儲位滅燈')");
+                                                                            db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[LabelStateLog] ([Id],[macID],[LOGDateTime],[ActionType]) VALUES ('{_Str.NewId('L')}','{d["macID"].ToString()}','{now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','儲位滅燈')");
                                                                         }
                                                                     }
                                                                     if (json3 != "") { json3 += "]"; }
@@ -328,12 +328,12 @@ namespace SoftNetWebII.Controllers
                                                                     HttpResponseMessage response = httpClient.PostAsync(url, content).Result;
                                                                     if (!response.IsSuccessStatusCode)
                                                                     {
-                                                                        db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[LabelStateLog] ([Id],[macID],[LOGDateTime],[ActionType]) VALUES ('{_Str.NewId('L')}','','{now.ToString("yyyy/MM/dd HH:mm:ss.fff")}','儲位滅燈,發送Fail')");
+                                                                        db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[LabelStateLog] ([Id],[macID],[LOGDateTime],[ActionType]) VALUES ('{_Str.NewId('L')}','','{now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','儲位滅燈,發送Fail')");
                                                                         System.Threading.Tasks.Task task = _Log.ErrorAsync($"儲位亮燈 傳送電子訊號失敗,請通知管理者", false);    //false here, not mailRoot, or endless roop !!
                                                                     }
                                                                     else
                                                                     {
-                                                                        db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[LabelStateLog] ([Id],[macID],[LOGDateTime],[ActionType]) VALUES ('{_Str.NewId('L')}','','{now.ToString("yyyy/MM/dd HH:mm:ss.fff")}','儲位滅燈,發送OK')");
+                                                                        db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[LabelStateLog] ([Id],[macID],[LOGDateTime],[ActionType]) VALUES ('{_Str.NewId('L')}','','{now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','儲位滅燈,發送OK')");
                                                                     }
                                                                 }
                                                                 catch (Exception ex)
@@ -377,8 +377,8 @@ namespace SoftNetWebII.Controllers
                                             int typeTotalTime = 0;
                                             string writeSQL = "";
                                             if (!dr_DOC3stockII.IsNull("StartTime")) { typeTotalTime = _SFC_Common.TimeCompute2Seconds_BY_Calendar(db, _Fun.Config.DefaultCalendarName, Convert.ToDateTime(dr_DOC3stockII["StartTime"].ToString()), DateTime.Now); }
-                                            else { writeSQL = $",StartTime='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}'"; }
-                                            db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC3stockII] set IsOK='1',EndTime='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}',CT={typeTotalTime}{writeSQL} where Id='{dr_DOC3stockII["Id"].ToString()}' and DOCNumberNO='{dr_DOC3stockII["DOCNumberNO"].ToString()}' and IsOK='0'");
+                                            else { writeSQL = $",StartTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}'"; }
+                                            db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[DOC3stockII] set IsOK='1',EndTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}',CT={typeTotalTime}{writeSQL} where Id='{dr_DOC3stockII["Id"].ToString()}' and DOCNumberNO='{dr_DOC3stockII["DOCNumberNO"].ToString()}' and IsOK='0'");
                                             //db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[LabelStateINFO] set SimulationId='',DOCNumberNO='',Id='',Ledrgb='0',Ledstate=0 where ServerId='{_Fun.Config.ServerId}' and macID='{input.mac.Trim()}'");
 
                                             string partNO = dr_DOC3stockII["PartNO"].ToString();

@@ -197,7 +197,7 @@ namespace SoftNetWebII.Controllers
                                                     {
                                                         simulationId = tmp_dr["SimulationId"].ToString();
                                                         typevalue = $"2;{simulationId}";
-                                                        num = int.Parse(tmp_dr["NeedQTY"].ToString()) + int.Parse(tmp_dr["SafeQTY"].ToString());
+                                                        num = _SFC_Common.GetEffectiveNeedQTYBySimulation(db, sfcdr["NeedId"].ToString(), simulationId, int.Parse(tmp_dr["NeedQTY"].ToString())) + int.Parse(tmp_dr["SafeQTY"].ToString());
                                                         ct = int.Parse(tmp_dr["Math_EfficientCT"].ToString());
                                                         partNO = tmp_dr["PartNO"].ToString();
                                                         tmp_dr = db.DB_GetFirstDataByDataRow($"select * from SoftNetMainDB.[dbo].[Material] where ServerId='{_Fun.Config.ServerId}' and PartNO='{tmp_dr["PartNO"].ToString()}'");
@@ -515,7 +515,7 @@ namespace SoftNetWebII.Controllers
                                     }
                                     db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[Manufacture] SET Label_ProjectType='0',OrderNO='',OP_NO='',Master_PP_Name='',PP_Name='',IndexSN=0,Station_Custom_IndexSN='',StationNO_Custom_DisplayName='',State='4',PartNO='',StartTime=NULL,RemarkTimeS=NULL,RemarkTimeE=NULL,EndTime=NULL where ServerId='{_Fun.Config.ServerId}' and StationNO='{data[i]}'");
                                     db.DB_SetData(@$"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,OP_NO,IndexSN) VALUES 
-                                                    ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','Manufacture','智慧關站','{dr_M["PP_Name"].ToString()}','{data[i]}','{dr_M["PartNO"].ToString()}','{dr_M["OrderNO"].ToString()}','{dr_M["OP_NO"].ToString()}',{dr_M["IndexSN"].ToString()})");
+                                                    ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','Manufacture','智慧關站','{dr_M["PP_Name"].ToString()}','{data[i]}','{dr_M["PartNO"].ToString()}','{dr_M["OrderNO"].ToString()}','{dr_M["OP_NO"].ToString()}',{dr_M["IndexSN"].ToString()})");
 
                                     #region 送Service處理後續
                                     dr = db.DB_GetFirstDataByDataRow($"SELECT RMSName from SoftNetSYSDB.[dbo].[PP_Station] where ServerId='{_Fun.Config.ServerId}' and StationNO='{data[i]}'");
@@ -751,11 +751,11 @@ namespace SoftNetWebII.Controllers
                         }
                         if (avgReportTime > 0)
                         {
-                            dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT TOP 1 * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{data1[i]}' and IndexSN={beforeIndexSN} and PartNO='{beforePartNO}' and LOGDateTime<='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}' and OperateType like '%開工%' order by LOGDateTime desc");
+                            dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT TOP 1 * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{data1[i]}' and IndexSN={beforeIndexSN} and PartNO='{beforePartNO}' and LOGDateTime<='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}' and OperateType like '%開工%' order by LOGDateTime desc");
                             if (dr_tmp != null)
                             {
                                 DateTime tmp_edate = Convert.ToDateTime(dr_tmp["LOGDateTime"]);
-                                dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT TOP 1 * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{data1[i]}' and IndexSN={beforeIndexSN} and PartNO='{beforePartNO}' and LOGDateTime>'{tmp_edate.ToString("yyyy/MM/dd HH:mm:ss")}' and OperateType like '%報工%'");
+                                dr_tmp = db.DB_GetFirstDataByDataRow($"SELECT TOP 1 * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{data1[i]}' and IndexSN={beforeIndexSN} and PartNO='{beforePartNO}' and LOGDateTime>'{tmp_edate.ToString("yyyy-MM-dd HH:mm:ss")}' and OperateType like '%報工%'");
                                 if (dr_tmp == null)
                                 {
                                     int isARGs10_offset = 15;//###??? 10將來改參數
@@ -801,7 +801,7 @@ namespace SoftNetWebII.Controllers
                         sId_dr = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where APS_StationNO='{data1[i]}' AND SimulationId='{simulationId}'");
                         if (sId_dr != null)
                         {
-                            num = int.Parse(sId_dr["NeedQTY"].ToString());
+                            num = _SFC_Common.GetEffectiveNeedQTYBySimulation(db, sfcdr["NeedId"].ToString(), simulationId, int.Parse(sId_dr["NeedQTY"].ToString()));
                         }
                     }
                     #endregion
@@ -828,7 +828,7 @@ namespace SoftNetWebII.Controllers
                         }
                         */
                     }
-                    db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,OP_NO,IndexSN) VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}','Manufacture','設定工站','','{data1[i]}','{partNO}','{data2[0]}','{data2[2]}',{indexSN})");
+                    db.DB_SetData($"INSERT INTO SoftNetLogDB.[dbo].[OperateLog] (ServerId,[Id],[LOGDateTime],[ProgramName],[OperateType],Remark,StationNO,PartNO,OrderNO,OP_NO,IndexSN) VALUES ('{_Fun.Config.ServerId}','{_Str.NewId('D')}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}','Manufacture','設定工站','','{data1[i]}','{partNO}','{data2[0]}','{data2[2]}',{indexSN})");
 
                     #region 更新Tag
                     DataRow dr_LabelStateINFO = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetMainDB.[dbo].[LabelStateINFO] where ServerId='{_Fun.Config.ServerId}' and macID='{dr["Config_macID"].ToString()}'");

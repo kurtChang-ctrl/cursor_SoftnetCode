@@ -1,4 +1,6 @@
-﻿using static StackExchange.Redis.Role;
+using Base.Enums;
+using System;
+using static StackExchange.Redis.Role;
 
 namespace Base.Models
 {
@@ -33,6 +35,11 @@ namespace Base.Models
             DefaultFactoryName = "";
             DefaultLineName = "";
             APS_Simulation_ErrorData_Clear_Day = 0;
+            APS_DOC3stock_Action_Advance_Day = 0;
+            APS_DOC3stock_Action_Delay_Day = 0;
+            DOCInvoice_Expiry_SendError = true;
+            Material_Short_IsWarning=true;
+            ElectronicTagsIsFailSendMail = true;
             Default_Simulation_AGE01 = false;
             Default_Simulation_AGE02 = false;
             Default_Simulation_AGE03 = false;
@@ -63,6 +70,25 @@ namespace Base.Models
             Default_EStore_ControlURL = "";
             Default_EStore_MachineToken = "";
             APS_CT_Custom_Rate = 100;
+            APS_PlanIdleDays = 0;
+            UseSQLVector = false;
+            RAG_VectorStoreRetentionDays = 90;
+            GeminiApiKey = "";
+            GeminiModels = new[] { "gemini-2.5-flash" };
+            OpenAIApiKey = "";
+            AIReportDDay = DaysOfWeek.None;
+            AIReportQuestion = "";
+            SCM_IsEnabled = false;
+            SCM_WorkingDoWhileTime = 30;
+            SCM_MaxRetryCount = 3;
+            SCM_MailSubjectPrefix = "[SoftNetSCM]";
+            SCM_EnableSignature = false;
+            SCM_SignatureKey = "";
+            SCM_DataExchange_Mail = "";
+            SCM_LocalDecision_Mail = "";
+            SCM_ImapServer = "imap.gmail.com";
+            SCM_ImapPort = 993;
+            WebPageDataDisCount = 20;
             SendMonitorMail00 = "";
             SendMonitorMail01 = "";
             SendMonitorMail02 = "";
@@ -87,6 +113,16 @@ namespace Base.Models
             SendMonitorMail21 = "";
             SendMonitorMail22 = "";
             SendMonitorMail23 = "";
+            SendMonitorMail24 = "";
+            SendMonitorMail25 = "";
+            SendMonitorMail26 = "";
+            SendMonitorMail27 = "";
+            SendMonitorMail28 = "";
+            SendMonitorMail29 = "";
+            SendMonitorMail30 = "";
+            SendMonitorMail31 = "";
+            SendMonitorMail32 = "";
+            SendMonitorMail33 = "";
 
         }
         public string SendMonitorMail00 { get; set; }
@@ -113,13 +149,64 @@ namespace Base.Models
         public string SendMonitorMail21 { get; set; }
         public string SendMonitorMail22 { get; set; }
         public string SendMonitorMail23 { get; set; }
-
+        public string SendMonitorMail24 { get; set; }
+        public string SendMonitorMail25 { get; set; }
+        public string SendMonitorMail26 { get; set; }
+        public string SendMonitorMail27 { get; set; }
+        public string SendMonitorMail28 { get; set; }
+        public string SendMonitorMail29 { get; set; }
+        public string SendMonitorMail30 { get; set; }
+        public string SendMonitorMail31 { get; set; }
+        public string SendMonitorMail32 { get; set; }
+        public string SendMonitorMail33 { get; set; }
 
 
         public int APS_CT_Custom_Rate { get; set; }
+        /// <summary>
+        /// 監看計畫久未執行的天數門檻
+        /// </summary>
+        public int APS_PlanIdleDays { get; set; }
+        /// <summary>是否使用 SQL Server 原生 vector 型別做向量搜尋（目前保守設為 false，之後可改為 true）</summary>
+        public bool UseSQLVector { get; set; }
+        /// <summary>RAG 向量庫保留天數，超過的資料移至歷史表</summary>
+        public int RAG_VectorStoreRetentionDays { get; set; }
         public string Default_EStore_ControlURL { get; set; }
         public string Default_EStore_MachineToken { get; set; }
+        public string GeminiApiKey { get; set; }
+        /// <summary>Gemini 模型嘗試清單（依序）</summary>
+        public string[] GeminiModels { get; set; }
+        public string OpenAIApiKey { get; set; }
+        public DaysOfWeek AIReportDDay { get; set; }
+        public string AIReportQuestion { get; set; }
+        /// <summary>是否啟用 SCM Mail 交換流程</summary>
+        public bool SCM_IsEnabled { get; set; }
+        /// <summary>SCM 輪巡週期（分鐘）</summary>
+        public int SCM_WorkingDoWhileTime { get; set; }
+        /// <summary>Outbox 寄送最大重試次數</summary>
+        public int SCM_MaxRetryCount { get; set; }
+        /// <summary>SCM 郵件主旨前綴（例如 [SoftNetSCM]）</summary>
+        public string SCM_MailSubjectPrefix { get; set; }
+        /// <summary>是否啟用簽章驗證（預留）</summary>
+        public bool SCM_EnableSignature { get; set; }
+        /// <summary>SCM 簽章密鑰（建議放 user-secrets）</summary>
+        public string SCM_SignatureKey { get; set; }
+        /// <summary>供應鏈交換共用信箱</summary>
+        public string SCM_DataExchange_Mail { get; set; }
+        /// <summary>本地人工決策通知信箱</summary>
+        public string SCM_LocalDecision_Mail { get; set; }
+        /// <summary>收件 IMAP 主機</summary>
+        public string SCM_ImapServer { get; set; }
+        /// <summary>收件 IMAP Port</summary>
+        public int SCM_ImapPort { get; set; }
+        /// <summary>網頁表格每頁預設顯示筆數</summary>
+        public int WebPageDataDisCount { get; set; }
         public int APS_Simulation_ErrorData_Clear_Day { get; set; }
+        public int APS_DOC3stock_Action_Advance_Day { get; set; }
+        public int APS_DOC3stock_Action_Delay_Day { get; set; }
+
+        public bool DOCInvoice_Expiry_SendError { get; set; }
+        public bool Material_Short_IsWarning { get; set; }
+        public bool ElectronicTagsIsFailSendMail { get; set; }
         public bool Default_WorkingPaper_NOT_SafeQTY_Order { get; set; }
         public bool MailSubjectIsSame { get; set; }
         public bool Default_WorkingPaper_NOT_SafeQTY_DOC1 { get; set; }

@@ -50,7 +50,7 @@ namespace SoftNetWebII.Services
         {
             ReadSql = $@"select '' as _F0,'' as _F1,a.NeedSource,a.CTNO,a.CTName,a.ServerId,a.Id,a.NeedType,a.NeedDate,a.PartNO,b.PartName,b.Specification,b.Class,a.BufferTime,a.NeedQTY,a.ChangeQTY,a.StockQTY,a.StateINFO,a.WIP7Day,a.WIP30Daya,a.CalendarName,a.State,a.NeedSimulationDate 
             from SoftNetSYSDB.[dbo].APS_NeedData as a, SoftNetMainDB.[dbo].Material as b 
-            where a.ServerId='{_Fun.Config.ServerId}' and b.ServerId='{_Fun.Config.ServerId}' and a.NeedType!='5' and a.State!='9' and a.State!='6' and a.State!='7' and a.PartNO=b.PartNO order by a.NeedDate",
+            where a.ServerId='{_Fun.Config.ServerId}' and b.ServerId='{_Fun.Config.ServerId}' and a.NeedType!='5' and a.State!='9' and a.State!='6' and a.State!='7' and a.State!='P' and a.PartNO=b.PartNO order by a.NeedDate",
             Items = new QitemDto[] {
                 new() { Fid = "ServerId" },
                 new() { Fid = "NeedSource" },
@@ -89,6 +89,13 @@ namespace SoftNetWebII.Services
                 string[] tmp = key.Split(';');
                 using (DBADO db = new DBADO("1", _Fun.Config.Db))
                 {
+                    var sfc = new SFC_Common("1", _Fun.Config.Db);
+                    string prepErr = "";
+                    if (sfc.TryPrepareManufactureIIBeforeResimulation(db, tmp[0], '1', ref prepErr))
+                    {
+                        re.ErrorMsg = prepErr;
+                        return re;
+                    }
                     db.DB_SetData($"DELETE FROM SoftNetSYSDB.[dbo].[APS_Simulation] where NeedId='{tmp[0]}'");
                     db.DB_SetData($"DELETE FROM SoftNetMainDB.[dbo].[TotalStockII] where NeedId='{tmp[0]}'");
                     db.DB_SetData($"DELETE FROM SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where NeedId='{tmp[0]}'");

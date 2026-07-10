@@ -215,14 +215,14 @@ namespace SoftNetWebII.Controllers
                                 if (ERR != "") { meg = $"<br>{ERR}"; }
                                 if (run)
                                 {
-                                    if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_NeedData] SET State='6',StateINFO=NULL,UpdateTime='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and Id='{data[i]}'")) { run = true; }
+                                    if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_NeedData] SET State='6',StateINFO=NULL,UpdateTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and Id='{data[i]}'")) { run = true; }
                                 }
                                 break;
                             case "3":
                             case "5":
                                 meg = $"{meg}<br>需重新模擬."; break;
                             case "4":
-                                if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_NeedData] SET State='7',StateINFO=NULL,UpdateTime='{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and Id='{data[i]}'")) { run = true; }
+                                if (db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_NeedData] SET State='7',StateINFO=NULL,UpdateTime='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}' where ServerId='{_Fun.Config.ServerId}' and Id='{data[i]}'")) { run = true; }
                                 break;
                             case "8":
                                 meg = $"{meg}<br>重新模擬或刪除此需求."; break;
@@ -296,6 +296,12 @@ namespace SoftNetWebII.Controllers
                         if (d["State"].ToString() == "1") { meg = $"{meg}<br>{d["Id"].ToString()} 已在模擬,須等完成才能再次模擬"; continue; }
                         else
                         {
+                            string prepErr = "";
+                            if (_SFC_Common.TryPrepareManufactureIIBeforeResimulation(db, d["Id"].ToString(), '1', ref prepErr))
+                            {
+                                meg = $"{meg}<br>{d["Id"].ToString()} {prepErr}";
+                                continue;
+                            }
                             db.DB_SetData($"DELETE FROM SoftNetSYSDB.[dbo].[APS_Simulation] where NeedId='{d["Id"].ToString()}'");
                             db.DB_SetData($"DELETE FROM SoftNetMainDB.[dbo].[TotalStockII] where NeedId='{d["Id"].ToString()}'");
                             db.DB_SetData($"DELETE FROM SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where NeedId='{d["Id"].ToString()}'");
@@ -403,7 +409,12 @@ namespace SoftNetWebII.Controllers
 
                     using (DBADO db = new DBADO("1", _Fun.Config.Db))
                     {
-
+                        string prepErr = "";
+                        if (_SFC_Common.TryPrepareManufactureIIBeforeResimulation(db, id, '1', ref prepErr))
+                        {
+                            row.ErrorMsg = prepErr;
+                            return Json(row);
+                        }
 
                         db.DB_SetData($"DELETE FROM SoftNetSYSDB.[dbo].[APS_Simulation] where NeedId='{id}'");
                         db.DB_SetData($"DELETE FROM SoftNetMainDB.[dbo].[TotalStockII] where NeedId='{id}'");

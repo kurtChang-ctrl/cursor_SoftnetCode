@@ -1,6 +1,8 @@
-﻿using Base;
+using Base;
+using Base.Enums;
 using Base.Models;
 using Base.Services;
+using BaseWeb.Models;
 using HandlebarsDotNet.Features;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Newtonsoft.Json.Linq;
@@ -10,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Globalization;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace SoftNetWebII.Services
@@ -149,7 +152,7 @@ namespace SoftNetWebII.Services
             ProgramReadDataOBJ re = new ProgramReadDataOBJ();
             using (DBADO db = new DBADO("1", _Fun.Config.Db))
             {
-                string whereData = $"a.LOGDateTimeID>='{DateTime.Now.AddDays(-60).ToString("yyyy/MM/dd HH:mm:ss")}' and a.LOGDateTimeID<='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.fff")}'";
+                string whereData = $"a.LOGDateTimeID>='{DateTime.Now.AddDays(-60).ToString("yyyy-MM-dd HH:mm:ss")}' and a.LOGDateTimeID<='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}'";
                 if (dt.findJson!=null)
                 {
                     JObject jObject = JObject.Parse(dt.findJson);
@@ -228,7 +231,7 @@ namespace SoftNetWebII.Services
         {
             ReadSql = $@"SELECT b.PartName,b.Specification,a.Id,StationNO,a.ServerId,a.LOGDateTime,a.ProgramName,a.OperateType,a.PartNO,a.OrderNO,a.OP_NO,a.IndexSN,a.Remark FROM SoftNetLogDB.[dbo].[OperateLog] as a
                         join SoftNetMainDB.[dbo].[Material] as b on b.PartNO = a.PartNO and b.ServerId = '{_Fun.Config.ServerId}'
-                        where a.ServerId='{_Fun.Config.ServerId}' and a.LOGDateTime>='{DateTime.Now.AddDays(-60).ToString("yyyy/MM/dd HH:mm:ss.fff")}' and a.LOGDateTime<='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.fff")}' order by a.LOGDateTime desc,a.StationNO,a.OP_NO,a.PartNO",
+                        where a.ServerId='{_Fun.Config.ServerId}' and a.LOGDateTime>='{DateTime.Now.AddDays(-60).ToString("yyyy-MM-dd HH:mm:ss.fff")}' and a.LOGDateTime<='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}' order by a.LOGDateTime desc,a.StationNO,a.OP_NO,a.PartNO",
             Items = new QitemDto[] {
                 new() { Fid = "LOGDateTime" },
                 new() { Fid = "StationNO" },
@@ -251,7 +254,7 @@ namespace SoftNetWebII.Services
             ProgramReadDataOBJ re = new ProgramReadDataOBJ();
             using (DBADO db = new DBADO("1", _Fun.Config.Db))
             {
-                string whereData = $"a.LOGDateTime>='{DateTime.Now.AddDays(-60).ToString("yyyy/MM/dd HH:mm:ss")}' and a.LOGDateTime<='{DateTime.Now.ToString("yyyy/MM/dd")}'";
+                string whereData = $"a.LOGDateTime>='{DateTime.Now.AddDays(-60).ToString("yyyy-MM-dd HH:mm:ss")}' and a.LOGDateTime<='{DateTime.Now.ToString("yyyy-MM-dd")}'";
                 if (dt.findJson != null)
                 {
                     JObject jObject = JObject.Parse(dt.findJson);
@@ -372,7 +375,7 @@ namespace SoftNetWebII.Services
             ProgramReadDataOBJ re = new ProgramReadDataOBJ();
             using (DBADO db = new DBADO("1", _Fun.Config.Db))
             {
-                string whereData = $"a.LOGDateTimeID>='{DateTime.Now.AddDays(-60).ToString("yyyy/MM/dd HH:mm:ss")}' and a.LOGDateTimeID<='{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.fff")}'";
+                string whereData = $"a.LOGDateTimeID>='{DateTime.Now.AddDays(-60).ToString("yyyy-MM-dd HH:mm:ss")}' and a.LOGDateTimeID<='{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}'";
                 if (dt.findJson != null)
                 {
                     JObject jObject = JObject.Parse(dt.findJson);
@@ -489,6 +492,21 @@ namespace SoftNetWebII.Services
                         string[] tmp_url = dt.locationURL.Split('/');
                         pageName = tmp_url[tmp_url.Length - 1];
                     }
+                    string sqlWhere = "";
+                    JObject findJson = _Str.ToJson(dt.findJson);
+                    if (findJson != null)
+                    {
+                        foreach (var prop in findJson)
+                        {
+                            object value = prop.Value;
+                            object key = prop.Key;
+                            if (_Object.IsEmpty(key) || _Object.IsEmpty(value))
+                            { continue; }
+                            sqlWhere = $"{sqlWhere} and {key}='{value}'";
+
+
+                        }
+                    }
                     switch (pageName)
                     {
                         case "":
@@ -498,7 +516,7 @@ namespace SoftNetWebII.Services
                                 DateTime dtime = DateTime.Now.AddDays(-7); ;
                                 tmp_dt.Columns.Add("Time");
                                 tmp_dt.Columns.Add("Log");
-                                DataTable dtdata = db.DB_GetData($"SELECT * FROM SoftNetLogDB.[dbo].[APS_EventLog] where ServerId='{_Fun.Config.ServerId}' and LOGDateTime>='{dtime.ToString("yyyy/MM/dd")}' order by LOGDateTime desc");
+                                DataTable dtdata = db.DB_GetData($"SELECT * FROM SoftNetLogDB.[dbo].[APS_EventLog] where ServerId='{_Fun.Config.ServerId}' and LOGDateTime>='{dtime.ToString("yyyy-MM-dd")}' order by LOGDateTime desc");
                                 if (dtdata != null && dtdata.Rows.Count > 0)
                                 {
                                     foreach (DataRow dr in dtdata.Rows)
@@ -512,11 +530,31 @@ namespace SoftNetWebII.Services
                             {
                                 DateTime dtime = DateTime.Now.AddDays(-7); ;
                                 tmp_dt.Columns.Add("Time");
+                                tmp_dt.Columns.Add("DISLOGTYPE");
                                 tmp_dt.Columns.Add("SimulationId");
                                 tmp_dt.Columns.Add("DOCNumberNO");
                                 tmp_dt.Columns.Add("Name");
                                 tmp_dt.Columns.Add("Log");
-                                DataTable dtdata = db.DB_GetData($"SELECT * FROM SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] where ServerId='{_Fun.Config.ServerId}' and LogDate>='{dtime.ToString("yyyy/MM/dd")}' order by LogDate desc");
+                                string data_tmp = "";
+                                if (!_Fun.Config.DOCInvoice_Expiry_SendError)
+                                { data_tmp = $" and ErrorType!='06' and ErrorType!='07' and ErrorType!='08' and ErrorType!='09' and ErrorType!='10'"; }
+                                DataTable dtdata = db.DB_GetData($"SELECT ServerId,NeedId,SimulationId,DOCNumberNO,StationNO,ErrorType,LogDate,'' as OP_NO FROM SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] where ServerId='{_Fun.Config.ServerId}' and LogDate>='{dtime.ToString("yyyy-MM-dd")}' {sqlWhere} {data_tmp} order by LogDate desc");
+                                DataTable dtdata2 = db.DB_GetData($"SELECT ServerId,NeedId,SimulationId,DOCNumberNO,StationNO,ErrorType,WarningDate as LogDate,OP_NO FROM SoftNetSYSDB.[dbo].[APS_WarningData] where ServerId='{_Fun.Config.ServerId}' and ErrorType!='00' and ErrorType!='33' and WarningDate>='{dtime.ToString("yyyy-MM-dd")}' {sqlWhere} order by WarningDate desc");
+                                if (dtdata!=null)
+                                {
+                                    if (dtdata2 != null && dtdata2.Rows.Count > 0)
+                                    { 
+                                        dtdata.Merge(dtdata2);
+                                        dtdata.DefaultView.Sort = "LogDate DESC"; // 依照日期降冪、編號升冪排序
+                                    }
+                                }
+                                else
+                                {
+                                    if (dtdata2 != null && dtdata2.Rows.Count > 0)
+                                    {
+                                        dtdata= dtdata2;
+                                    }
+                                }
                                 if (dtdata != null && dtdata.Rows.Count > 0)
                                 {
                                     string name = "";
@@ -528,6 +566,8 @@ namespace SoftNetWebII.Services
                                     string bdfor_ErrorType = "";
                                     string IDName = "";
                                     DataRow tmp = null;
+                                    
+                                    //DataTable sortedDt = dt.DefaultView.ToTable();
                                     foreach (DataRow dr in dtdata.Rows)
                                     {
                                         if (bdfor_SimulationId == dr["SimulationId"].ToString() && bdfor_DOCNumberNO == dr["DOCNumberNO"].ToString() && bdfor_StationNO == dr["StationNO"].ToString() && bdfor_ErrorType == dr["ErrorType"].ToString())
@@ -540,50 +580,143 @@ namespace SoftNetWebII.Services
                                         if (tmp != null) { IDName = $"{tmp["PartNO"].ToString()} {tmp["PartName"].ToString()} {tmp["Specification"].ToString()}"; } else { IDName = dr["SimulationId"].ToString(); }
                                         name = "";
                                         log = "";
-                                        if (!dr.IsNull("DOCNumberNO") && dr["DOCNumberNO"].ToString() != "") 
+                                        string disLogType = "";
+                                        if (!dr.IsNull("DOCNumberNO") && dr["DOCNumberNO"].ToString() != "")
                                         {
-                                            tmp = db.DB_GetFirstDataByDataRow($"select * from SoftNetMainDB.[dbo].[DOCRole] where DOCNO='{dr["DOCNumberNO"].ToString().Substring(0,4)}' and ServerId='{_Fun.Config.ServerId}'");
+                                            tmp = db.DB_GetFirstDataByDataRow($"select * from SoftNetMainDB.[dbo].[DOCRole] where DOCNO='{dr["DOCNumberNO"].ToString().Substring(0, 4)}' and ServerId='{_Fun.Config.ServerId}'");
                                             if (tmp != null) { name = tmp["DOCName"].ToString(); }
-                                        } 
-                                        switch(dr["ErrorType"].ToString())
+                                        }
+                                        tmp_S = "";
+                                        switch (dr["ErrorType"].ToString())
                                         {
-                                            case "05":
-                                                log = $"{dr["StationNO"].ToString()}工站,生產備料無作為且無領料單據發起";
+                                            case "05"://生產備料無作為
+                                                disLogType = "生產備料無作為";
+                                                if (!dr.IsNull("StationNO") && !string.IsNullOrEmpty(dr["StationNO"].ToString()))
+                                                { tmp_S = $"{dr["StationNO"].ToString()}工站,"; }
+                                                log = $"{tmp_S}生產備料無作為且無領料單據發起";
                                                 break;
-                                            case "01":
-                                            case "02":
-                                                tmp_S = "";
+                                            case "01"://排程原物料庫存不足
+                                            case "02"://排程自製件庫存不足
+                                                disLogType = dr["ErrorType"].ToString() == "01" ? "排程原物料庫存不足" : "排程自製件庫存不足";
                                                 tmp = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_Simulation] where SimulationId='{dr["SimulationId"].ToString()}'");
                                                 if (tmp != null)
                                                 {
-                                                    tmp_S = tmp["PartNO"].ToString();
+                                                    tmp_S = $"料號:{tmp["PartNO"].ToString()},";
                                                 }
-                                                log = $"料號:{tmp_S},庫存量不足原本預定Keep量";
+                                                log = $"{tmp_S}庫存量不足原本預定Keep量";
                                                 break;
-                                            case "04":
-                                                log = $"{dr["StationNO"].ToString()}工站,生產用原物料應領用而未領用";
+                                            case "04"://生產用料未領用
+                                                disLogType = "生產用料未領用";
+                                                if (!dr.IsNull("StationNO") && !string.IsNullOrEmpty(dr["StationNO"].ToString()))
+                                                { tmp_S = $"{dr["StationNO"].ToString()}工站,"; }
+                                                log = $"{tmp_S}生產用原物料應領用而未領用";
                                                 break;
-                                            case "06":
-                                            case "07":
-                                            case "08":
-                                            case "09":
-                                            case "10":
-                                                log = $"未如期完成確認扣(入)帳";
+                                            case "06"://單據異常
+                                            case "07"://單據異常
+                                            case "08"://單據異常
+                                            case "09"://單據異常
+                                            case "10"://單據異常
+                                                disLogType = "單據異常";
+                                                log = $"單據未如期完成確認扣(入)帳,會導致庫存數量正確性";
                                                 break;
-                                            case "03":
-                                                log = $"{dr["StationNO"].ToString()}工站,未如預期開工";
+                                            case "03"://工站未如預期開工
+                                                disLogType = "工站未如預期開工";
+                                                if (!dr.IsNull("StationNO") && !string.IsNullOrEmpty(dr["StationNO"].ToString()))
+                                                { tmp_S = $"{dr["StationNO"].ToString()}工站,"; }
+                                                log = $"{tmp_S}未如預期開工";
                                                 break;
-                                            case "12":
-                                                log = $"應執行關閉結束未關";
+                                            case "12"://工單未關帳
+                                                disLogType = "工單未關帳";
+                                                log = $"{tmp_S}最後一站應執行結束工單作業";
                                                 break;
-                                            case "15":
-                                                log = $"{dr["StationNO"].ToString()}工站,報工作業可能有延遲";
+                                            case "14"://CT遠離目標
+                                                disLogType = "CT遠離目標";
+                                                if (!dr.IsNull("StationNO") && !string.IsNullOrEmpty(dr["StationNO"].ToString()))
+                                                { tmp_S = $"{dr["StationNO"].ToString()}工站,"; }
+                                                log = $"{tmp_S}實際CT遠離目標CT";
                                                 break;
-                                            default:
+                                            case "15"://報工作業有延遲
+                                                disLogType = "報工作業有延遲";
+                                                if (!dr.IsNull("StationNO") && !string.IsNullOrEmpty(dr["StationNO"].ToString()))
+                                                { tmp_S = $"{dr["StationNO"].ToString()}工站,"; }
+                                                log = $"{tmp_S}報工作業有延遲,會影響目標CT的正確性";
+                                                break;
+                                            case "17"://生產移轉量不合理
+                                                disLogType = "生產移轉量不合理";
+                                                if (!dr.IsNull("SimulationId") && !string.IsNullOrEmpty(dr["SimulationId"].ToString()))
+                                                { tmp_S = $"子排程編號:{dr["SimulationId"].ToString()},"; }
+                                                log = $"{tmp_S},料件數量移轉量不合理";
+                                                break;
+                                            case "18"://工站未如預期停工
+                                                disLogType = "工站未如預期停工";
+                                                if (!dr.IsNull("StationNO") && !string.IsNullOrEmpty(dr["StationNO"].ToString()))
+                                                { tmp_S = $"{dr["StationNO"].ToString()}工站,"; }
+                                                log = $"{tmp_S}應停工未停工";
+                                                break;
+                                            case "19"://計畫偏離需求日
+                                                disLogType = "計畫偏離需求日";
+                                                if (!dr.IsNull("NeedId") && !string.IsNullOrEmpty(dr["NeedId"].ToString()))
+                                                { tmp_S = $"排程編號:{dr["NeedId"].ToString()},"; }
+                                                log = $"{tmp_S}計畫已偏離需求日";
+                                                break;
+                                            case "21"://系統強制檢查合理性
+                                                disLogType = "系統強制檢查合理性";
+                                                if (!dr.IsNull("DOCNumberNO") && !string.IsNullOrEmpty(dr["DOCNumberNO"].ToString()))
+                                                { tmp_S = $"工單:{dr["DOCNumberNO"].ToString()} "; }
+                                                log = $"{tmp_S}關閉,準備強制檢查各站報工的合理性";
+                                                break;
+                                            case "22"://報工不合理
+                                                disLogType = "報工不合理";
+                                                if (!dr.IsNull("StationNO") && !string.IsNullOrEmpty(dr["StationNO"].ToString()))
+                                                { tmp_S = $"{dr["StationNO"].ToString()}工站,"; }
+                                                log = $"{tmp_S}疑似重複報工";
+                                                break;
+                                            case "23"://委外加工數量不合理
+                                                disLogType = "委外加工數量不合理";
+                                                if (!dr.IsNull("StationNO") && !string.IsNullOrEmpty(dr["StationNO"].ToString()))
+                                                { tmp_S = $"{dr["StationNO"].ToString()}工站,"; }
+                                                log = $"{tmp_S}疑似委外加工數量多出";
+                                                break;
+                                            case "24"://系統強制委外加工補作帳
+                                                disLogType = "系統強制委外加工補作帳";
+                                                log = $"工單關閉後才補開此委外加工單";
+                                                break;
+                                            case "25"://系統強制生產量補作帳
+                                                disLogType = "系統強制生產量補作帳";
+                                                if (!dr.IsNull("StationNO") && !string.IsNullOrEmpty(dr["StationNO"].ToString()))
+                                                { tmp_S = $"{dr["StationNO"].ToString()}工站,"; }
+                                                log = $"{tmp_S}系統干涉補報工數量";
+                                                break;
+                                            case "26"://領入庫單據時間晚於計畫逾7天
+                                                disLogType = "領入庫單據時間晚於計畫逾7天";
+                                                log = $"領入庫單據時間晚於計畫逾7天";
+                                                break;
+                                            case "27"://領入庫單據時間早於計畫逾7天
+                                                disLogType = "領入庫單據時間早於計畫逾7天";
+                                                log = $"領入庫單據時間早於計畫逾7天";
+                                                break;
+                                            case "28"://計畫日已過期,報工明顯不足
+                                                disLogType = "計畫日已過期,報工明顯不足";
+                                                log = $"計畫日已過期,報工明顯不足";
+                                                break;
+                                            case "29"://工站移轉或在制數量為負
+                                                disLogType = "工站移轉或在制數量為負";
+                                                log = $"工站移轉或在制數量為負";
+                                                break;
+                                            case "30"://報工時間遠超計畫工時
+                                                disLogType = "報工時間遠超計畫工時";
+                                                log = $"報工時間遠超計畫工時";
+                                                break;
+                                            case "31"://領料或入庫數量為負
+                                                disLogType = "領料或入庫數量為負";
+                                                log = $"領料或入庫數量為負";
+                                                break;
+                                            default://未知的錯誤
+                                                disLogType = "未知的錯誤";
                                                 log = "未知的錯誤";
                                                 break;
                                         }
-                                        tmp_dt.Rows.Add(dr["LogDate"].ToString(), IDName,  dr["DOCNumberNO"].ToString(),name, log);
+                                        tmp_dt.Rows.Add(dr["LogDate"].ToString(), disLogType, IDName, dr["DOCNumberNO"].ToString(), name, log);
                                     }
                                 }
                             }
@@ -699,7 +832,7 @@ namespace SoftNetWebII.Services
                                             _BBB = "無數據";
                                             #endregion
 
-                                            if (isFirst) { sql = $"SELECT top 6 * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where Holiday>='{sTime.ToString("yyyy/MM/dd")}' and ServerId='{_Fun.Config.ServerId}' and CalendarName='{dr["CalendarName"].ToString()}' order by CalendarName,Holiday"; }
+                                            if (isFirst) { sql = $"SELECT top 6 * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where Holiday>='{sTime.ToString("yyyy-MM-dd")}' and ServerId='{_Fun.Config.ServerId}' and CalendarName='{dr["CalendarName"].ToString()}' order by CalendarName,Holiday"; }
                                             else { sql = $"SELECT * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where Holiday>='{returnViewBag[0]}' and Holiday<='{returnViewBag[5]}' and ServerId='{_Fun.Config.ServerId}' and CalendarName='{dr["CalendarName"].ToString()}' order by CalendarName,Holiday"; }
                                             tmp_dt2 = db.DB_GetData(sql);
                                             if (tmp_dt2 != null && tmp_dt2.Rows.Count > 0)
@@ -708,7 +841,7 @@ namespace SoftNetWebII.Services
                                                 {
                                                     foreach (DataRow d in tmp_dt2.Rows)
                                                     {
-                                                        returnViewBag.Add(Convert.ToDateTime(d["Holiday"]).ToString("yyyy/MM/dd"));
+                                                        returnViewBag.Add(Convert.ToDateTime(d["Holiday"]).ToString("yyyy-MM-dd"));
                                                     }
                                                     if (returnViewBag.Count != 6) { return re; }
                                                     isFirst = false;
@@ -717,7 +850,7 @@ namespace SoftNetWebII.Services
                                                 {
                                                     DataRow dr_StandardTime = tmp_dt2.Rows[i];
                                                     logTime = Convert.ToDateTime(dr_StandardTime["Holiday"]);
-                                                    if (returnViewBag[i] != logTime.ToString("yyyy/MM/dd"))
+                                                    if (returnViewBag[i] != logTime.ToString("yyyy-MM-dd"))
                                                     { break; }
 
                                                     #region 取得每日最大負荷秒時數工作時間 standardTime
@@ -798,7 +931,7 @@ namespace SoftNetWebII.Services
 
                                                     #region 取得每日 實際工作時間 例: t(n)Time
                                                     //###??? 有跨日按start的問題, 智慧模式少IndexSN條件
-                                                    tmp_dt3 = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(100), LOGDateTime, 111)='{logTime.ToString("yyyy/MM/dd")}' order by LOGDateTime");
+                                                    tmp_dt3 = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(10), LOGDateTime, 111)='{logTime.ToString("yyyy-MM-dd")}' order by LOGDateTime");
                                                     if (tmp_dt3 != null && tmp_dt3.Rows.Count > 0)
                                                     {
                                                         bool run = true;
@@ -841,7 +974,7 @@ namespace SoftNetWebII.Services
 
                                                 #region 取得 生產能量=有效CT/實際CT  可提升率=最佳CT/實際CT
                                                 rmp_dr2 = db.DB_GetFirstDataByDataRow($@"select (sum(OKQTY*CycleTime)/sum(OKQTY)) as ACT,(sum(OKQTY*EfficientCycleTime)/sum(OKQTY)) as BCT,(sum(OKQTY*Custom_SD_LowerLimit)/sum(OKQTY)) as CCT from SoftNetLogDB.[dbo].[SFC_StationProjectDetail_Log] 
-                                                                        where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(100), LOGDateTime, 111)>='{returnViewBag[0]}' and CONVERT(varchar(100), LOGDateTime, 111)<='{returnViewBag[5]}' and CycleTime!=0 and EfficientCycleTime!=0 and Custom_SD_LowerLimit!=0 and (Custom_SD_LowerLimit*0.5)< CycleTime");
+                                                                        where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(10), LOGDateTime, 111)>='{returnViewBag[0]}' and CONVERT(varchar(10), LOGDateTime, 111)<='{returnViewBag[5]}' and CycleTime!=0 and EfficientCycleTime!=0 and Custom_SD_LowerLimit!=0 and (Custom_SD_LowerLimit*0.5)< CycleTime");
                                                 if (rmp_dr2 != null)
                                                 {
                                                     if (!rmp_dr2.IsNull("ACT") && !rmp_dr2.IsNull("BCT") && rmp_dr2["ACT"].ToString().Trim() != "" && rmp_dr2["BCT"].ToString().Trim() != "") { _AAA = $"{((float.Parse(rmp_dr2["BCT"].ToString()) / float.Parse(rmp_dr2["ACT"].ToString())) * 100).ToString("0.00")}%"; }
@@ -973,7 +1106,7 @@ namespace SoftNetWebII.Services
                                                 if (i <= 4)
                                                 {
                                                     #region 取得週標準工作時間 standardTime
-                                                    tmp_dt2 = db.DB_GetData($"SELECT  * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where Holiday>='{stime.ToString("yyyy/MM/dd")}' and Holiday<='{dtime.ToString("yyyy/MM/dd")}' and ServerId='{_Fun.Config.ServerId}' and CalendarName='{dr["CalendarName"].ToString()}' order by CalendarName,Holiday");
+                                                    tmp_dt2 = db.DB_GetData($"SELECT  * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where Holiday>='{stime.ToString("yyyy-MM-dd")}' and Holiday<='{dtime.ToString("yyyy-MM-dd")}' and ServerId='{_Fun.Config.ServerId}' and CalendarName='{dr["CalendarName"].ToString()}' order by CalendarName,Holiday");
                                                     if (tmp_dt2 != null && tmp_dt2.Rows.Count > 0)
                                                     {
                                                         foreach (DataRow dr_StandardTime in tmp_dt2.Rows)
@@ -1031,7 +1164,7 @@ namespace SoftNetWebII.Services
 
                                                     #region 取得週 實際工作時間 totTTime
                                                     //###??? 有跨日按start的問題
-                                                    tmp_dt3 = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(100), LOGDateTime, 111)>='{stime.ToString("yyyy/MM/dd")}' and CONVERT(varchar(100), LOGDateTime, 111)<='{dtime.ToString("yyyy/MM/dd")}' order by LOGDateTime");
+                                                    tmp_dt3 = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(10), LOGDateTime, 111)>='{stime.ToString("yyyy-MM-dd")}' and CONVERT(varchar(10), LOGDateTime, 111)<='{dtime.ToString("yyyy-MM-dd")}' order by LOGDateTime");
                                                     if (tmp_dt3 != null && tmp_dt3.Rows.Count > 0)
                                                     {
                                                         bool run = true;
@@ -1065,7 +1198,7 @@ namespace SoftNetWebII.Services
                                                 }
                                                 #region 取得週 aaa生產能量=有效CT/實際CT bbb可提升率=最佳CT/實際CT
                                                 rmp_dr2 = db.DB_GetFirstDataByDataRow($@"select (sum(OKQTY*CycleTime)/sum(OKQTY)) as ACT,(sum(OKQTY*EfficientCycleTime)/sum(OKQTY)) as BCT,(sum(OKQTY*Custom_SD_LowerLimit)/sum(OKQTY)) as CCT from SoftNetLogDB.[dbo].[SFC_StationProjectDetail_Log] 
-                                                                        where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(100), LOGDateTime, 111)>='{stime.ToString("yyyy/MM/dd")}' and CONVERT(varchar(100), LOGDateTime, 111)<='{dtime.ToString("yyyy/MM/dd")}' and CycleTime!=0 and EfficientCycleTime!=0 and Custom_SD_LowerLimit!=0 and (Custom_SD_LowerLimit*0.5)< CycleTime");
+                                                                        where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(10), LOGDateTime, 111)>='{stime.ToString("yyyy-MM-dd")}' and CONVERT(varchar(10), LOGDateTime, 111)<='{dtime.ToString("yyyy-MM-dd")}' and CycleTime!=0 and EfficientCycleTime!=0 and Custom_SD_LowerLimit!=0 and (Custom_SD_LowerLimit*0.5)< CycleTime");
                                                 if (rmp_dr2 != null)
                                                 {
                                                     if (!rmp_dr2.IsNull("ACT") && !rmp_dr2.IsNull("BCT")) { totAAA += (float.Parse(rmp_dr2["BCT"].ToString()) / float.Parse(rmp_dr2["ACT"].ToString())) * 100; }
@@ -1239,7 +1372,7 @@ namespace SoftNetWebII.Services
                                             _BBB = "無數據";
                                             #endregion
 
-                                            if (isFirst) { sql = $"SELECT top 6 * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where Holiday<='{sTime.ToString("yyyy/MM/dd")}' and ServerId='{_Fun.Config.ServerId}' and CalendarName='{dr["CalendarName"].ToString()}' order by CalendarName,Holiday desc"; }
+                                            if (isFirst) { sql = $"SELECT top 6 * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where Holiday<='{sTime.ToString("yyyy-MM-dd")}' and ServerId='{_Fun.Config.ServerId}' and CalendarName='{dr["CalendarName"].ToString()}' order by CalendarName,Holiday desc"; }
                                             else { sql = $"SELECT * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where Holiday>='{returnViewBag[5]}' and Holiday<='{returnViewBag[0]}' and ServerId='{_Fun.Config.ServerId}' and CalendarName='{dr["CalendarName"].ToString()}' order by CalendarName,Holiday desc"; }
                                             tmp_dt2 = db.DB_GetData(sql);
                                             if (tmp_dt2 != null && tmp_dt2.Rows.Count > 0)
@@ -1248,7 +1381,7 @@ namespace SoftNetWebII.Services
                                                 {
                                                     foreach (DataRow d in tmp_dt2.Rows)
                                                     {
-                                                        returnViewBag.Add(Convert.ToDateTime(d["Holiday"]).ToString("yyyy/MM/dd"));
+                                                        returnViewBag.Add(Convert.ToDateTime(d["Holiday"]).ToString("yyyy-MM-dd"));
                                                     }
                                                     if (returnViewBag.Count != 6) { return re; }
                                                     isFirst = false;
@@ -1257,7 +1390,7 @@ namespace SoftNetWebII.Services
                                                 {
                                                     DataRow dr_StandardTime = tmp_dt2.Rows[i];
                                                     logTime = Convert.ToDateTime(dr_StandardTime["Holiday"]);
-                                                    if (returnViewBag[i] != logTime.ToString("yyyy/MM/dd"))
+                                                    if (returnViewBag[i] != logTime.ToString("yyyy-MM-dd"))
                                                     {
                                                         break;
                                                     }
@@ -1342,15 +1475,77 @@ namespace SoftNetWebII.Services
 
                                                     #region 取得每日 實際工作時間 t(n))Time
                                                     Dictionary<DateTime, DateTime> woItemList = new Dictionary<DateTime, DateTime>();
-                                                    tmp_dt3 = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(100), LOGDateTime, 111)='{logTime.ToString("yyyy/MM/dd")}' and OperateType like '%開工%' order by LOGDateTime");
+                                                    // 效能優化：使用日期範圍查詢替代 CONVERT，避免無法使用索引
+                                                    DateTime logDateStart = new DateTime(logTime.Year, logTime.Month, logTime.Day, 0, 0, 0);
+                                                    DateTime logDateEnd = new DateTime(logTime.Year, logTime.Month, logTime.Day, 23, 59, 59, 999);
+                                                    tmp_dt3 = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and LOGDateTime >= '{logDateStart:yyyy-MM-dd HH:mm:ss.fff}' and LOGDateTime <= '{logDateEnd:yyyy-MM-dd HH:mm:ss.fff}' and OperateType like '%開工%' order by LOGDateTime");
                                                     if (tmp_dt3 != null && tmp_dt3.Rows.Count > 0)
                                                     {
+                                                        // 效能優化：批次載入所有停工記錄，避免 N+1 查詢
+                                                        var orderNOs = new HashSet<string>();
+                                                        var startTimes = new List<DateTime>();
+                                                        foreach (DataRow dr3 in tmp_dt3.Rows)
+                                                        {
+                                                            if (!dr3.IsNull("OrderNO"))
+                                                            {
+                                                                orderNOs.Add(dr3["OrderNO"].ToString());
+                                                            }
+                                                            if (!dr3.IsNull("LOGDateTime"))
+                                                            {
+                                                                startTimes.Add(Convert.ToDateTime(dr3["LOGDateTime"]));
+                                                            }
+                                                        }
+
+                                                        Dictionary<string, List<DataRow>> stopLogCache = new Dictionary<string, List<DataRow>>();
+                                                        if (orderNOs.Count > 0 && startTimes.Count > 0)
+                                                        {
+                                                            DateTime minStartTime = startTimes[0];
+                                                            foreach (DateTime time in startTimes)
+                                                            {
+                                                                if (time < minStartTime) { minStartTime = time; }
+                                                            }
+                                                            string orderNOsStr = string.Join("','", orderNOs);
+                                                            DataTable dt_StopLog = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and LOGDateTime >= '{minStartTime:yyyy-MM-dd HH:mm:ss.fff}' and OrderNO IN ('{orderNOsStr}') and OperateType like '%停工%' order by LOGDateTime");
+                                                            if (dt_StopLog != null)
+                                                            {
+                                                                foreach (DataRow row in dt_StopLog.Rows)
+                                                                {
+                                                                    if (!row.IsNull("OrderNO"))
+                                                                    {
+                                                                        string orderNO = row["OrderNO"].ToString();
+                                                                        if (!stopLogCache.ContainsKey(orderNO))
+                                                                        {
+                                                                            stopLogCache[orderNO] = new List<DataRow>();
+                                                                        }
+                                                                        stopLogCache[orderNO].Add(row);
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+
                                                         DataRow tmp = null;
                                                         bool is_back = false;
                                                         foreach (DataRow dr3 in tmp_dt3.Rows)
                                                         {
                                                             is_back = false;
-                                                            tmp = db.DB_GetFirstDataByDataRow($"select top 1 * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and LOGDateTime>='{Convert.ToDateTime(dr3["LOGDateTime"]).ToString("yyyy-MM-dd HH:mm:ss.fff")}' and OrderNO='{dr3["OrderNO"].ToString()}' and OperateType like '%停工%' order by LOGDateTime");
+                                                            // 使用快取的停工記錄
+                                                            string orderNO = dr3.IsNull("OrderNO") ? "" : dr3["OrderNO"].ToString();
+                                                            DateTime startTime = dr3.IsNull("LOGDateTime") ? DateTime.Now : Convert.ToDateTime(dr3["LOGDateTime"]);
+                                                            
+                                                            tmp = null;
+                                                            if (!string.IsNullOrEmpty(orderNO) && stopLogCache.TryGetValue(orderNO, out List<DataRow> stopLogs))
+                                                            {
+                                                                // 找到第一個在開工時間之後的停工記錄
+                                                                foreach (var stopLog in stopLogs)
+                                                                {
+                                                                    DateTime stopTime = Convert.ToDateTime(stopLog["LOGDateTime"]);
+                                                                    if (stopTime >= startTime)
+                                                                    {
+                                                                        tmp = stopLog;
+                                                                        break;
+                                                                    }
+                                                                }
+                                                            }
                                                             if (tmp != null)
                                                             {
                                                                 sTime = Convert.ToDateTime(dr3["LOGDateTime"]);//工單開始時間
@@ -1422,8 +1617,11 @@ namespace SoftNetWebII.Services
                                                     #endregion
 
                                                     #region 取得 生產能量AAA=有效CT/實際CT  可提升率BBB=最佳CT/實際CT
+                                                    // 效能優化：使用日期範圍查詢替代 CONVERT，避免無法使用索引
+                                                    DateTime startDateForQuery = DateTime.Parse(returnViewBag[5]);
+                                                    DateTime endDateForQuery = DateTime.Parse(returnViewBag[0]).AddDays(1).AddSeconds(-1);
                                                     rmp_dr2 = db.DB_GetFirstDataByDataRow($@"select (sum((EditFinishedQty+EditFailedQty)*CycleTime)/sum((EditFinishedQty+EditFailedQty))) as ACT,(sum((EditFinishedQty+EditFailedQty)*ECT)/sum((EditFinishedQty+EditFailedQty))) as BCT,(sum((EditFinishedQty+EditFailedQty)*LowerCT)/sum((EditFinishedQty+EditFailedQty))) as CCT from SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] 
-                                                                        where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(100), LOGDateTimeID, 111)>='{returnViewBag[5]}' and CONVERT(varchar(100), LOGDateTimeID, 111)<='{returnViewBag[0]}' and CycleTime!=0 and ECT!=0 and LowerCT!=0 and (LowerCT*0.5)< CycleTime");
+                                                                        where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and LOGDateTimeID >= '{startDateForQuery:yyyy-MM-dd 00:00:00}' and LOGDateTimeID <= '{endDateForQuery:yyyy-MM-dd 23:59:59}' and CycleTime!=0 and ECT!=0 and LowerCT!=0 and (LowerCT*0.5)< CycleTime");
                                                     if (rmp_dr2 != null)
                                                     {
                                                         if (!rmp_dr2.IsNull("ACT") && !rmp_dr2.IsNull("BCT") && rmp_dr2["ACT"].ToString().Trim() != "" && rmp_dr2["BCT"].ToString().Trim() != "") { _AAA = $"{((float.Parse(rmp_dr2["BCT"].ToString()) / float.Parse(rmp_dr2["ACT"].ToString())) * 100).ToString("0.00")}%"; }
@@ -1602,14 +1800,14 @@ namespace SoftNetWebII.Services
                                                 {
                                                     DataRow dr_lastTime = null;
                                                     #region 取得週標準工作時間 standardTime
-                                                    tmp_dt2 = db.DB_GetData($"SELECT  * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where Holiday>'{stime.ToString("yyyy/MM/dd")}' and Holiday<='{dtime.ToString("yyyy/MM/dd")}' and ServerId='{_Fun.Config.ServerId}' and CalendarName='{dr["CalendarName"].ToString()}' order by CalendarName,Holiday");
+                                                    tmp_dt2 = db.DB_GetData($"SELECT  * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where Holiday>'{stime.ToString("yyyy-MM-dd")}' and Holiday<='{dtime.ToString("yyyy-MM-dd")}' and ServerId='{_Fun.Config.ServerId}' and CalendarName='{dr["CalendarName"].ToString()}' order by CalendarName,Holiday");
                                                     if (tmp_dt2 != null && tmp_dt2.Rows.Count > 0)
                                                     {
                                                         dr_lastTime = tmp_dt2.Rows[(tmp_dt2.Rows.Count-1)];
                                                         foreach (DataRow dr_StandardTime in tmp_dt2.Rows)
                                                         {
                                                             logTime = Convert.ToDateTime(dr_StandardTime["Holiday"]);
-                                                            weekdateList.Add(logTime.ToString("yyyy/MM/dd"));
+                                                            weekdateList.Add(logTime.ToString("yyyy-MM-dd"));
 
                                                             if (bool.Parse(dr_StandardTime["Flag_Morning"].ToString()) == true)
                                                             {
@@ -1684,14 +1882,76 @@ namespace SoftNetWebII.Services
                                                     foreach (string s in weekdateList)
                                                     {
                                                         woItemList.Clear();
-                                                        tmp_dt3 = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(100), LOGDateTime, 111)='{s}' and OperateType like '%開工%' order by LOGDateTime");
+                                                        // 效能優化：使用日期範圍查詢替代 CONVERT，避免無法使用索引
+                                                        DateTime logDateStart = DateTime.Parse(s).Date;
+                                                        DateTime logDateEnd = logDateStart.AddDays(1).AddSeconds(-1);
+                                                        tmp_dt3 = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and LOGDateTime >= '{logDateStart:yyyy-MM-dd 00:00:00}' and LOGDateTime <= '{logDateEnd:yyyy-MM-dd 23:59:59}' and OperateType like '%開工%' order by LOGDateTime");
                                                         if (tmp_dt3 != null && tmp_dt3.Rows.Count > 0)
                                                         {
+                                                            // 效能優化：批次載入所有停工記錄，避免 N+1 查詢
+                                                            var orderNOs = new HashSet<string>();
+                                                            var startTimes = new List<DateTime>();
+                                                            foreach (DataRow dr3 in tmp_dt3.Rows)
+                                                            {
+                                                                if (!dr3.IsNull("OrderNO"))
+                                                                {
+                                                                    orderNOs.Add(dr3["OrderNO"].ToString());
+                                                                }
+                                                                if (!dr3.IsNull("LOGDateTime"))
+                                                                {
+                                                                    startTimes.Add(Convert.ToDateTime(dr3["LOGDateTime"]));
+                                                                }
+                                                            }
+
+                                                            Dictionary<string, List<DataRow>> stopLogCache = new Dictionary<string, List<DataRow>>();
+                                                            if (orderNOs.Count > 0 && startTimes.Count > 0)
+                                                            {
+                                                                DateTime minStartTime = startTimes[0];
+                                                                foreach (DateTime time in startTimes)
+                                                                {
+                                                                    if (time < minStartTime) { minStartTime = time; }
+                                                                }
+                                                                string orderNOsStr = string.Join("','", orderNOs);
+                                                                DataTable dt_StopLog = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and LOGDateTime >= '{minStartTime:yyyy-MM-dd HH:mm:ss.fff}' and OrderNO IN ('{orderNOsStr}') and OperateType like '%停工%' order by LOGDateTime");
+                                                                if (dt_StopLog != null)
+                                                                {
+                                                                    foreach (DataRow row in dt_StopLog.Rows)
+                                                                    {
+                                                                        if (!row.IsNull("OrderNO"))
+                                                                        {
+                                                                            string orderNO = row["OrderNO"].ToString();
+                                                                            if (!stopLogCache.ContainsKey(orderNO))
+                                                                            {
+                                                                                stopLogCache[orderNO] = new List<DataRow>();
+                                                                            }
+                                                                            stopLogCache[orderNO].Add(row);
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+
                                                             bool is_back = false;
                                                             foreach (DataRow dr3 in tmp_dt3.Rows)
                                                             {
                                                                 is_back = false;
-                                                                tmp3 = db.DB_GetFirstDataByDataRow($"select top 1 * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and LOGDateTime>='{Convert.ToDateTime(dr3["LOGDateTime"]).ToString("yyyy-MM-dd HH:mm:ss.fff")}' and OrderNO='{dr3["OrderNO"].ToString()}' and OperateType like '%停工%' order by LOGDateTime");
+                                                                // 使用快取的停工記錄
+                                                                string orderNO = dr3.IsNull("OrderNO") ? "" : dr3["OrderNO"].ToString();
+                                                                DateTime startTime = dr3.IsNull("LOGDateTime") ? DateTime.Now : Convert.ToDateTime(dr3["LOGDateTime"]);
+                                                                
+                                                                tmp3 = null;
+                                                                if (!string.IsNullOrEmpty(orderNO) && stopLogCache.TryGetValue(orderNO, out List<DataRow> stopLogs))
+                                                                {
+                                                                    // 找到第一個在開工時間之後的停工記錄
+                                                                    foreach (var stopLog in stopLogs)
+                                                                    {
+                                                                        DateTime stopTime = Convert.ToDateTime(stopLog["LOGDateTime"]);
+                                                                        if (stopTime >= startTime)
+                                                                        {
+                                                                            tmp3 = stopLog;
+                                                                            break;
+                                                                        }
+                                                                    }
+                                                                }
                                                                 if (tmp3 != null)
                                                                 {
                                                                     sTime = Convert.ToDateTime(dr3["LOGDateTime"]);//工單開始時間
@@ -1728,8 +1988,11 @@ namespace SoftNetWebII.Services
                                                 }
 
                                                 #region 取得週 aaa生產能量=有效CT/實際CT bbb可提升率=最佳CT/實際CT
+                                                // 效能優化：使用日期範圍查詢替代 CONVERT，避免無法使用索引
+                                                DateTime startDateForQuery = stime.Date;
+                                                DateTime endDateForQuery = dtime.Date.AddDays(1).AddSeconds(-1);
                                                 rmp_dr2 = db.DB_GetFirstDataByDataRow($@"select (sum((EditFinishedQty+EditFailedQty)*CycleTime)/sum((EditFinishedQty+EditFailedQty))) as ACT,(sum((EditFinishedQty+EditFailedQty)*ECT)/sum((EditFinishedQty+EditFailedQty))) as BCT,(sum((EditFinishedQty+EditFailedQty)*LowerCT)/sum((EditFinishedQty+EditFailedQty))) as CCT from SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] 
-                                                                        where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(100), LOGDateTimeID, 111)>='{stime.ToString("yyyy/MM/dd")}' and CONVERT(varchar(100), LOGDateTimeID, 111)<='{dtime.ToString("yyyy/MM/dd")}' and CycleTime!=0 and ECT!=0 and LowerCT!=0 and (LowerCT*0.5)< CycleTime");
+                                                                        where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and LOGDateTimeID >= '{startDateForQuery:yyyy-MM-dd 00:00:00}' and LOGDateTimeID <= '{endDateForQuery:yyyy-MM-dd 23:59:59}' and CycleTime!=0 and ECT!=0 and LowerCT!=0 and (LowerCT*0.5)< CycleTime");
                                                 if (rmp_dr2 != null)
                                                 {
                                                     if (!rmp_dr2.IsNull("ACT") && !rmp_dr2.IsNull("BCT")) { totAAA += (float.Parse(rmp_dr2["BCT"].ToString()) / float.Parse(rmp_dr2["ACT"].ToString())) * 100; }
@@ -1856,7 +2119,7 @@ namespace SoftNetWebII.Services
                                             totTTime2 = 0;
                                             okfailQTY = 0;
                                             #region 取得標準工作時間 standardTime
-                                            tmp_dt2 = db.DB_GetData($"SELECT  * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where Holiday>='{stime.ToString("yyyy/MM/dd")}' and Holiday<'{dtime.ToString("yyyy/MM/dd")}' and ServerId='{_Fun.Config.ServerId}' and CalendarName='{dr["CalendarName"].ToString()}' order by CalendarName,Holiday");
+                                            tmp_dt2 = db.DB_GetData($"SELECT  * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where Holiday>='{stime.ToString("yyyy-MM-dd")}' and Holiday<'{dtime.ToString("yyyy-MM-dd")}' and ServerId='{_Fun.Config.ServerId}' and CalendarName='{dr["CalendarName"].ToString()}' order by CalendarName,Holiday");
                                             if (tmp_dt2 != null && tmp_dt2.Rows.Count > 0)
                                             {
                                                 foreach (DataRow dr_StandardTime in tmp_dt2.Rows)
@@ -1910,7 +2173,7 @@ namespace SoftNetWebII.Services
 
                                                     #region 取得每日 實際工作時間 totTTime
                                                     woItemList.Clear();
-                                                    tmp_dt3 = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(100), LOGDateTime, 111)='{logTime.ToString("yyyy/MM/dd")}' and OperateType like '%開工%' order by LOGDateTime");
+                                                    tmp_dt3 = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(10), LOGDateTime, 111)='{logTime.ToString("yyyy-MM-dd")}' and OperateType like '%開工%' order by LOGDateTime");
                                                     if (tmp_dt3 != null && tmp_dt3.Rows.Count > 0)
                                                     {
                                                         bool is_back = false;
@@ -1944,7 +2207,7 @@ namespace SoftNetWebII.Services
                                                     #endregion
                                                 }
                                                 #region 取得 最大負荷總工時 totTTime2
-                                                rmp_dr2 = db.DB_GetFirstDataByDataRow($"select sum(Time_TOT) as Time_C from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(100), CalendarDate, 111)>='{stime.ToString("yyyy/MM/dd")}' and CONVERT(varchar(100), CalendarDate, 111)<'{dtime.ToString("yyyy/MM/dd")}'");
+                                                rmp_dr2 = db.DB_GetFirstDataByDataRow($"select sum(Time_TOT) as Time_C from SoftNetSYSDB.[dbo].[APS_WorkTimeNote] where StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(10), CalendarDate, 111)>='{stime.ToString("yyyy-MM-dd")}' and CONVERT(varchar(10), CalendarDate, 111)<'{dtime.ToString("yyyy-MM-dd")}'");
                                                 if (rmp_dr2 != null && !rmp_dr2.IsNull("Time_C") && rmp_dr2["Time_C"].ToString()!="")
                                                 {
                                                     totTTime2 = int.Parse(rmp_dr2["Time_C"].ToString());
@@ -1952,7 +2215,7 @@ namespace SoftNetWebII.Services
                                                 #endregion
 
                                                 #region 取得 okQTY, failQTY
-                                                rmp_dr2 = db.DB_GetFirstDataByDataRow($"select sum(ProductFinishedQty-ProductFailedQty) as OK1,sum(ProductFinishedQty) as OK2 from SoftNetLogDB.[dbo].[SFC_StationDetail] where StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(100), LOGDateTime, 111)>='{stime.ToString("yyyy/MM/dd")}' and CONVERT(varchar(100), LOGDateTime, 111)<'{dtime.ToString("yyyy/MM/dd")}'");
+                                                rmp_dr2 = db.DB_GetFirstDataByDataRow($"select sum(ProductFinishedQty-ProductFailedQty) as OK1,sum(ProductFinishedQty) as OK2 from SoftNetLogDB.[dbo].[SFC_StationDetail] where StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(10), LOGDateTime, 111)>='{stime.ToString("yyyy-MM-dd")}' and CONVERT(varchar(10), LOGDateTime, 111)<'{dtime.ToString("yyyy-MM-dd")}'");
                                                 if (rmp_dr2 != null && !rmp_dr2.IsNull("OK2") && int.Parse(rmp_dr2["OK2"].ToString())>0)
                                                 {
                                                     okfailQTY = int.Parse(rmp_dr2["OK1"].ToString()) / int.Parse(rmp_dr2["OK2"].ToString());
@@ -1961,7 +2224,7 @@ namespace SoftNetWebII.Services
 
                                                 #region 取得 生產能量公式=前30天有效總平均CT(排除乖離值)/前30天實際總平均CycleTime totAAA
                                                 rmp_dr2 = db.DB_GetFirstDataByDataRow($@"select (sum((EditFinishedQty+EditFailedQty)*CycleTime)/sum((EditFinishedQty+EditFailedQty))) as ACT,(sum((EditFinishedQty+EditFailedQty)*ECT)/sum((EditFinishedQty+EditFailedQty))) as BCT from SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] 
-                                                                        where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(100), LOGDateTimeID, 111)>='{stime.ToString("yyyy/MM/dd")}' and CONVERT(varchar(100), LOGDateTimeID, 111)<'{dtime.ToString("yyyy/MM/dd")}' and CycleTime!=0 and ECT!=0 and LowerCT!=0 and (LowerCT*0.5)< CycleTime");
+                                                                        where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(10), LOGDateTimeID, 111)>='{stime.ToString("yyyy-MM-dd")}' and CONVERT(varchar(10), LOGDateTimeID, 111)<'{dtime.ToString("yyyy-MM-dd")}' and CycleTime!=0 and ECT!=0 and LowerCT!=0 and (LowerCT*0.5)< CycleTime");
                                                 if (rmp_dr2 != null)
                                                 {
                                                     if (!rmp_dr2.IsNull("ACT") && !rmp_dr2.IsNull("BCT")) { totAAA += (float.Parse(rmp_dr2["BCT"].ToString()) / float.Parse(rmp_dr2["ACT"].ToString())) * 100; }
@@ -1988,19 +2251,6 @@ namespace SoftNetWebII.Services
                                         }
                                         
 
-                                        Random random = new Random();
-                                        float[] f = new float[10] { 95f, 93f, 91f, 90f, 89f, 87f, 85f, 83f, 81f, 78f };
-
-                                        //TOTGrowing = (int.Parse(random.Next().ToString().Substring(0, 4)) / 100).ToString();
-                                        //if (float.Parse(TOTGrowing) < 45) { TOTATime = (float.Parse(TOTGrowing) + 30).ToString(); }
-                                        TOTSIDTime = (f[int.Parse(random.Next().ToString().Substring(2, 1))] + int.Parse(random.Next().ToString().Substring(2, 1))).ToString();
-                                        if (float.Parse(TOTSIDTime) < 85) { TOTSIDTime = (float.Parse(TOTSIDTime) + 5).ToString(); }
-                                        TOTATime = (f[int.Parse(random.Next().ToString().Substring(2, 1))] + int.Parse(random.Next().ToString().Substring(2, 1))).ToString();
-                                        if (float.Parse(TOTATime) < 85) { TOTATime = (float.Parse(TOTATime) + 7).ToString(); }
-                                        TOTOkFail = (f[int.Parse(random.Next().ToString().Substring(2, 1))] + int.Parse(random.Next().ToString().Substring(2, 2))).ToString();
-                                        if (float.Parse(TOTOkFail) > 100) { TOTOkFail = "100"; }
-                                        else if (float.Parse(TOTOkFail) < 85) { TOTOkFail = (float.Parse(TOTOkFail) + 14).ToString(); }
-                                        if (float.Parse(TOTOkFail) < 85) { TOTOkFail = (float.Parse(TOTOkFail) + 10).ToString(); }
 
                                         //tmp = (float.Parse(TOTSIDTime) / 100);
                                         //tmp *= (float.Parse(TOTATime) / 100);
@@ -2063,7 +2313,10 @@ namespace SoftNetWebII.Services
                                     int iCount = -1;
                                     bool isDisplay = false;
                                     float tmp = 0;
-                                    rmp_dr2 = db.DB_GetFirstDataByDataRow($"SELECT count(*) as tot FROM SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] where ServerId='{_Fun.Config.ServerId}' and StationNO!='' and StationNO!='{_Fun.Config.OutPackStationName}' and LogDate>='{stime.ToString("yyyy/MM/dd")}'  and LogDate<='{dtime.ToString("yyyy/MM/dd")}'");
+                                    string data_tmp = "";
+                                    if (!_Fun.Config.DOCInvoice_Expiry_SendError)
+                                    { data_tmp = $" and ErrorType!='06' and ErrorType!='07' and ErrorType!='08' and ErrorType!='09' and ErrorType!='10'"; }
+                                    rmp_dr2 = db.DB_GetFirstDataByDataRow($"SELECT count(*) as tot FROM SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] where ServerId='{_Fun.Config.ServerId}' and StationNO!='' and StationNO!='{_Fun.Config.OutPackStationName}' and LogDate>='{stime.ToString("yyyy-MM-dd")}'  and LogDate<='{dtime.ToString("yyyy-MM-dd")}' {data_tmp}");
                                     if (rmp_dr2 != null && !rmp_dr2.IsNull("tot") && rmp_dr2["tot"].ToString() != "")
                                     { _c_tot = int.Parse(rmp_dr2["tot"].ToString()); }
                                     else { _c_tot = 0; }
@@ -2107,7 +2360,11 @@ namespace SoftNetWebII.Services
                                             #region 計算 異常比率
                                             if (_c_tot > 0)
                                             {
-                                                rmp_dr2 = db.DB_GetFirstDataByDataRow($"SELECT count(*) as tot FROM SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and LogDate>='{stime.ToString("yyyy/MM/dd")}'  and LogDate<='{dtime.ToString("yyyy/MM/dd")}'");
+                                                string data_tmp2 = "";
+                                                if (!_Fun.Config.DOCInvoice_Expiry_SendError)
+                                                { data_tmp2 = $" and ErrorType!='06' and ErrorType!='07' and ErrorType!='08' and ErrorType!='09' and ErrorType!='10'"; }
+
+                                                rmp_dr2 = db.DB_GetFirstDataByDataRow($"SELECT count(*) as tot FROM SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData] where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and LogDate>='{stime.ToString("yyyy-MM-dd")}'  and LogDate<='{dtime.ToString("yyyy-MM-dd")}' {data_tmp2}");
                                                 if (rmp_dr2 != null && !rmp_dr2.IsNull("tot") && rmp_dr2["tot"].ToString() != "")
                                                 {
                                                     _c = $"{((float.Parse(rmp_dr2["tot"].ToString()) / _c_tot)*100).ToString("0.00")}%";
@@ -2127,7 +2384,7 @@ namespace SoftNetWebII.Services
                                                 d_stime = d_dtime.AddDays(-6);
                                                 #region 取得週 aaa生產能量=有效CT/實際CT bbb可提升率=最佳CT/實際CT
                                                 rmp_dr2 = db.DB_GetFirstDataByDataRow($@"select (sum((EditFinishedQty+EditFailedQty)*CycleTime)/sum((EditFinishedQty+EditFailedQty))) as ACT,(sum((EditFinishedQty+EditFailedQty)*ECT)/sum((EditFinishedQty+EditFailedQty))) as BCT,(sum((EditFinishedQty+EditFailedQty)*LowerCT)/sum((EditFinishedQty+EditFailedQty))) as CCT from SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] 
-                                                                        where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(100), LOGDateTimeID, 111)>='{d_stime.ToString("yyyy/MM/dd")}' and CONVERT(varchar(100), LOGDateTimeID, 111)<='{d_dtime.ToString("yyyy/MM/dd")}' and CycleTime!=0 and ECT!=0 and LowerCT!=0 and (LowerCT*0.5)< CycleTime");
+                                                                        where ServerId='{_Fun.Config.ServerId}' and StationNO='{dr["StationNO"].ToString()}' and CONVERT(varchar(10), LOGDateTimeID, 111)>='{d_stime.ToString("yyyy-MM-dd")}' and CONVERT(varchar(10), LOGDateTimeID, 111)<='{d_dtime.ToString("yyyy-MM-dd")}' and CycleTime!=0 and ECT!=0 and LowerCT!=0 and (LowerCT*0.5)< CycleTime");
                                                 if (rmp_dr2 != null)
                                                 {
                                                     if (!rmp_dr2.IsNull("ACT") && !rmp_dr2.IsNull("CCT"))
@@ -2307,7 +2564,7 @@ namespace SoftNetWebII.Services
                                             _BBB = "無數據";
                                             #endregion
 
-                                            if (isFirst) { sql = $"SELECT top 30 * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where Holiday<='{sTime.ToString("yyyy/MM/dd")}' and ServerId='{_Fun.Config.ServerId}' and CalendarName='{_Fun.Config.DefaultCalendarName}' order by CalendarName,Holiday desc"; }
+                                            if (isFirst) { sql = $"SELECT top 30 * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where Holiday<='{sTime.ToString("yyyy-MM-dd")}' and ServerId='{_Fun.Config.ServerId}' and CalendarName='{_Fun.Config.DefaultCalendarName}' order by CalendarName,Holiday desc"; }
                                             else { sql = $"SELECT * FROM SoftNetSYSDB.[dbo].[PP_HolidayCalendar] where Holiday>='{returnViewBag[29]}' and Holiday<='{returnViewBag[0]}' and ServerId='{_Fun.Config.ServerId}' and CalendarName='{_Fun.Config.DefaultCalendarName}' order by CalendarName,Holiday desc"; }
                                             tmp_dt2 = db.DB_GetData(sql);
                                             if (tmp_dt2 != null && tmp_dt2.Rows.Count > 0)
@@ -2316,7 +2573,7 @@ namespace SoftNetWebII.Services
                                                 {
                                                     foreach (DataRow d in tmp_dt2.Rows)
                                                     {
-                                                        returnViewBag.Add(Convert.ToDateTime(d["Holiday"]).ToString("yyyy/MM/dd"));
+                                                        returnViewBag.Add(Convert.ToDateTime(d["Holiday"]).ToString("yyyy-MM-dd"));
                                                     }
                                                     isFirst = false;
                                                 }
@@ -2324,7 +2581,7 @@ namespace SoftNetWebII.Services
                                                 {
                                                     DataRow dr_StandardTime = tmp_dt2.Rows[i];
                                                     logTime = Convert.ToDateTime(dr_StandardTime["Holiday"]);
-                                                    if (returnViewBag[i] != logTime.ToString("yyyy/MM/dd"))
+                                                    if (returnViewBag[i] != logTime.ToString("yyyy-MM-dd"))
                                                     {
                                                         break;
                                                     }
@@ -2394,7 +2651,7 @@ namespace SoftNetWebII.Services
 
                                                     #region 取得每日 實際工作時間 t1Time
                                                     woItemList.Clear();
-                                                    tmp_dt3 = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and OP_NO like '%{dr["UserNO"].ToString()}%' and CONVERT(varchar(100), LOGDateTime, 111)='{Convert.ToDateTime(dr_StandardTime["Holiday"]).ToString("yyyy-MM-dd")}' and OperateType like '%開工%' order by LOGDateTime");
+                                                    tmp_dt3 = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and OP_NO like '%{dr["UserNO"].ToString()}%' and CONVERT(varchar(10), LOGDateTime, 111)='{Convert.ToDateTime(dr_StandardTime["Holiday"]).ToString("yyyy-MM-dd")}' and OperateType like '%開工%' order by LOGDateTime");
                                                     if (tmp_dt3 != null && tmp_dt3.Rows.Count > 0)
                                                     {
                                                         bool is_back = false;
@@ -2427,7 +2684,7 @@ namespace SoftNetWebII.Services
                                                         }
                                                     }
                                                     //###??? 有跨日按start的問題, 智慧模式少IndexSN條件
-                                                    tmp_dt3 = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and OP_NO like '{dr["UserNO"].ToString()}' and CONVERT(varchar(100), LOGDateTime, 111)='{logTime.ToString("yyyy/MM/dd")}' and (OperateType like '%開工%' or OperateType like '%停工%' or OperateType like '%關站%') order by LOGDateTime");
+                                                    tmp_dt3 = db.DB_GetData($"select * from SoftNetLogDB.[dbo].[OperateLog] where ServerId='{_Fun.Config.ServerId}' and OP_NO like '{dr["UserNO"].ToString()}' and CONVERT(varchar(10), LOGDateTime, 111)='{logTime.ToString("yyyy-MM-dd")}' and (OperateType like '%開工%' or OperateType like '%停工%' or OperateType like '%關站%') order by LOGDateTime");
                                                     if (tmp_dt3 != null && tmp_dt3.Rows.Count > 0)
                                                     {
                                                         char run = '0';
@@ -2499,7 +2756,7 @@ namespace SoftNetWebII.Services
 
                                                 #region 取得 生產能量=有效CT/實際CT  可提升率=最佳CT/實際CT
                                                 rmp_dr2 = db.DB_GetFirstDataByDataRow($@"select (sum((EditFinishedQty+EditFailedQty)*CycleTime)/sum((EditFinishedQty+EditFailedQty))) as ACT,(sum((EditFinishedQty+EditFailedQty)*ECT)/sum((EditFinishedQty+EditFailedQty))) as BCT,(sum((EditFinishedQty+EditFailedQty)*LowerCT)/sum((EditFinishedQty+EditFailedQty))) as CCT from SoftNetLogDB.[dbo].[SFC_StationDetail_ChangeLOG] 
-                                                                        where ServerId='{_Fun.Config.ServerId}' and OP_NO like '{dr["UserNO"].ToString()}' and CONVERT(varchar(100), LOGDateTimeID, 111)>='{returnViewBag[5]}' and CONVERT(varchar(100), LOGDateTimeID, 111)<='{returnViewBag[0]}' and CycleTime!=0 and ECT!=0 and LowerCT!=0 and (LowerCT*0.5)< CycleTime");
+                                                                        where ServerId='{_Fun.Config.ServerId}' and OP_NO like '{dr["UserNO"].ToString()}' and CONVERT(varchar(10), LOGDateTimeID, 111)>='{returnViewBag[5]}' and CONVERT(varchar(10), LOGDateTimeID, 111)<='{returnViewBag[0]}' and CycleTime!=0 and ECT!=0 and LowerCT!=0 and (LowerCT*0.5)< CycleTime");
                                                 if (rmp_dr2 != null)
                                                 {
                                                     if (!rmp_dr2.IsNull("ACT") && !rmp_dr2.IsNull("BCT") && rmp_dr2["ACT"].ToString().Trim() != "" && rmp_dr2["BCT"].ToString().Trim() != "") { _AAA = $"{((float.Parse(rmp_dr2["BCT"].ToString()) / float.Parse(rmp_dr2["ACT"].ToString())) * 100).ToString("0.00")}%"; }
@@ -2532,6 +2789,17 @@ namespace SoftNetWebII.Services
                 //                                    where a.ServerId='{_Fun.Config.ServerId}' and a.OP_NO=b.UserNO order by a.LOGDateTime,a.StationNO,a.Id,a.OP_NO");
                 if (tmp_dt != null && tmp_dt.Rows.Count > 0)
                 {
+                    if (dt.order != null && dt.order.Count > 0)
+                    {
+                        int sortColIdx = dt.order[0].column;
+                        if (sortColIdx >= 0 && sortColIdx < tmp_dt.Columns.Count)
+                        {
+                            string sortColName = tmp_dt.Columns[sortColIdx].ColumnName;
+                            string sortDir = dt.order[0].dir == OrderTypeEnum.Asc ? "ASC" : "DESC";
+                            tmp_dt.DefaultView.Sort = $"{sortColName} {sortDir}";
+                            tmp_dt = tmp_dt.DefaultView.ToTable();
+                        }
+                    }
                     DataRow dr2 = null;
                     re.rows = new JArray();
                     JObject row;

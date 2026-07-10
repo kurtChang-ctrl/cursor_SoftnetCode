@@ -18,19 +18,14 @@
             _leftmenu.onToggleMenu();
         }
 
-        // 用來顯示大圖片用
         var $showImage = $('#show-image');
-
-        // 當滑鼠移到 .abgne-block-20120106 中的某一個超連結時
-        $('.abgne-block-20120106 a').mouseover(function () {
+        $('.lw-esop-thumbs a').mouseover(function () {
             var $this = $(this),
                 _src = $this.attr('href');
-            // 如果現在大圖跟目前要顯示的圖不是同一張時
             if ($showImage.attr('src') != _src) {
                 $showImage.hide().attr('src', _src).stop(false, true).fadeTo(400, 1);
             }
         }).click(function () {
-            // 如果超連結被點擊時, 取消連結動作
             return false;
         });
     });
@@ -40,41 +35,52 @@
         STView2Work_PageReload: false,
         hasStaionChangQTY: false,
     };
-
-
-
 </script>
 
-@{
-    if (LW.BOOLonToggleMenu=="")
-    {
-        <p><a href="@Url.Action("Index", "LabelWork",new {id=$"{LW.Station};0;;0"})" class="ui-btn ui-icon-back ui-btn-icon-left">回到主選單畫面</a></p>
+<style>
+    .lw-card { border-radius: 12px; padding: 1rem; margin-bottom: .85rem; box-shadow: 0 2px 10px rgba(0,0,0,.05); border: 1px solid rgba(0,0,0,.06); }
+    .lw-card-info { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); }
+    .lw-card-esop { background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); }
+    .lw-btn-back { display: inline-flex; align-items: center; gap: .4rem; padding: .5rem 1rem; background: linear-gradient(135deg, #495057 0%, #343a40 100%); color: #fff; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: .88rem; transition: all .18s; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+    .lw-btn-back:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.2); color: #fff; }
+    .lw-btn-back::before { content: "\2190"; font-size: 1.1rem; }
+    .lw-error { background: #fff5f5; border: 1px solid #ffc9c9; border-radius: 8px; padding: .6rem .85rem; color: #c92a2a; font-weight: 600; margin-bottom: .6rem; }
+    .lw-info-line { font-size: .9rem; color: #495057; margin: .3rem 0; }
+    .lw-info-line strong { color: #1a1d21; }
+    .lw-esop-pdf { width: 100%; max-width: 720px; height: 480px; border: 2px solid #0ea5e9; border-radius: 8px; vertical-align: middle; margin-bottom: .5rem; }
+    .lw-esop-thumbs { margin-top: .5rem; display: flex; flex-wrap: wrap; gap: .5rem; }
+    .lw-esop-thumbs a img { width: 140px; height: 92px; border: 2px solid #0ea5e9; border-radius: 6px; vertical-align: middle; transition: border-color .18s, transform .18s; }
+    .lw-esop-thumbs a img:hover { border-color: #0284c7; transform: scale(1.05); }
+    .lw-esop-preview { width: 100%; max-width: 720px; border: 2px solid #0ea5e9; border-radius: 8px; margin-top: .5rem; }
+</style>
+
+<div class="lw-card lw-card-info">
+    @{
+        if (LW.BOOLonToggleMenu == "")
+        {
+            <a href="@Url.Action("Index", "LabelWork",new {id=$"{LW.Station};0;;0"})" class="lw-btn-back">回到主選單畫面</a>
+        }
+        else
+        {
+            <a href="@Url.Action("Index", "LabelWork",new {id=$"{LW.Station};0;;0;{LW.BOOLonToggleMenu}"})" class="lw-btn-back">回到主選單畫面</a>
+        }
     }
-    else
+    @if (LW != null)
     {
-        <p><a href="@Url.Action("Index", "LabelWork",new {id=$"{LW.Station};0;;0;{LW.BOOLonToggleMenu}"})" class="ui-btn ui-icon-back ui-btn-icon-left">回到主選單畫面</a></p>
+        <p class="lw-info-line" style="margin-top:.6rem;">工站編號: <strong>@LW.Station</strong></p>
+        <p class="lw-info-line">工單編號: <strong>@LW.OrderNO</strong></p>
     }
-}
-@if (@LW != null)
-{
-    <label>工站編號:</label><label> @LW.Station</label><br />
-    <label>工單編號:</label><label>@LW.OrderNO</label>
-}
-<dir>
     @if (err != "")
     {
-        <dir>
-            <p><font color="red" size="5">錯誤訊息:<strong>@err</strong></font></p>
-        </dir>
-        <hr />
+        <div class="lw-error">錯誤訊息: <strong>@err</strong></div>
     }
-</dir>
+</div>
 
-@if (@LW != null && LW.MES_String != "")
+@if (LW != null && LW.MES_String != "")
 {
-    <dir>
+    <div class="lw-card lw-card-esop">
         @Html.Raw(LW.MES_String)
-    </dir>
+    </div>
 }
 
 @{
@@ -82,17 +88,13 @@
     {
         string files = ViewBag.ESOP_PDF_Files;
         string[] fileList = files.Split(";");
-        string url = $"http://{_Fun.Config.LocalWebURL}/ESOP/{_Fun.Config.ServerId}/{fileList[0]}";
 
-        <div class="abgne-block-20120106">
-            @{
-                for (int i = 0; i < fileList.Length; i++)
-                {
-                    url = $"http://{_Fun.Config.LocalWebURL}/ESOP/{_Fun.Config.ServerId}/{fileList[i]}";
-                    <embed class="showbox" src="@url" type="application/pdf" />
-                }
+        <div class="lw-card lw-card-esop">
+            @for (int i = 0; i < fileList.Length; i++)
+            {
+                string url = $"http://{_Fun.Config.LocalWebURL}/ESOP/{_Fun.Config.ServerId}/{fileList[i]}";
+                <embed class="lw-esop-pdf" src="@url" type="application/pdf" />
             }
-
         </div>
     }
 }
@@ -103,46 +105,15 @@
         string[] fileList = files.Split(";");
         string url = $"http://{_Fun.Config.LocalWebURL}/ESOP/{_Fun.Config.ServerId}/{fileList[0]}";
 
-        <div class="abgne-block-20120106">
-            @{
-                for (int i = 0; i < fileList.Length; i++)
+        <div class="lw-card lw-card-esop">
+            <div class="lw-esop-thumbs">
+                @for (int i = 0; i < fileList.Length; i++)
                 {
                     url = $"http://{_Fun.Config.LocalWebURL}/ESOP/{_Fun.Config.ServerId}/{fileList[i]}";
-                    <a href="@url"><img src="@url" title="" /></a>
+                    <a href="@url"><img src="@url" /></a>
                 }
-            }
-
+            </div>
+            <img id="show-image" class="lw-esop-preview" src="@url" />
         </div>
-        <div class="showbox"><img id="show-image" src="@url" /></div>
-
     }
 }
-
-
-
-<style>
-    .showbox {
-        width: 700px;
-        height: 460px;
-        border: 2px solid #1dd;
-        vertical-align: middle;
-    }
-
-    .abgne-block-20120106 {
-        margin-top: 10px;
-        width: 680px;
-        overflow: hidden;
-    }
-
-        .abgne-block-20120106 a {
-            margin-right: 10px;
-        }
-
-            .abgne-block-20120106 a img {
-                width: 140px;
-                height: 92px;
-                border: 2px solid #1dd;
-                vertical-align: middle;
-            }
-
-</style>

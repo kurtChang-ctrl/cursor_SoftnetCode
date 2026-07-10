@@ -9,68 +9,68 @@
     else { err = "畫面逾時, 請重新刷條碼操作."; }
 }
 
-
 <script type="text/javascript">
     $(function () {
         $("title").text("@Html.Raw(disUserName)");
-        var is_DisplayeMenu = '@Html.Raw(Model.BOOLonToggleMenu)';
+        var is_DisplayeMenu = '@Html.Raw(LW.BOOLonToggleMenu)';
         if (is_DisplayeMenu == '') {
             _leftmenu.onToggleMenu();
         }
-        
     });
     var _me = {
         hasStaionStatus: false,
         hasSimulatioStatus: false,
         STView2Work_PageReload: false,
         hasStaionChangQTY: false,
-
     };
-
-
-
 </script>
 
+<style>
+    .lw-card { border-radius: 12px; padding: 1rem; margin-bottom: .85rem; box-shadow: 0 2px 10px rgba(0,0,0,.05); border: 1px solid rgba(0,0,0,.06); }
+    .lw-card-info { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); }
+    .lw-btn-back { display: inline-flex; align-items: center; gap: .4rem; padding: .5rem 1rem; background: linear-gradient(135deg, #495057 0%, #343a40 100%); color: #fff; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: .88rem; transition: all .18s; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+    .lw-btn-back:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.2); color: #fff; }
+    .lw-btn-back::before { content: "\2190"; font-size: 1.1rem; }
+    .lw-error { background: #fff5f5; border: 1px solid #ffc9c9; border-radius: 8px; padding: .6rem .85rem; color: #c92a2a; font-weight: 600; margin-bottom: .6rem; }
+    .lw-msg { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: .75rem 1rem; color: #166534; margin-bottom: .6rem; font-size: .9rem; }
+    .lw-info-line { font-size: .9rem; color: #495057; margin: .3rem 0; }
+    .lw-info-line strong { color: #1a1d21; }
+</style>
 
-
-@if (@LW != null)
-{
-    <p><label>操作員工:</label><label> @LW.OPNO</label>&nbsp;&nbsp;<label> @LW.OPNO_Name</label></p>
-    <p><label>工站編號:</label><label> @LW.Station</label></p>
-    <p><label>工單編號:</label><label>@LW.OrderNO</label></p>
-}
-<dir>
+<div class="lw-card lw-card-info">
+    @if (LW != null)
+    {
+        <p class="lw-info-line">操作員工: <strong>@LW.OPNO &nbsp; @LW.OPNO_Name</strong></p>
+        <p class="lw-info-line">工站編號: <strong>@LW.Station</strong></p>
+        <p class="lw-info-line">工單編號: <strong>@LW.OrderNO</strong></p>
+    }
     @if (err != "")
     {
-        <dir>
-            <p><font color="red" size="5">錯誤訊息:<strong>@err</strong></font></p>
-        </dir>
-        <hr />
+        <div class="lw-error">錯誤訊息: <strong>@err</strong></div>
     }
-</dir>
+</div>
 
-@if (@LW != null)
+@if (LW != null && LW.MES_String != "")
 {
-    <dir>
-        @Html.Raw(LW.MES_String)
-    </dir>
+    <div class="lw-msg">@Html.Raw(LW.MES_String)</div>
 }
+
 @{
     if (LW.State != "領料" || LW.State != "入料")
     {
         string arg5 = LW.BOOLonToggleMenu;
         if (arg5 != "") { arg5 = $";{arg5}"; }
-        if (LW.SimulationId!="")
+        if (LW.SimulationId != "")
         {
-            <p><a href="@Url.Action("Index", "LabelWork", new {id=$"{LW.Station};2;{LW.SimulationId};{LW.IndexSN}{arg5}"})" class="ui-btn ui-icon-back ui-btn-icon-left">回到主選單畫面</a></p>
+            <p><a href="@Url.Action("Index", "LabelWork", new {id=$"{LW.Station};2;{LW.SimulationId};{LW.IndexSN}{arg5}"})" class="lw-btn-back">回到主選單畫面</a></p>
         }
         else if (LW.OrderNO != "")
         {
-            <p><a href="@Url.Action("Index", "LabelWork",new {id=$"{LW.Station};1;{LW.OrderNO};{LW.IndexSN}{arg5}"})" class="ui-btn ui-icon-back ui-btn-icon-left">回到主選單畫面</a></p>
+            <p><a href="@Url.Action("Index", "LabelWork",new {id=$"{LW.Station};1;{LW.OrderNO};{LW.IndexSN}{arg5}"})" class="lw-btn-back">回到主選單畫面</a></p>
         }
         else
         {
-            <p><a href="@Url.Action("Index", "LabelWork",new {id=$"{LW.Station};0;;0{arg5}"})" class="ui-btn ui-icon-back ui-btn-icon-left">回到主選單畫面</a></p>
+            <p><a href="@Url.Action("Index", "LabelWork",new {id=$"{LW.Station};0;;0{arg5}"})" class="lw-btn-back">回到主選單畫面</a></p>
         }
     }
 }

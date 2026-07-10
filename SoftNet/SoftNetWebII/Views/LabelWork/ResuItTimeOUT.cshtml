@@ -5,16 +5,33 @@
 
 <script type="text/javascript">
     $(function () {
-        $("title").text("@Html.Raw(disUserName)");;
+        $("title").text("@Html.Raw(disUserName)");
     });
     var _me = {
         hasStaionStatus: false,
         hasSimulatioStatus: false,
         STView2Work_PageReload: false,
         hasStaionChangQTY: false,
-
-    }; //class
+    };
 </script>
-<dir>
-    <p><font color="red" size="6">錯誤訊息:<p><strong>@ViewBag.ERRMsg</strong></p></font></p>
-</dir>
+
+<style>
+    .lw-timeout-card {
+        border-radius: 12px;
+        padding: 2rem 1.5rem;
+        margin: 1rem 0;
+        background: linear-gradient(135deg, #fff5f5 0%, #fee2e2 100%);
+        border: 1px solid #fca5a5;
+        box-shadow: 0 4px 16px rgba(220,38,38,.1);
+        text-align: center;
+    }
+    .lw-timeout-icon { font-size: 3rem; margin-bottom: .5rem; }
+    .lw-timeout-msg { font-size: 1.2rem; font-weight: 700; color: #dc2626; }
+    .lw-timeout-detail { font-size: .9rem; color: #7f1d1d; margin-top: .5rem; }
+</style>
+
+<div class="lw-timeout-card">
+    <div class="lw-timeout-icon">&#9888;</div>
+    <div class="lw-timeout-msg">@ViewBag.ERRMsg</div>
+    <p class="lw-timeout-detail">請重新操作或刷新頁面</p>
+</div>
