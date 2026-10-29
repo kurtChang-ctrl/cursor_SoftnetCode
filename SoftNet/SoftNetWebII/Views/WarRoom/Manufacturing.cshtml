@@ -171,6 +171,16 @@
                                         }
 
                                         validWorkOrders.forEach(function (wo, index) {
+                                            // 多工單：每筆工單各自狀態（由 ManufactureII RemarkTimeS/E 推導）
+                                            var woStateIcon = stateIcon;
+                                            var woStateText = stateText;
+                                            switch (wo.State || station.State) {
+                                                case '1': woStateIcon = '🟢'; woStateText = '運行中'; break;
+                                                case '2': woStateIcon = '🔴'; woStateText = '停工'; break;
+                                                case '3': woStateIcon = '⏸️'; woStateText = '暫停'; break;
+                                                case '4': woStateIcon = '⚪'; woStateText = '閒置'; break;
+                                                default: woStateIcon = '⚪'; woStateText = '閒置'; break;
+                                            }
                                             html += '<tr>';
                                             if (index === 0) {
                                                 html += '<td rowspan="' + validWorkOrders.length + '">' + stationDisplay + '</td>';
@@ -180,7 +190,7 @@
                                             html += '<td>' + ((wo.IndexSN || '') + (wo.StationNO_Custom_DisplayName ? ' / ' + wo.StationNO_Custom_DisplayName : '')) + '</td>';
                                             html += '<td>' + (wo.PartNO || '') + '</td>';
                                             html += '<td>' + ((wo.PartName || '') + (wo.Specification ? ' / ' + wo.Specification : '')) + '</td>';
-                                            html += '<td>' + stateIcon + ' ' + stateText + '</td>';
+                                            html += '<td>' + woStateIcon + ' ' + woStateText + '</td>';
                                             html += '<td>' + (station.OP_NO || '') + '</td>';
                                             html += '<td' + getCTStyle(wo.AvarageCycleTime, wo.EfficientCycleTime) + '>' + formatCT(wo.AvarageCycleTime) + '</td>';
                                             html += '<td>' + formatCT(wo.EfficientCycleTime) + '</td>';

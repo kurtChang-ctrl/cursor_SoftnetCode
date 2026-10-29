@@ -696,49 +696,21 @@ namespace SoftNetWebII.Controllers
                                     #endregion
                                 }
                             }
-                            dt = db.DB_GetData($"SELECT * FROM SoftNetMainDB.[dbo].[ManufactureII] where SimulationId in ({sID})");
-                            if (dt != null && dt.Rows.Count > 0)
+                            // 刪除 APS_Simulation 對應的 ManufactureII，並通知 MUTIStation 重載
+                            if (sID != "")
                             {
-                                List<string> run_HasWeb_Id_Change = new List<string>();
-                                foreach (DataRow dr in dt.Rows)
+                                DeleteManufactureIIBySimulationIdsAndNotify(db, sID);
+                            }
+                            // 補刪 SimulationId 已與 APS 脫節、但仍掛在本需求工單上的 ManufactureII
+                            DeleteManufactureIIByNeedIdAndNotify(db, needId);
+                            if (all_WO.Count > 0)
+                            {
+                                foreach (string s in all_WO)
                                 {
-                                    if (db.DB_SetData($"DELETE FROM SoftNetMainDB.[dbo].[ManufactureII] where Id='{dr["Id"].ToString()}'"))
-                                    { run_HasWeb_Id_Change.Add(dr["StationNO"].ToString()); }
-                                }
-                                if (run_HasWeb_Id_Change.Count > 0)
-                                {
-                                    foreach (string sno in run_HasWeb_Id_Change)
-                                    {
-                                        #region 通知網頁更新
-                                        try
-                                        {
-                                            lock (_WebSocket.lock__WebSocketList)
-                                            {
-                                                foreach (KeyValuePair<string, rmsConectUserData> r in _WebSocket._WebSocketList)
-                                                {
-                                                    if (r.Key != null && r.Value.socket != null)
-                                                    {
-                                                        _WebSocket.Send(r.Value.socket, $"HasWeb_Id_Change,STView2Work_PageReload,{sno}");
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            System.Threading.Tasks.Task task = _Log.ErrorAsync($"APSViewController.cs 工站:{sno} 發HasWeb_Id_Changeg失敗 {ex.Message} {ex.StackTrace}", true);
-                                        }
-                                        #endregion
-                                    }
-                                }
-                                if (all_WO.Count > 0)
-                                {
-                                    foreach (string s in all_WO)
-                                    {
-                                        db.DB_SetData($"DELETE FROM SoftNetLogDB.[dbo].[OperateLog] where OrderNO='{s}'");
-                                        db.DB_SetData($"DELETE FROM SoftNetLogDB.[dbo].[SFC_StationDetail] where OrderNO='{s}'");
-                                        db.DB_SetData($"DELETE FROM SoftNetSYSDB.[dbo].[PP_WorkOrder] where OrderNO='{s}'");
-                                        db.DB_SetData($"DELETE FROM SoftNetSYSDB.[dbo].[PP_WorkOrder_Settlement] where OrderNO='{s}'");
-                                    }
+                                    db.DB_SetData($"DELETE FROM SoftNetLogDB.[dbo].[OperateLog] where OrderNO='{s}'");
+                                    db.DB_SetData($"DELETE FROM SoftNetLogDB.[dbo].[SFC_StationDetail] where OrderNO='{s}'");
+                                    db.DB_SetData($"DELETE FROM SoftNetSYSDB.[dbo].[PP_WorkOrder] where OrderNO='{s}'");
+                                    db.DB_SetData($"DELETE FROM SoftNetSYSDB.[dbo].[PP_WorkOrder_Settlement] where OrderNO='{s}'");
                                 }
                             }
                             #endregion
@@ -1628,6 +1600,64 @@ namespace SoftNetWebII.Controllers
         {
             if (!dataList.Contains($"{key},{meg}"))
             { dataList.Add($"{key},{meg}"); }
+        }
+
+        /// <summary>
+        /// 刪除 APS_Simulation 時：依 SimulationId 刪除 ManufactureII，並發送 HasWeb_Id_Change,STView2Work_PageReload 更新 MUTIStation。
+        /// </summary>
+        private void DeleteManufactureIIBySimulationIdsAndNotify(DBADO db, string simulationIdInList)
+        {
+            if (string.IsNullOrEmpty(simulationIdInList)) { return; }
+            DataTable dt = db.DB_GetData($"SELECT * FROM SoftNetMainDB.[dbo].[ManufactureII] where SimulationId in ({simulationIdInList})");
+            DeleteManufactureIIRowsAndNotify(db, dt);
+        }
+
+        /// <summary>
+        /// 依 NeedId 刪除仍掛在該需求工單上的 ManufactureII（含 SimulationId 已與 APS 脫節的孤兒），並通知畫面重載。
+        /// </summary>
+        private void DeleteManufactureIIByNeedIdAndNotify(DBADO db, string needId)
+        {
+            if (string.IsNullOrEmpty(needId)) { return; }
+            DataTable dt = db.DB_GetData($@"SELECT m.* FROM SoftNetMainDB.[dbo].[ManufactureII] m
+INNER JOIN SoftNetSYSDB.[dbo].[PP_WorkOrder] w ON m.OrderNO=w.OrderNO AND w.ServerId=m.ServerId
+WHERE w.NeedId='{needId}' AND m.ServerId='{_Fun.Config.ServerId}'");
+            DeleteManufactureIIRowsAndNotify(db, dt);
+        }
+
+        private void DeleteManufactureIIRowsAndNotify(DBADO db, DataTable dt)
+        {
+            if (dt == null || dt.Rows.Count == 0) { return; }
+            List<string> run_HasWeb_Id_Change = new List<string>();
+            foreach (DataRow dr in dt.Rows)
+            {
+                if (db.DB_SetData($"DELETE FROM SoftNetMainDB.[dbo].[ManufactureII] where Id='{dr["Id"].ToString()}'"))
+                {
+                    string sno = dr["StationNO"].ToString();
+                    if (!run_HasWeb_Id_Change.Contains(sno)) { run_HasWeb_Id_Change.Add(sno); }
+                }
+            }
+            foreach (string sno in run_HasWeb_Id_Change)
+            {
+                #region 通知網頁更新
+                try
+                {
+                    lock (_WebSocket.lock__WebSocketList)
+                    {
+                        foreach (KeyValuePair<string, rmsConectUserData> r in _WebSocket._WebSocketList)
+                        {
+                            if (r.Key != null && r.Value.socket != null)
+                            {
+                                _WebSocket.Send(r.Value.socket, $"HasWeb_Id_Change,STView2Work_PageReload,{sno}");
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Threading.Tasks.Task task = _Log.ErrorAsync($"APSViewController.cs 工站:{sno} 發HasWeb_Id_Change失敗 {ex.Message} {ex.StackTrace}", true);
+                }
+                #endregion
+            }
         }
 
 
@@ -2646,6 +2676,23 @@ namespace SoftNetWebII.Controllers
                                 else
                                 {
                                     sb_re.Append("</div></fieldset></div><br />\n");
+                                    // 刪 APS_Simulation 前：一併清除 ManufactureII 並通知多工站畫面
+                                    var sb_delSimId = new StringBuilder();
+                                    DataTable dt_delSim = db.DB_GetData($"SELECT SimulationId FROM SoftNetSYSDB.[dbo].[APS_Simulation] where NeedId='{dr0[2]}'");
+                                    if (dt_delSim != null && dt_delSim.Rows.Count > 0)
+                                    {
+                                        foreach (DataRow drSim in dt_delSim.Rows)
+                                        {
+                                            if (sb_delSimId.Length > 0) { sb_delSimId.Append(","); }
+                                            sb_delSimId.Append($"'{drSim["SimulationId"].ToString()}'");
+                                        }
+                                    }
+                                    string delSimIdList = sb_delSimId.ToString();
+                                    if (delSimIdList != "")
+                                    {
+                                        DeleteManufactureIIBySimulationIdsAndNotify(db, delSimIdList);
+                                    }
+                                    DeleteManufactureIIByNeedIdAndNotify(db, dr0[2]);
                                     db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_NeedData] SET State='9' where Id='{dr0[2]}'");
                                     db.DB_SetData($"DELETE FROM SoftNetSYSDB.[dbo].[APS_Simulation] where NeedId='{dr0[2]}'");
                                     db.DB_SetData($"DELETE FROM SoftNetMainDB.[dbo].[TotalStockII] where NeedId='{dr0[2]}'");

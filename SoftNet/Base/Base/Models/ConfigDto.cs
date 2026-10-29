@@ -79,10 +79,12 @@ namespace Base.Models
             AIReportDDay = DaysOfWeek.None;
             AIReportQuestion = "";
             SCM_IsEnabled = false;
+            RAG_IsEnabled = false;
             SCM_WorkingDoWhileTime = 30;
             SCM_MaxRetryCount = 3;
             SCM_MailSubjectPrefix = "[SoftNetSCM]";
             SCM_EnableSignature = false;
+            OrderNO_IsAutoClose = false;
             SCM_SignatureKey = "";
             SCM_DataExchange_Mail = "";
             SCM_LocalDecision_Mail = "";
@@ -180,6 +182,7 @@ namespace Base.Models
         public string AIReportQuestion { get; set; }
         /// <summary>是否啟用 SCM Mail 交換流程</summary>
         public bool SCM_IsEnabled { get; set; }
+        public bool RAG_IsEnabled { get; set; }
         /// <summary>SCM 輪巡週期（分鐘）</summary>
         public int SCM_WorkingDoWhileTime { get; set; }
         /// <summary>Outbox 寄送最大重試次數</summary>
@@ -188,6 +191,7 @@ namespace Base.Models
         public string SCM_MailSubjectPrefix { get; set; }
         /// <summary>是否啟用簽章驗證（預留）</summary>
         public bool SCM_EnableSignature { get; set; }
+        public bool OrderNO_IsAutoClose { get; set; }
         /// <summary>SCM 簽章密鑰（建議放 user-secrets）</summary>
         public string SCM_SignatureKey { get; set; }
         /// <summary>供應鏈交換共用信箱</summary>

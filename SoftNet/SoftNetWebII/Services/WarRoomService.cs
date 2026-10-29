@@ -26,6 +26,19 @@ namespace SoftNetWebII.Services
         #region 輔助方法
 
         /// <summary>
+        /// 多工單項目狀態：依 ManufactureII.RemarkTimeS/E（與 DisplayController 一致），
+        /// NeedState=P 時顯示暫停。回傳 1=運行中 2=停工 3=暫停 4=閒置。
+        /// </summary>
+        private static string DeriveManufactureIIState(DataRow r)
+        {
+            if (r == null) return "4";
+            if (!r.IsNull("NeedState") && r["NeedState"].ToString() == "P") return "3";
+            if (!r.IsNull("RemarkTimeS") && r.IsNull("RemarkTimeE")) return "1";
+            if (!r.IsNull("RemarkTimeE")) return "2";
+            return "4";
+        }
+
+        /// <summary>
         /// 取得工站的行事曆名稱（含預設值處理）
         /// </summary>
         private string GetStationCalendarName(DBADO db, string stationNO)
@@ -421,6 +434,7 @@ namespace SoftNetWebII.Services
                     }
 
                     // 查詢多工單（一個工站多筆工單）
+                    // 狀態不可用 Manufacture.State（多工單站常為殘留停工碼）；依 ManufactureII.RemarkTimeS/E 推導（同 DisplayController）
                     DataTable dtMulti = db.DB_GetData(
                         $@"SELECT 
                             mii.StationNO,
@@ -430,8 +444,10 @@ namespace SoftNetWebII.Services
                             mii.IndexSN,
                             mii.Station_Custom_IndexSN,
                             mii.StationNO_Custom_DisplayName,
+                            mii.RemarkTimeS,
+                            mii.RemarkTimeE,
                             m.OP_NO,
-                            m.State,
+                            nd.State as NeedState,
                             ps.StationName,
                             ps.FactoryName,
                             ps.LineName,
@@ -445,6 +461,8 @@ namespace SoftNetWebII.Services
                           JOIN SoftNetSYSDB.[dbo].[PP_Station] ps ON mii.StationNO = ps.StationNO
                           LEFT JOIN SoftNetMainDB.[dbo].[Manufacture] m ON mii.StationNO = m.StationNO AND m.ServerId = '{_Fun.Config.ServerId}' AND m.EndTime IS NULL
                           LEFT JOIN SoftNetMainDB.[dbo].[Material] mat ON mii.PartNO = mat.PartNO AND mii.ServerId = mat.ServerId
+                          LEFT JOIN SoftNetSYSDB.[dbo].[PP_WorkOrder] wo ON mii.OrderNO = wo.OrderNO AND mii.ServerId = wo.ServerId
+                          LEFT JOIN SoftNetSYSDB.[dbo].[APS_NeedData] nd ON wo.NeedId = nd.Id
                           LEFT JOIN SoftNetSYSDB.[dbo].[PP_WorkOrder_Settlement] s ON mii.StationNO = s.StationNO AND mii.OrderNO = s.OrderNO AND s.ServerId = '{_Fun.Config.ServerId}' AND (s.EndTime IS NULL OR s.EndTime = '')
                           LEFT JOIN (
                               SELECT StationNO, PP_Name, IndexSN, PartNO, AVG(EfficientCycleTime) as EfficientCycleTime
@@ -478,7 +496,33 @@ namespace SoftNetWebII.Services
                             }
 
                             var firstRow = group.First();
-                            var state = firstRow.IsNull("State") ? "4" : firstRow["State"].ToString();
+                            var workOrders = group.Select(r =>
+                            {
+                                string woState = DeriveManufactureIIState(r);
+                                return new
+                                {
+                                    OrderNO = r["OrderNO"].ToString(),
+                                    PartNO = r["PartNO"].ToString(),
+                                    PartName = r.IsNull("PartName") ? "" : r["PartName"].ToString(),
+                                    Specification = r.IsNull("Specification") ? "" : r["Specification"].ToString(),
+                                    PP_Name = r["PP_Name"].ToString(),
+                                    IndexSN = r["IndexSN"].ToString(),
+                                    Station_Custom_IndexSN = r.IsNull("Station_Custom_IndexSN") ? "" : r["Station_Custom_IndexSN"].ToString(),
+                                    StationNO_Custom_DisplayName = r.IsNull("StationNO_Custom_DisplayName") ? "" : r["StationNO_Custom_DisplayName"].ToString(),
+                                    State = woState,
+                                    EfficientCycleTime = r.IsNull("EfficientCycleTime") ? 0 : Convert.ToDecimal(r["EfficientCycleTime"]),
+                                    AvarageCycleTime = r.IsNull("AvarageCycleTime") ? 0 : Convert.ToDecimal(r["AvarageCycleTime"]),
+                                    TotalOutput = r.IsNull("TotalOutput") ? 0 : Convert.ToDecimal(r["TotalOutput"]),
+                                    TotalFail = r.IsNull("TotalFail") ? 0 : Convert.ToDecimal(r["TotalFail"]),
+                                    FailRate = r.IsNull("TotalOutput") || Convert.ToDecimal(r["TotalOutput"]) == 0 ? 0 : (Convert.ToDecimal(r["TotalFail"]) / Convert.ToDecimal(r["TotalOutput"]) * 100)
+                                };
+                            }).ToList();
+
+                            // 工站彙總狀態：優先顯示運行中，其次停工／暫停，否則閒置
+                            string stationState = "4";
+                            if (workOrders.Any(w => w.State == "1")) { stationState = "1"; }
+                            else if (workOrders.Any(w => w.State == "2")) { stationState = "2"; }
+                            else if (workOrders.Any(w => w.State == "3")) { stationState = "3"; }
 
                             stationList.Add(new
                             {
@@ -487,7 +531,7 @@ namespace SoftNetWebII.Services
                                 FactoryName = firstRow["FactoryName"].ToString(),
                                 LineName = firstRow["LineName"].ToString(),
                                 OrderNO = string.Join(", ", orders), // 並排顯示多個工單
-                                State = state,
+                                State = stationState,
                                 PartNO = firstRow["PartNO"].ToString(),
                                 PartName = firstRow.IsNull("PartName") ? "" : firstRow["PartName"].ToString(),
                                 Specification = firstRow.IsNull("Specification") ? "" : firstRow["Specification"].ToString(),
@@ -502,22 +546,7 @@ namespace SoftNetWebII.Services
                                 TotalFail = firstRow.IsNull("TotalFail") ? 0 : Convert.ToDecimal(firstRow["TotalFail"]),
                                 FailRate = firstRow.IsNull("TotalOutput") || Convert.ToDecimal(firstRow["TotalOutput"]) == 0 ? 0 : (Convert.ToDecimal(firstRow["TotalFail"]) / Convert.ToDecimal(firstRow["TotalOutput"]) * 100),
                                 IsMultiWO = true,
-                                WorkOrders = group.Select(r => new
-                                {
-                                    OrderNO = r["OrderNO"].ToString(),
-                                    PartNO = r["PartNO"].ToString(),
-                                    PartName = r.IsNull("PartName") ? "" : r["PartName"].ToString(),
-                                    Specification = r.IsNull("Specification") ? "" : r["Specification"].ToString(),
-                                    PP_Name = r["PP_Name"].ToString(),
-                                    IndexSN = r["IndexSN"].ToString(),
-                                    Station_Custom_IndexSN = r.IsNull("Station_Custom_IndexSN") ? "" : r["Station_Custom_IndexSN"].ToString(),
-                                    StationNO_Custom_DisplayName = r.IsNull("StationNO_Custom_DisplayName") ? "" : r["StationNO_Custom_DisplayName"].ToString(),
-                                    EfficientCycleTime = r.IsNull("EfficientCycleTime") ? 0 : Convert.ToDecimal(r["EfficientCycleTime"]),
-                                    AvarageCycleTime = r.IsNull("AvarageCycleTime") ? 0 : Convert.ToDecimal(r["AvarageCycleTime"]),
-                                    TotalOutput = r.IsNull("TotalOutput") ? 0 : Convert.ToDecimal(r["TotalOutput"]),
-                                    TotalFail = r.IsNull("TotalFail") ? 0 : Convert.ToDecimal(r["TotalFail"]),
-                                    FailRate = r.IsNull("TotalOutput") || Convert.ToDecimal(r["TotalOutput"]) == 0 ? 0 : (Convert.ToDecimal(r["TotalFail"]) / Convert.ToDecimal(r["TotalOutput"]) * 100)
-                                }).ToList()
+                                WorkOrders = workOrders
                             });
                         }
                     }

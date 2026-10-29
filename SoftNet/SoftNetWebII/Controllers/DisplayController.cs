@@ -883,161 +883,257 @@ namespace SoftNetWebII.Controllers
             ViewBag.HtmlOutput = sb.ToString();
             return View();
         }
-        public IActionResult ALLOperateLog()
+        private List<string[]> LoadOperateLogStationList(DBADO db)
+        {
+            var list = new List<string[]>();
+            DataTable dt = db.DB_GetData($"SELECT StationNO,StationName from SoftNetSYSDB.[dbo].[PP_Station] where ServerId='{_Fun.Config.ServerId}' order by StationNO");
+            if (dt != null)
+            {
+                foreach (DataRow dr in dt.Rows)
+                {
+                    if (!dr.IsNull("StationNO"))
+                    {
+                        list.Add(new string[] { dr["StationNO"].ToString(), dr.IsNull("StationName") ? "" : dr["StationName"].ToString() });
+                    }
+                }
+            }
+            return list;
+        }
+
+        private List<string[]> LoadOperateLogUserList(DBADO db)
+        {
+            var list = new List<string[]>();
+            DataTable dt = db.DB_GetData($"SELECT UserNO,Name from SoftNetMainDB.[dbo].[User] where ServerId='{_Fun.Config.ServerId}' order by UserNO");
+            if (dt != null)
+            {
+                foreach (DataRow dr in dt.Rows)
+                {
+                    if (!dr.IsNull("UserNO"))
+                    {
+                        list.Add(new string[] { dr["UserNO"].ToString(), dr.IsNull("Name") ? "" : dr["Name"].ToString() });
+                    }
+                }
+            }
+            return list;
+        }
+
+        private string BuildOperateLogWhereSql(APSViewData key)
+        {
+            string wheresql = "";
+            if (key.SelectFun3 != "ALL" && !string.IsNullOrEmpty(key.SelectFun3))
+            {
+                var stationList = new List<string>();
+                foreach (string s in key.SelectFun3.Split(';'))
+                {
+                    if (!string.IsNullOrEmpty(s)) { stationList.Add(s); }
+                }
+                if (stationList.Count > 0) { wheresql += $" and a.StationNO IN ('{string.Join("','", stationList)}')"; }
+            }
+            if (key.SelectFun4 != "ALL" && !string.IsNullOrEmpty(key.SelectFun4))
+            {
+                var userList = new List<string>();
+                foreach (string s in key.SelectFun4.Split(';'))
+                {
+                    if (!string.IsNullOrEmpty(s)) { userList.Add(s); }
+                }
+                if (userList.Count > 0) { wheresql += $" and a.OP_NO IN ('{string.Join("','", userList)}')"; }
+            }
+            if (!string.IsNullOrEmpty(key.MBOMId)) { wheresql += $" and a.NeedId like '%{key.MBOMId}%'"; }
+            if (!string.IsNullOrEmpty(key.SelectNeedId)) { wheresql += $" and a.OrderNO like '%{key.SelectNeedId}%'"; }
+            if (key.SelectFun5 != "ALL" && !string.IsNullOrEmpty(key.SelectFun5))
+            {
+                var operateList = new List<string>();
+                foreach (string s in key.SelectFun5.Split(';'))
+                {
+                    if (!string.IsNullOrEmpty(s)) { operateList.Add(s); }
+                }
+                if (operateList.Count > 0) { wheresql += $" and a.OperateType IN (N'{string.Join("',N'", operateList)}')"; }
+            }
+            return wheresql;
+        }
+
+        private string BuildALLOperateLogHtml(DBADO db, APSViewData key)
         {
             var sb = new StringBuilder();
+            string wheresql = BuildOperateLogWhereSql(key);
+
+            // 有輸入 計畫編號 或 工單編號 時，不以 LOGDateTime 作為查詢條件（全部日期都在範圍內）
+            bool hasKeyNO = !string.IsNullOrEmpty(key.MBOMId) || !string.IsNullOrEmpty(key.SelectNeedId);
+            string dateWhereSql = "";
+            if (!hasKeyNO)
+            {
+                string startDateStr = key.SelectFun1 + " 00:00:00.000";
+                string endDateStr = key.SelectFun2 + " 23:59:59.999";
+                dateWhereSql = $" and a.LOGDateTime>='{startDateStr}' and a.LOGDateTime<='{endDateStr}'";
+                sb.Append($"{key.SelectFun1} ~ {key.SelectFun2} 操作紀錄");
+            }
+            else
+            {
+                sb.Append("操作紀錄(依 計畫編號/工單編號 查詢, 不限日期)");
+            }
+            sb.Append("<table style='background-color:whitesmoke;border:1px solid black;width:100%' rules='all'>");
+            sb.Append("<tr><td>日期</td><td>排程編號</td><td>操作</td><td>工站</td><td>工單編號</td><td>料號/品名/規格</td><td>操作人員</td><td>備註</td></tr>");
+
+            DataTable dt = db.DB_GetData($@"SELECT b.PartName,b.Specification,a.* FROM SoftNetLogDB.[dbo].[OperateLog] as a
+                                            join SoftNetMainDB.[dbo].[Material] as b on b.PartNO=a.PartNO and b.ServerId='{_Fun.Config.ServerId}'
+                                            where a.ServerId='{_Fun.Config.ServerId}'{dateWhereSql} {wheresql} order by a.LOGDateTime desc,a.StationNO,a.OP_NO,a.PartNO");
+
+            if (dt == null || dt.Rows.Count == 0)
+            {
+                sb.Append("</table>");
+                return sb.ToString();
+            }
+
+            var stationNOs = new HashSet<string>();
+            var partNOs = new HashSet<string>();
+            var userNOs = new HashSet<string>();
+
+            foreach (DataRow dr in dt.Rows)
+            {
+                if (!dr.IsNull("StationNO")) { stationNOs.Add(dr["StationNO"].ToString()); }
+                if (!dr.IsNull("PartNO")) { partNOs.Add(dr["PartNO"].ToString()); }
+                if (!dr.IsNull("OP_NO") && dr["OP_NO"].ToString() != "" && !dr["OP_NO"].ToString().Contains(';'))
+                {
+                    userNOs.Add(dr["OP_NO"].ToString());
+                }
+            }
+
+            Dictionary<string, string> stationCache = new Dictionary<string, string>();
+            if (stationNOs.Count > 0)
+            {
+                string stationNOsStr = string.Join("','", stationNOs);
+                DataTable dt_Stations = db.DB_GetData($"SELECT StationNO,StationName from SoftNetSYSDB.[dbo].[PP_Station] where ServerId='{_Fun.Config.ServerId}' and StationNO IN ('{stationNOsStr}')");
+                if (dt_Stations != null)
+                {
+                    foreach (DataRow row in dt_Stations.Rows)
+                    {
+                        if (!row.IsNull("StationNO"))
+                        {
+                            string stationNO = row["StationNO"].ToString();
+                            string stationName = row.IsNull("StationName") ? "" : row["StationName"].ToString();
+                            stationCache[stationNO] = $"{stationNO}&nbsp;{stationName}";
+                        }
+                    }
+                }
+            }
+
+            Dictionary<string, string> materialCache = new Dictionary<string, string>();
+            if (partNOs.Count > 0)
+            {
+                string partNOsStr = string.Join("','", partNOs);
+                DataTable dt_Materials = db.DB_GetData($"SELECT PartNO,PartName,Specification from SoftNetMainDB.[dbo].[Material] where ServerId='{_Fun.Config.ServerId}' and PartNO IN ('{partNOsStr}')");
+                if (dt_Materials != null)
+                {
+                    foreach (DataRow row in dt_Materials.Rows)
+                    {
+                        if (!row.IsNull("PartNO"))
+                        {
+                            string partNO = row["PartNO"].ToString();
+                            string partName = row.IsNull("PartName") ? "" : row["PartName"].ToString();
+                            string specification = row.IsNull("Specification") ? "" : row["Specification"].ToString();
+                            materialCache[partNO] = $"{partNO}&nbsp;{partName}&nbsp;{specification}";
+                        }
+                    }
+                }
+            }
+
+            Dictionary<string, string> userCache = new Dictionary<string, string>();
+            if (userNOs.Count > 0)
+            {
+                string userNOsStr = string.Join("','", userNOs);
+                DataTable dt_Users = db.DB_GetData($"SELECT UserNO,Name from SoftNetMainDB.[dbo].[User] where ServerId='{_Fun.Config.ServerId}' and UserNO IN ('{userNOsStr}')");
+                if (dt_Users != null)
+                {
+                    foreach (DataRow row in dt_Users.Rows)
+                    {
+                        if (!row.IsNull("UserNO"))
+                        {
+                            string userNO = row["UserNO"].ToString();
+                            string userName = row.IsNull("Name") ? "" : row["Name"].ToString();
+                            userCache[userNO] = userName;
+                        }
+                    }
+                }
+            }
+
+            string rStationNO = "";
+            string rPartNO = "";
+            string rOP_NO = "";
+
+            foreach (DataRow dr in dt.Rows)
+            {
+                string stationNO = dr.IsNull("StationNO") ? "" : dr["StationNO"].ToString();
+                if (!string.IsNullOrEmpty(stationNO) && stationCache.TryGetValue(stationNO, out rStationNO)) { }
+                else { rStationNO = ""; }
+
+                string partNO = dr.IsNull("PartNO") ? "" : dr["PartNO"].ToString();
+                if (!string.IsNullOrEmpty(partNO))
+                {
+                    if (materialCache.TryGetValue(partNO, out rPartNO)) { }
+                    else
+                    {
+                        string partName = dr.IsNull("PartName") ? "" : dr["PartName"].ToString();
+                        string specification = dr.IsNull("Specification") ? "" : dr["Specification"].ToString();
+                        rPartNO = $"{partNO}&nbsp;{partName}&nbsp;{specification}";
+                    }
+                }
+                else { rPartNO = ""; }
+
+                if (!dr.IsNull("OP_NO") && dr["OP_NO"].ToString() != "")
+                {
+                    string opNo = dr["OP_NO"].ToString();
+                    if (opNo.Contains(';')) { rOP_NO = "多人報工"; }
+                    else
+                    {
+                        if (userCache.TryGetValue(opNo, out rOP_NO)) { }
+                        else { rOP_NO = ""; }
+                    }
+                }
+                else { rOP_NO = ""; }
+
+                string logDateTime = dr.IsNull("LOGDateTime") ? "" : Convert.ToDateTime(dr["LOGDateTime"]).ToString("yyyy-MM-dd HH:mm:ss");
+                string needId = dr.IsNull("NeedId") ? "" : dr["NeedId"].ToString();
+                string operateType = dr.IsNull("OperateType") ? "" : dr["OperateType"].ToString();
+                string orderNO = dr.IsNull("OrderNO") ? "" : dr["OrderNO"].ToString();
+                string remark = dr.IsNull("Remark") ? "" : dr["Remark"].ToString();
+
+                sb.Append($"<tr><td>{logDateTime}</td><td>{needId}</td><td>{operateType}</td><td>{rStationNO}</td><td>{orderNO}</td><td>{rPartNO}</td><td>{rOP_NO}</td><td>{remark}</td></tr>");
+            }
+            sb.Append("</table>");
+            return sb.ToString();
+        }
+
+        public IActionResult ALLOperateLog(APSViewData key)
+        {
+            DateTime now = DateTime.Now;
             using (DBADO db = new DBADO("1", _Fun.Config.Db))
             {
-                // 效能優化：預先計算時間，避免在 SQL 中重複計算
-                DateTime now = DateTime.Now;
-                DateTime startDate = now.AddDays(-14);
-                string startDateStr = startDate.ToString("yyyy-MM-dd HH:mm:ss.fff");
-                string endDateStr = now.ToString("yyyy-MM-dd HH:mm:ss.fff");
-
-                sb.Append("最近14天操作紀錄");
-                sb.Append("<table style='background-color:whitesmoke;border:1px solid black;width:100%' rules='all'>");
-                sb.Append("<tr><td>日期</td><td>操作</td><td>工站</td><td>工單編號</td><td>料號/品名/規格</td><td>操作人員</td><td>備註</td></tr>");
-
-                // 效能優化：一次載入所有需要的資料
-                DataTable dt = db.DB_GetData($@"SELECT b.PartName,b.Specification,a.* FROM SoftNetLogDB.[dbo].[OperateLog] as a
-                                            join SoftNetMainDB.[dbo].[Material] as b on b.PartNO=a.PartNO and b.ServerId='{_Fun.Config.ServerId}'
-                                            where a.ServerId='{_Fun.Config.ServerId}' and a.LOGDateTime>='{startDateStr}' and a.LOGDateTime<='{endDateStr}' order by a.LOGDateTime desc,a.StationNO,a.OP_NO,a.PartNO");
-
-                if (dt == null || dt.Rows.Count == 0)
+                if (key == null || string.IsNullOrEmpty(key.SelectFun1))
                 {
-                    sb.Append("</table>");
-                    ViewBag.HtmlOutput = sb.ToString();
-                    return View();
+                    key = new APSViewData();
+                    key.SelectFun1 = now.AddDays(-30).ToString("yyyy-MM-dd");
+                    key.SelectFun2 = now.ToString("yyyy-MM-dd");
+                    key.SelectFun3 = "ALL";
+                    key.SelectFun4 = "ALL";
+                    key.SelectFun5 = "ALL";
+                    key.MBOMId = "";
+                    key.SelectNeedId = "";
+                }
+                key.SelectFun6 = now.ToString("yyyy-MM-dd");
+                key.StationList = LoadOperateLogStationList(db);
+                key.UserList = LoadOperateLogUserList(db);
+
+                if (string.IsNullOrEmpty(key.MBOMId) && string.IsNullOrEmpty(key.SelectNeedId)
+                    && string.Compare(key.SelectFun1, key.SelectFun2, StringComparison.Ordinal) > 0)
+                {
+                    key.ERRMsg = "起始日期不可大於終止日期";
+                    ViewBag.HtmlOutput = "";
+                    return View(key);
                 }
 
-                // 效能優化：批次載入所有需要的工站、料號、使用者資料，避免在迴圈中重複查詢
-                var stationNOs = new HashSet<string>();
-                var partNOs = new HashSet<string>();
-                var userNOs = new HashSet<string>();
-
-                foreach (DataRow dr in dt.Rows)
-                {
-                    if (!dr.IsNull("StationNO")) { stationNOs.Add(dr["StationNO"].ToString()); }
-                    if (!dr.IsNull("PartNO")) { partNOs.Add(dr["PartNO"].ToString()); }
-                    if (!dr.IsNull("OP_NO") && dr["OP_NO"].ToString() != "" && !dr["OP_NO"].ToString().Contains(';'))
-                    {
-                        userNOs.Add(dr["OP_NO"].ToString());
-                    }
-                }
-
-                // 批次載入工站資料
-                Dictionary<string, string> stationCache = new Dictionary<string, string>();
-                if (stationNOs.Count > 0)
-                {
-                    string stationNOsStr = string.Join("','", stationNOs);
-                    DataTable dt_Stations = db.DB_GetData($"SELECT StationNO,StationName from SoftNetSYSDB.[dbo].[PP_Station] where ServerId='{_Fun.Config.ServerId}' and StationNO IN ('{stationNOsStr}')");
-                    if (dt_Stations != null)
-                    {
-                        foreach (DataRow row in dt_Stations.Rows)
-                        {
-                            if (!row.IsNull("StationNO"))
-                            {
-                                string stationNO = row["StationNO"].ToString();
-                                string stationName = row.IsNull("StationName") ? "" : row["StationName"].ToString();
-                                stationCache[stationNO] = $"{stationNO}&nbsp;{stationName}";
-                            }
-                        }
-                    }
-                }
-
-                // 批次載入料號資料（注意：SQL 查詢已經 JOIN 了 Material，但為了完整性仍建立快取）
-                Dictionary<string, string> materialCache = new Dictionary<string, string>();
-                if (partNOs.Count > 0)
-                {
-                    string partNOsStr = string.Join("','", partNOs);
-                    DataTable dt_Materials = db.DB_GetData($"SELECT PartNO,PartName,Specification from SoftNetMainDB.[dbo].[Material] where ServerId='{_Fun.Config.ServerId}' and PartNO IN ('{partNOsStr}')");
-                    if (dt_Materials != null)
-                    {
-                        foreach (DataRow row in dt_Materials.Rows)
-                        {
-                            if (!row.IsNull("PartNO"))
-                            {
-                                string partNO = row["PartNO"].ToString();
-                                string partName = row.IsNull("PartName") ? "" : row["PartName"].ToString();
-                                string specification = row.IsNull("Specification") ? "" : row["Specification"].ToString();
-                                materialCache[partNO] = $"{partNO}&nbsp;{partName}&nbsp;{specification}";
-                            }
-                        }
-                    }
-                }
-
-                // 批次載入使用者資料
-                Dictionary<string, string> userCache = new Dictionary<string, string>();
-                if (userNOs.Count > 0)
-                {
-                    string userNOsStr = string.Join("','", userNOs);
-                    DataTable dt_Users = db.DB_GetData($"SELECT UserNO,Name from SoftNetMainDB.[dbo].[User] where ServerId='{_Fun.Config.ServerId}' and UserNO IN ('{userNOsStr}')");
-                    if (dt_Users != null)
-                    {
-                        foreach (DataRow row in dt_Users.Rows)
-                        {
-                            if (!row.IsNull("UserNO"))
-                            {
-                                string userNO = row["UserNO"].ToString();
-                                string userName = row.IsNull("Name") ? "" : row["Name"].ToString();
-                                userCache[userNO] = userName;
-                            }
-                        }
-                    }
-                }
-
-                // 處理資料列
-                string rStationNO = "";
-                string rPartNO = "";
-                string rOP_NO = "";
-
-                foreach (DataRow dr in dt.Rows)
-                {
-                    // 使用快取的工站資料
-                    string stationNO = dr.IsNull("StationNO") ? "" : dr["StationNO"].ToString();
-                    if (!string.IsNullOrEmpty(stationNO) && stationCache.TryGetValue(stationNO, out rStationNO)) { }
-                    else { rStationNO = ""; }
-
-                    // 使用快取的料號資料（如果快取中沒有，則從 JOIN 的資料中取得）
-                    string partNO = dr.IsNull("PartNO") ? "" : dr["PartNO"].ToString();
-                    if (!string.IsNullOrEmpty(partNO))
-                    {
-                        if (materialCache.TryGetValue(partNO, out rPartNO)) { }
-                        else
-                        {
-                            // 如果快取中沒有，從 JOIN 的資料中組裝
-                            string partName = dr.IsNull("PartName") ? "" : dr["PartName"].ToString();
-                            string specification = dr.IsNull("Specification") ? "" : dr["Specification"].ToString();
-                            rPartNO = $"{partNO}&nbsp;{partName}&nbsp;{specification}";
-                        }
-                    }
-                    else { rPartNO = ""; }
-
-                    // 使用快取的使用者資料
-                    if (!dr.IsNull("OP_NO") && dr["OP_NO"].ToString() != "")
-                    {
-                        string opNo = dr["OP_NO"].ToString();
-                        if (opNo.Contains(';')) { rOP_NO = "多人報工"; }
-                        else
-                        {
-                            if (userCache.TryGetValue(opNo, out rOP_NO)) { }
-                            else { rOP_NO = ""; }
-                        }
-                    }
-                    else { rOP_NO = ""; }
-
-                    // 效能優化：預先轉換日期，避免重複轉換
-                    string logDateTime = dr.IsNull("LOGDateTime") ? "" : Convert.ToDateTime(dr["LOGDateTime"]).ToString("yyyy-MM-dd HH:mm:ss");
-                    string operateType = dr.IsNull("OperateType") ? "" : dr["OperateType"].ToString();
-                    string orderNO = dr.IsNull("OrderNO") ? "" : dr["OrderNO"].ToString();
-                    string remark = dr.IsNull("Remark") ? "" : dr["Remark"].ToString();
-
-                    sb.Append($"<tr><td>{logDateTime}</td><td>{operateType}</td><td>{rStationNO}</td><td>{orderNO}</td><td>{rPartNO}</td><td>{rOP_NO}</td><td>{remark}</td></tr>");
-                }
-                sb.Append("</table>");
+                ViewBag.HtmlOutput = BuildALLOperateLogHtml(db, key);
             }
-            ViewBag.HtmlOutput = sb.ToString();
-            return View();
+            return View(key);
         }
         public IActionResult ALLLabelLog(APSViewData key)
         {

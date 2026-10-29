@@ -51,6 +51,10 @@ namespace Base
         public string E_CT { get; set; } = "0";
         public string Station_Config_Store_Type { get; set; } = "1";
         public string BOOLonToggleMenu { get; set; } = "";
+        /// <summary>工站進入前異常檢查清單: [0]LogDate [1]DOCNumberNO [2]ErrorType [3]ErrorTypeName [4]ErrorRemark [5]SimulationId</summary>
+        public List<string[]> StationError_List { get; set; }
+        /// <summary>異常確認後繼續進入 Index 的 id 參數</summary>
+        public string StationErrorContinueId { get; set; } = "";
 
         public List<string[]> HasWO_List { get; set; }
         /// <summary>APS_NeedData.State='P'（暫停需求）之工單列，欄位索引與 HasWO_List 相同。</summary>
@@ -93,6 +97,8 @@ namespace Base
         public string ERRMsg { get; set; } = "";
         public string Select_ID { get; set; } = "";
         public List<string[]> StationNOList { get; set; }
+        /// <summary>工站進入前異常檢查清單: [0]LogDate [1]DOCNumberNO [2]ErrorType [3]ErrorTypeName [4]ErrorRemark [5]SimulationId</summary>
+        public List<string[]> StationError_List { get; set; }
         public bool OutError { get; set; } = false;
 
     }
@@ -407,7 +413,72 @@ namespace Base
             }
         }
 
-        public bool InsertSimulationError(DBADO db, string errorType,string actionType, string simulationId = null, string needId = null, string docNumberNo = null, string errorKey = null, string stationNo = null, string timeNType = null, int? count = null, string logDate = null)
+        /// <summary>
+        /// 取得工站待處理異常 (ActionType='' 且排除系統排程類 ErrorType).
+        /// 回傳 [0]LogDate [1]DOCNumberNO [2]ErrorType [3]ErrorTypeName [4]ErrorRemark [5]SimulationId
+        /// </summary>
+        public List<string[]> LoadStationPendingErrors(DBADO db, string stationNO)
+        {
+            var list = new List<string[]>();
+            if (string.IsNullOrWhiteSpace(stationNO)) { return list; }
+            string excludeTypes = "'00','01','02','03','04','05','06','07','08','09','10','19','24','25','26','27','33'";
+            DataTable dt = db.DB_GetData($@"SELECT LogDate, DOCNumberNO, ErrorType, ErrorRemark, SimulationId
+                                            FROM SoftNetSYSDB.[dbo].[APS_Simulation_ErrorData]
+                                            WHERE ServerId='{_Fun.Config.ServerId}'
+                                              AND StationNO='{stationNO}'
+                                              AND ActionType=''
+                                              AND ErrorType NOT IN ({excludeTypes})
+                                            ORDER BY LogDate DESC");
+            if (dt == null || dt.Rows.Count == 0) { return list; }
+            foreach (DataRow d in dt.Rows)
+            {
+                string errorType = d.IsNull("ErrorType") ? "" : d["ErrorType"].ToString().Trim();
+                string logDate = d.IsNull("LogDate") ? "" : Convert.ToDateTime(d["LogDate"]).ToString("yyyy-MM-dd HH:mm:ss");
+                string docNO = d.IsNull("DOCNumberNO") ? "" : d["DOCNumberNO"].ToString();
+                string remark = d.IsNull("ErrorRemark") ? "" : d["ErrorRemark"].ToString();
+                string simulationId = d.IsNull("SimulationId") ? "" : d["SimulationId"].ToString();
+                list.Add(new string[] { logDate, docNO, errorType, GetApsErrorTypeName(errorType), remark, simulationId });
+            }
+            return list;
+        }
+
+        /// <summary>APS_Simulation_ErrorData.ErrorType 對應中文（資料庫欄位說明書）</summary>
+        public string GetApsErrorTypeName(string errorType)
+        {
+            switch (errorType)
+            {
+                case "00": return "工單自動檢查數據";
+                case "01": return "生產排程計畫原物料保留量不足";
+                case "02": return "生產排程計畫自製件保留量不足";
+                case "03": return "工站沒如預期開工";
+                case "04": return "工站生產未領料";
+                case "05": return "生產無備料單據發起";
+                case "06": return "進貨單據未如預期完成";
+                case "07": return "銷貨單據未如預期完成";
+                case "08": return "存貨單據未如預期完成";
+                case "09": return "生產單據未如預期完成";
+                case "10": return "委外加工單據未如預期完成";
+                case "12": return "工單應關而未關";
+                case "14": return "工站CT偏離目標值";
+                case "15": return "人工報工延遲";
+                case "17": return "工站數量移轉量不合理";
+                case "19": return "生產排程計畫預計完成日期偏離";
+                case "22": return "重複報工";
+                case "23": return "委外加工單數量多下";
+                case "24": return "工單關閉後補單";
+                case "25": return "干涉自動補報工量";
+                case "26": return "領入庫單據時間晚於計畫逾7天";
+                case "27": return "領入庫單據時間早於計畫逾7天";
+                case "28": return "報工不足";
+                case "29": return "工站移轉或在制數量為負";
+                case "30": return "報工時間遠超計畫工時";
+                case "31": return "領料或入庫數量為負";
+                case "33": return "計畫久未執行";
+                default: return errorType;
+            }
+        }
+
+        public bool InsertSimulationError(DBADO db, string errorType,string actionType, string simulationId = null, string needId = null, string docNumberNo = null, string errorKey = null, string stationNo = null, string timeNType = null, int? count = null, string logDate = null, string errorRemark = null)
         {
             var parameters = new Dictionary<string, object>
             {
@@ -419,6 +490,7 @@ namespace Base
             };
             if (actionType == "0") { parameters["ActionLogDate"] = logDate ?? DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"); }
             if (!string.IsNullOrWhiteSpace(simulationId)) parameters["SimulationId"] = simulationId;
+            if (!string.IsNullOrWhiteSpace(errorRemark)) parameters["ErrorRemark"] = errorRemark;
             if (!string.IsNullOrWhiteSpace(needId)) parameters["NeedId"] = needId;
             if (!string.IsNullOrWhiteSpace(docNumberNo)) parameters["DOCNumberNO"] = docNumberNo;
             if (!string.IsNullOrWhiteSpace(errorKey)) parameters["ErrorKey"] = errorKey;
@@ -602,36 +674,63 @@ namespace Base
         public bool TryRejectResimulationForOpenManufactureII(DBADO db, string needId, char wType, ref string err)
             => TryPrepareManufactureIIBeforeResimulation(db, needId, wType, ref err);
 
-        /// <summary>依 OrderNO+StationNO+PartNO+IndexSN 將 ManufactureII.SimulationId 同步為現行 APS_Simulation。</summary>
+        /// <summary>
+        /// 【同步 ManufactureII.SimulationId】
+        /// 排程重算後 APS_Simulation 可能已刪舊建新（SimulationId 改變），
+        /// 本方法將該 NeedId 下「尚未關站」的 ManufactureII，依業務鍵對回現行 APS_Simulation 的 SimulationId。
+        /// 主要呼叫時機：TryPrepareManufactureIIBeforeResimulation、RunSetSimulation 成功後、RefreshRunSetSimulation 成功後、GetApsSimulationForManufactureII。
+        /// </summary>
+        /// <param name="db">DB 連線</param>
+        /// <param name="needId">APS_NeedData.Id（對應 PP_WorkOrder.NeedId）</param>
+        /// <returns>實際更新成功的 ManufactureII 筆數</returns>
+        /// <remarks>
+        /// 對應鍵：NeedId + Source_StationNO(工站) + PartNO + DOCNumberNO(工單=ManufactureII.OrderNO) + Source_StationNO_IndexSN(工序)。
+        /// 限制：若重算後工單號已變（例如 006→008），DOCNumberNO 對不上則查不到新 Sim，無法同步（會留下孤兒 SimulationId）。
+        /// </remarks>
         public int SyncManufactureIISimulationIdsForNeed(DBADO db, string needId)
         {
             if (string.IsNullOrWhiteSpace(needId)) return 0;
             int updated = 0;
             string safeNeedId = ApsSqlSafe(needId);
             string safeSid = ApsSqlSafe(_Fun.Config.ServerId);
+
+            // 只處理：此 NeedId 底下、尚未關站（EndTime IS NULL）的 ManufactureII
+            // 經 PP_WorkOrder 關聯 NeedId（ManufactureII 本身沒有 NeedId 欄位）
             DataTable dt = db.DB_GetData($@"SELECT m.* FROM SoftNetMainDB.[dbo].[ManufactureII] m
                 INNER JOIN SoftNetSYSDB.[dbo].[PP_WorkOrder] wo ON m.OrderNO=wo.OrderNO AND m.ServerId=wo.ServerId
                 WHERE wo.NeedId='{safeNeedId}' AND m.ServerId='{safeSid}' AND m.EndTime IS NULL");
             if (dt == null || dt.Rows.Count == 0) return 0;
+
             foreach (DataRow m in dt.Rows)
             {
                 string oldSim = m["SimulationId"]?.ToString() ?? "";
+
+                // 舊 SimulationId 仍存在於 APS_Simulation → 視為仍有效，不需同步
+                // （注意：重算前呼叫時舊 Sim 尚未刪除，此分支會全部 skip，真正有用的是重算「之後」再呼叫）
                 if (!string.IsNullOrWhiteSpace(oldSim) &&
                     db.DB_GetQueryCount($"SELECT SimulationId FROM SoftNetSYSDB.[dbo].[APS_Simulation] WHERE SimulationId='{ApsSqlSafe(oldSim)}'") > 0)
                 {
                     continue;
                 }
+
+                // 舊 Sim 空白或已失效 → 用業務鍵在現行 APS_Simulation 找對應列
                 string orderNO = ApsSqlSafe(m["OrderNO"].ToString());
                 string stationNO = ApsSqlSafe(m["StationNO"].ToString());
                 string partNO = ApsSqlSafe(m["PartNO"].ToString());
                 string indexSN = m["IndexSN"].ToString();
+                // 優先取尚未結案(IsOK='0')，否則取 SimulationDate 較新者
                 DataRow drSim = db.DB_GetFirstDataByDataRow($@"SELECT TOP 1 SimulationId FROM SoftNetSYSDB.[dbo].[APS_Simulation]
                     WHERE NeedId='{safeNeedId}' AND Source_StationNO='{stationNO}' AND PartNO='{partNO}'
                     AND DOCNumberNO='{orderNO}' AND Source_StationNO_IndexSN={indexSN} AND PartSN>=0
                     ORDER BY CASE WHEN IsOK='0' THEN 0 ELSE 1 END, SimulationDate DESC");
+
+                // 查無對應 → 無法修復此筆（常見原因：工單號已與 APS.DOCNumberNO 不一致）
                 if (drSim == null) continue;
+
                 string newSim = drSim["SimulationId"].ToString();
-                if (newSim == oldSim) continue;
+                if (newSim == oldSim) continue; // 理論上前面已跳過「舊 Sim 仍存在」，此為防衛
+
+                // 寫回 ManufactureII.SimulationId，並記 APS 事件 Log
                 if (db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[ManufactureII] SET SimulationId='{ApsSqlSafe(newSim)}' WHERE Id='{ApsSqlSafe(m["Id"].ToString())}'"))
                 {
                     updated++;
@@ -711,6 +810,53 @@ namespace Base
         {
             int qty = baseQTY - priorFailSum;
             return qty < 0 ? 0 : qty;
+        }
+
+        /// <summary>實體倉庫存（排除虛擬倉）：總庫存量與保留量。</summary>
+        private void GetPhysicalStockAvailable(DBADO db, string partNO, out int totalQTY, out int keepQTY)
+        {
+            totalQTY = 0;
+            keepQTY = 0;
+            if (string.IsNullOrWhiteSpace(partNO)) { return; }
+            string safePart = ApsSqlSafe(partNO);
+            DataRow d = db.DB_GetFirstDataByDataRow($@"
+                SELECT ISNULL(SUM(A.QTY), 0) AS mQTY, ISNULL(SUM(ISNULL(B.KeepQTY, 0) + ISNULL(B.OverQTY, 0)), 0) AS kQTY
+                FROM SoftNetMainDB.[dbo].[TotalStock] AS A
+                LEFT JOIN SoftNetMainDB.[dbo].[TotalStockII] AS B ON A.Id = B.Id
+                WHERE A.Class != '虛擬倉' AND A.ServerId = '{_Fun.Config.ServerId}' AND A.PartNO = '{safePart}'
+                GROUP BY A.PartNO");
+            if (d != null)
+            {
+                if (!d.IsNull("mQTY") && d["mQTY"].ToString() != "") { totalQTY = int.Parse(d["mQTY"].ToString()); }
+                if (!d.IsNull("kQTY") && d["kQTY"].ToString() != "") { keepQTY = int.Parse(d["kQTY"].ToString()); }
+            }
+        }
+
+        /// <summary>
+        /// 安全量補足量（每 Need、每 PartNO 僅分配一次）：max(0, 物料安全量 + 本行需求量 − 實體倉可用庫存)。
+        /// 可用庫存 = 實體倉總量 − 保留量；同一料號跨站不重複累加。
+        /// </summary>
+        private int AllocateSafeQTYSupplement(DBADO db, string partNO, int materialSafeQTY, int lineNeedQTY, Dictionary<string, int> allocationCache)
+        {
+            if (materialSafeQTY <= 0 || lineNeedQTY < 0) { return 0; }
+            string key = partNO ?? "";
+            if (allocationCache.TryGetValue(key, out int remaining))
+            {
+                allocationCache[key] = 0;
+                return remaining;
+            }
+            GetPhysicalStockAvailable(db, partNO, out int totalQTY, out int keepQTY);
+            int available = totalQTY - keepQTY;
+            remaining = materialSafeQTY + lineNeedQTY - available;
+            if (remaining < 0) { remaining = 0; }
+            allocationCache[key] = 0;
+            return remaining;
+        }
+
+        private int ResolveSafeQTYSupplement(RunSimulation_Arg args, DBADO db, char wType, string partNO, int materialSafeQTY, int lineNeedQTY, Dictionary<string, int> allocationCache)
+        {
+            if (wType == '5' || !args.ARGs[1]) { return 0; }
+            return AllocateSafeQTYSupplement(db, partNO, materialSafeQTY, lineNeedQTY, allocationCache);
         }
 
         /// <summary>依 Simulation 取得有效需求量（扣前序製程 Detail_Fail_QTY）。</summary>
@@ -1452,6 +1598,7 @@ namespace Base
                     string[] data = new string[7] { keys.Station, keys.OrderNO, keys.IndexSN, keys.OKQTY.ToString(), keys.FailQTY.ToString(), keys.OPNO, keys.LocalIPPort };
                     int outQTY = int.Parse(data[3]);//報工良品數量
                     int failQTY = int.Parse(data[4]);//報工不良品數量
+                    int reportQTY = outQTY + failQTY;//報工總產出(良品+不良), 原物料領料應含不良耗料
                     DataRow dr_Manufacture = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetMainDB.[dbo].[Manufacture] where ServerId='{_Fun.Config.ServerId}' and StationNO='{data[0]}'");
                     DataRow dr_APS_Simulation = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_Simulation] where SimulationId='{keys.SimulationId}'");
                     DataRow tmp_dr = null;
@@ -1482,13 +1629,13 @@ namespace Base
                         dr_Manufacture.EndEdit();
                     }
                     DataRow dr_WO = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[PP_WorkOrder] where ServerId='{_Fun.Config.ServerId}' and OrderNO='{data[1]}'");
-                    if (dr_WO == null) { keys.ERRMsg = $"查無 {data[0]} 工單資料紀錄, 請聯繫系統管理者."; return false; }
+                    if (dr_WO == null) { keys.ERRMsg = $"查無 {data[1]} 工單資料紀錄, 請聯繫系統管理者."; return false; }
                     sql = $"SELECT * FROM SoftNetSYSDB.[dbo].[PP_WorkOrder_Settlement] WHERE ServerId='{_Fun.Config.ServerId}' and OrderNO='{data[1]}' AND StationNO='{data[0]}' AND IndexSN={data[2]}";
                     DataRow dr = db.DB_GetFirstDataByDataRow(sql);
                     if (dr == null && dr_APS_Simulation != null)
                     {
                         string isend = dr_APS_Simulation["PartSN"].ToString().Trim() == "0" ? "1" : "0";
-                        string is_IndexSN_Merge = dr_APS_Simulation.IsNull("StationNO_Merge") ? "1" : "0";
+                        string is_IndexSN_Merge = dr_APS_Simulation.IsNull("StationNO_Merge") ? "0" : "1";
                         string sfc_sql = $@"INSERT INTO SoftNetSYSDB.[dbo].PP_WorkOrder_Settlement (
                                                                                     [OrderNO],[StationNO],[StationName],[PP_Name],[IndexSN],[DisplaySN],
                                                                                     [IsLastStation],[Sub_PP_Name],[StatndCycleTime],[UpdateTime],[IndexSN_Merge],
@@ -1815,7 +1962,6 @@ namespace Base
                             #endregion
                             Update_PP_WorkOrder_Settlement(db, data[1], keys.SimulationId);
                         }
-                        //###??? 不良數量尚未處裡
                         if (keys.SimulationId != "")
                         {
                             bool isNeedQTY_OK = false;//判斷本站數量已足夠
@@ -2380,7 +2526,7 @@ namespace Base
                                     {
                                         bool is_run = true;
                                         #region 原物料 扣庫存帳 TotalStock,TotalStockII
-                                        int tmp_int = (int.Parse(d["BOMQTY"].ToString()) * outQTY);
+                                        int tmp_int = (int.Parse(d["BOMQTY"].ToString()) * reportQTY);
                                         #region 先檢查是否已有單據, 且已移轉多少量
                                         int detailQTY = tmp_int;
                                         int stockQTY = 0;
@@ -2388,7 +2534,7 @@ namespace Base
                                         if (tmp != null)
                                         {
                                             docNumberNO = tmp["DOCNumberNO"].ToString();
-                                            detailQTY += (int.Parse(tmp["Detail_QTY"].ToString()) + int.Parse(tmp["Next_StationQTY"].ToString()) + int.Parse(tmp["Next_StoreQTY"].ToString()));
+                                            detailQTY += (int.Parse(tmp["Detail_QTY"].ToString()) + (tmp.IsNull("Detail_Fail_QTY") ? 0 : int.Parse(tmp["Detail_Fail_QTY"].ToString())) + int.Parse(tmp["Next_StationQTY"].ToString()) + int.Parse(tmp["Next_StoreQTY"].ToString()));
                                             tmp = db.DB_GetFirstDataByDataRow($"select sum(QTY) as qty from SoftNetMainDB.[dbo].[DOC3stockII] where SimulationId='{d["SimulationId"].ToString()}' and DOCNumberNO='{docNumberNO}'");
                                             if (tmp != null && !tmp.IsNull("qty"))
                                             {
@@ -2798,10 +2944,19 @@ namespace Base
                     if (dr_MII == null) { keys.ERRMsg = $"該項目已關閉生產, 無法報工."; return false; }
                     if (dr_MII.IsNull("StartTime") || dr_MII.IsNull("RemarkTimeS"))
                     {
+                        // 允許未開工直接報工時, 須回寫 DB, 不可只改記憶體 DataRow
                         DateTime nowTime = DateTime.Now;
-                        dr_MII["StartTime"] = nowTime;
-                        dr_MII["RemarkTimeS"] = nowTime;
-                        dr_MII["RemarkTimeE"] = nowTime;
+                        string nowStr = nowTime.ToString("yyyy-MM-dd HH:mm:ss.fff");
+                        string setSql = "";
+                        if (dr_MII.IsNull("StartTime")) { setSql += $",StartTime='{nowStr}'"; }
+                        if (dr_MII.IsNull("RemarkTimeS")) { setSql += $",RemarkTimeS='{nowStr}'"; }
+                        if (dr_MII.IsNull("RemarkTimeE")) { setSql += $",RemarkTimeE='{nowStr}'"; }
+                        if (setSql != "")
+                        {
+                            db.DB_SetData($"update SoftNetMainDB.[dbo].[ManufactureII] set {setSql.Substring(1)} where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and Id='{id}'");
+                            dr_MII = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetMainDB.[dbo].[ManufactureII] where ServerId='{_Fun.Config.ServerId}' and StationNO='{keys.StationNO}' and Id='{id}' and EndTime is NULL");
+                            if (dr_MII == null) { keys.ERRMsg = $"該項目已關閉生產, 無法報工."; return false; }
+                        }
                     }
 
                     keys.SI_SimulationId = dr_MII["SimulationId"].ToString();
@@ -2846,13 +3001,13 @@ namespace Base
 
                     #region 檢查網頁來源資料
                     dr_WO = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[PP_WorkOrder] where ServerId='{_Fun.Config.ServerId}' and OrderNO='{data[1]}'");
-                    if (dr_WO == null) { keys.ERRMsg = $"查無 {data[0]} 工單資料紀錄."; return false; }
+                    if (dr_WO == null) { keys.ERRMsg = $"查無 {data[1]} 工單資料紀錄."; return false; }
                     sql = $"SELECT * FROM SoftNetSYSDB.[dbo].[PP_WorkOrder_Settlement] WHERE ServerId='{_Fun.Config.ServerId}' and OrderNO='{data[1]}' AND StationNO='{data[0]}' AND IndexSN={data[2]}";
                     DataRow dr = db.DB_GetFirstDataByDataRow(sql);
                     if (dr == null && dr_APS_Simulation != null)
                     {
                         string isend = dr_APS_Simulation["PartSN"].ToString().Trim() == "0" ? "1" : "0";
-                        string is_IndexSN_Merge = dr_APS_Simulation.IsNull("StationNO_Merge") ? "1" : "0";
+                        string is_IndexSN_Merge = dr_APS_Simulation.IsNull("StationNO_Merge") ? "0" : "1";
                         string sfc_sql = $@"INSERT INTO SoftNetSYSDB.[dbo].PP_WorkOrder_Settlement (
                                                                                     [OrderNO],[StationNO],[StationName],[PP_Name],[IndexSN],[DisplaySN],
                                                                                     [IsLastStation],[Sub_PP_Name],[StatndCycleTime],[UpdateTime],[IndexSN_Merge],
@@ -2880,6 +3035,7 @@ namespace Base
 
                     int outQTY = keys.SI_OKQTY;
                     int failQTY = keys.SI_FailQTY;
+                    int reportQTY = outQTY + failQTY;//報工總產出(良品+不良), 原物料領料應含不良耗料
                     decimal ct = 0;
                     decimal ct_log = 0;
                     DateTime rRemarkTimeS = Convert.ToDateTime(dr_MII["RemarkTimeS"]);
@@ -2936,7 +3092,7 @@ namespace Base
                     string old_OutTime = "";
                     string old_ProductFinishedQty = "0";
                     string old_ProductFailedQty = "0";
-                    int OP_Count = data[5].Split(';').Count() + 1;
+                    int OP_Count = data[5].Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries).Length;
                     if (OP_Count <= 0) { OP_Count = 1; }
                     DataRow dr_StationDetail = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetLogDB.[dbo].[SFC_StationDetail] WHERE ServerId='{_Fun.Config.ServerId}' and OrderNO = '{data[1]}' AND StationNO = '{data[0]}' AND IndexSN={data[2]}");
                     if (dr_StationDetail == null)
@@ -3739,7 +3895,7 @@ namespace Base
                                     {
                                         bool is_run = true;
                                         #region 上一階是原物料 扣庫存帳 TotalStock,TotalStockII
-                                        int tmp_int = (int.Parse(d["BOMQTY"].ToString()) * outQTY);
+                                        int tmp_int = (int.Parse(d["BOMQTY"].ToString()) * reportQTY);
 
                                         #region 先檢查是否已有單據, 且已移轉多少量
                                         int detailQTY = tmp_int;
@@ -3748,7 +3904,7 @@ namespace Base
                                         if (tmp != null)
                                         {
                                             docNumberNO = tmp["DOCNumberNO"].ToString();
-                                            detailQTY += (int.Parse(tmp["Detail_QTY"].ToString()) + int.Parse(tmp["Next_StationQTY"].ToString()) - int.Parse(tmp["Next_StoreQTY"].ToString()));
+                                            detailQTY += (int.Parse(tmp["Detail_QTY"].ToString()) + (tmp.IsNull("Detail_Fail_QTY") ? 0 : int.Parse(tmp["Detail_Fail_QTY"].ToString())) + int.Parse(tmp["Next_StationQTY"].ToString()) - int.Parse(tmp["Next_StoreQTY"].ToString()));
                                             tmp = db.DB_GetFirstDataByDataRow($"select sum(QTY) as qty from SoftNetMainDB.[dbo].[DOC3stockII] where SimulationId='{d["SimulationId"].ToString()}' and DOCNumberNO='{docNumberNO}'");
                                             if (tmp != null && !tmp.IsNull("qty"))
                                             {
@@ -4289,6 +4445,39 @@ namespace Base
             return true;
         }
 
+        /// <summary>
+        /// 開單前覆核: 以「當下」庫存重新計算此模擬項可再保留的數量(模擬時的Math快照可能已過期),
+        /// 依 Store.Simulation_FirstNO 順序將可用量寫入 TotalStockII 保留, 並同步累加 APS_Simulation.Math_TotalStock_HasUseQTY.
+        /// 回傳本次追加保留的數量.
+        /// </summary>
+        public int ReKeepStockBeforeCreateDOC(DBADO db, string needId, string simulationId, string partNO, int wantQTY)
+        {
+            if (wantQTY <= 0 || string.IsNullOrEmpty(needId) || string.IsNullOrEmpty(simulationId) || string.IsNullOrEmpty(partNO)) { return 0; }
+            int keepTotal = 0;
+            DataTable dt_stock = db.DB_GetData($@"select a.Id,sum(a.QTY) as qty from SoftNetMainDB.[dbo].[TotalStock] as a
+                                                join SoftNetMainDB.[dbo].[Store] as b on a.StoreNO=b.StoreNO and b.ServerId='{_Fun.Config.ServerId}'
+                                                where a.Class!='虛擬倉' and a.ServerId='{_Fun.Config.ServerId}' and a.PartNO='{partNO}'
+                                                group by a.Id,b.Simulation_FirstNO order by b.Simulation_FirstNO");
+            if (dt_stock == null || dt_stock.Rows.Count == 0) { return 0; }
+            foreach (DataRow d in dt_stock.Rows)
+            {
+                int freeQTY = d.IsNull("qty") ? 0 : int.Parse(d["qty"].ToString());
+                if (freeQTY <= 0) { continue; }
+                DataRow dr_keep = db.DB_GetFirstDataByDataRow($"select sum(KeepQTY+OverQTY) as Kqty from SoftNetMainDB.[dbo].[TotalStockII] where Id='{d["Id"].ToString()}'");
+                if (dr_keep != null && !dr_keep.IsNull("Kqty") && dr_keep["Kqty"].ToString().Trim() != "") { freeQTY -= int.Parse(dr_keep["Kqty"].ToString()); }
+                if (freeQTY <= 0) { continue; }
+                int takeQTY = Math.Min(freeQTY, wantQTY - keepTotal);
+                if (db.DB_SetData($"INSERT INTO SoftNetMainDB.[dbo].[TotalStockII] (Id,NeedId,SimulationId,KeepQTY) VALUES ('{d["Id"].ToString()}','{needId}','{simulationId}',{takeQTY.ToString()})"))
+                { keepTotal += takeQTY; }
+                if (keepTotal >= wantQTY) { break; }
+            }
+            if (keepTotal > 0)
+            {
+                _ = db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_Simulation] set Math_TotalStock_HasUseQTY+={keepTotal.ToString()} where SimulationId='{simulationId}'");
+            }
+            return keepTotal;
+        }
+
         public bool Create_DOC1stock(DBADO db, DataRow d, string mfNO, float price, string in_StoreNO, string in_StoreSpacesNO, string docNO, int qty, string beforeDOCNumberNO, string beforeId, string remark, string startDate, string arrivalDate, string userID, ref string docNumberNO)
         {
             bool isrun = false;
@@ -4314,6 +4503,14 @@ namespace Base
             }
             #endregion
             if (docNumberNO != "" && docNO != docNumberNO.Substring(0, 4)) { docNumberNO = ""; }
+            #region 一張採購單一個供應商: 若沿用的單號其單頭供應商與本筆供應商不同, 強制另開新單
+            if (docNumberNO != "")
+            {
+                DataRow dr_MFCheck = db.DB_GetFirstDataByDataRow($"SELECT MFNO FROM SoftNetMainDB.[dbo].[DOC1Buy] where ServerId='{_Fun.Config.ServerId}' and DOCNumberNO='{docNumberNO}'");
+                string headMFNO = (dr_MFCheck == null || dr_MFCheck.IsNull("MFNO")) ? "" : dr_MFCheck["MFNO"].ToString().Trim();
+                if (dr_MFCheck == null || headMFNO != mfNO.Trim()) { docNumberNO = ""; }
+            }
+            #endregion
             string simulationID = d["SimulationId"].ToString().Trim();
             DataRow dr_DOCRole = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetMainDB.[dbo].[DOCRole] where DOCNO='{docNO}' and ServerId='{_Fun.Config.ServerId}'");
             if (dr_DOCRole == null) { return false; }
@@ -4381,7 +4578,7 @@ namespace Base
                         }
                         docNumberNO = $"{docNO}{date}{(++sno).ToString().PadLeft(4, '0')}";
 
-                        db.DB_SetData($"INSERT INTO [dbo].[DOC1Buy] (ServerId,[DOCNumberNO],[DOCNO],[DOCDate],[UserId],[DOCType],[SourceNO],[FlowLevel],[FlowStatus],[AIFalg]) VALUES ('{_Fun.Config.ServerId}','{docNumberNO}','{docNO}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}','{userID}','{docType}','{beforeDOCNumberNO}',0,'Y','0')");
+                        db.DB_SetData($"INSERT INTO [dbo].[DOC1Buy] (ServerId,[DOCNumberNO],[DOCNO],[DOCDate],[UserId],[DOCType],[SourceNO],[FlowLevel],[FlowStatus],[AIFalg],MFNO) VALUES ('{_Fun.Config.ServerId}','{docNumberNO}','{docNO}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}','{userID}','{docType}','{beforeDOCNumberNO}',0,'Y','0','{mfNO}')");
                     }
                 }
 
@@ -4454,6 +4651,14 @@ namespace Base
             }
             #endregion
             if (docNumberNO != "" && docNO != docNumberNO.Substring(0, 4)) { docNumberNO = ""; }
+            #region 一張委外加工單一個供應商: 若沿用的單號其單頭供應商與本筆供應商不同, 強制另開新單
+            if (docNumberNO != "")
+            {
+                DataRow dr_MFCheck = db.DB_GetFirstDataByDataRow($"SELECT MFNO FROM SoftNetMainDB.[dbo].[DOC4Production] where ServerId='{_Fun.Config.ServerId}' and DOCNumberNO='{docNumberNO}'");
+                string headMFNO = (dr_MFCheck == null || dr_MFCheck.IsNull("MFNO")) ? "" : dr_MFCheck["MFNO"].ToString().Trim();
+                if (dr_MFCheck == null || headMFNO != mfNO.Trim()) { docNumberNO = ""; }
+            }
+            #endregion
             string simulationID = d["SimulationId"].ToString().Trim();
             DataRow dr_DOCRole = db.DB_GetFirstDataByDataRow($"SELECT * FROM SoftNetMainDB.[dbo].[DOCRole] where DOCNO='{docNO}' and ServerId='{_Fun.Config.ServerId}'");
             if (dr_DOCRole == null) { return false; }
@@ -4521,7 +4726,7 @@ namespace Base
                         }
                         docNumberNO = $"{docNO}{date}{(++sno).ToString().PadLeft(4, '0')}";
 
-                        db.DB_SetData($"INSERT INTO [dbo].[DOC4Production] (ServerId,[DOCNumberNO],[DOCNO],[DOCDate],[UserId],[DOCType],[SourceNO],[FlowLevel],[FlowStatus],[AIFalg]) VALUES ('{_Fun.Config.ServerId}','{docNumberNO}','{docNO}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}','{userID}','{docType}','{beforeDOCNumberNO}',0,'Y','0')");
+                        db.DB_SetData($"INSERT INTO [dbo].[DOC4Production] (ServerId,[DOCNumberNO],[DOCNO],[DOCDate],[UserId],[DOCType],[SourceNO],[FlowLevel],[FlowStatus],[AIFalg],MFNO) VALUES ('{_Fun.Config.ServerId}','{docNumberNO}','{docNO}','{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}','{userID}','{docType}','{beforeDOCNumberNO}',0,'Y','0','{mfNO}')");
                     }
                 }
                 //有單據
@@ -5509,7 +5714,7 @@ namespace Base
         {
             string mbomId = "";
             //changeBOM不等於空白時,要變更製程
-            DataRow dr_M = db.DB_GetFirstDataByDataRow($"SELECT a.*,b.Class,b.PartType,b.StoreSTime from SoftNetSYSDB.[dbo].[APS_NeedData] as a,SoftNetMainDB.[dbo].[Material] as b where a.ServerId='{_Fun.Config.ServerId}' and b.ServerId='{_Fun.Config.ServerId}' and a.Id='{needId}' and a.PartNO=b.PartNO");
+            DataRow dr_M = db.DB_GetFirstDataByDataRow($"SELECT a.*,b.Class,b.PartType,b.StoreSTime,b.SafeQTY from SoftNetSYSDB.[dbo].[APS_NeedData] as a,SoftNetMainDB.[dbo].[Material] as b where a.ServerId='{_Fun.Config.ServerId}' and b.ServerId='{_Fun.Config.ServerId}' and a.Id='{needId}' and a.PartNO=b.PartNO");
             string sql = "";
             int safeQTY = 0;
             #region 需求量+-調整量 = 主體計算量 
@@ -5537,6 +5742,17 @@ namespace Base
                     bool isClass45 = false;
                     DataTable dt_S_Merge = null;
                     string apply_StationNO = dr["Apply_StationNO"].ToString();
+                    var safeSupplementByPart = new Dictionary<string, int>();
+                    // 成品安全量必須寫在 PartSN=0（最後完工入庫主檔），避免落在中間製程站別。
+                    if (wType != '5')
+                    {
+                        int masterSafeQTY = 0;
+                        if (!dr_M.IsNull("SafeQTY") && dr_M["SafeQTY"].ToString() != "")
+                        { masterSafeQTY = int.Parse(dr_M["SafeQTY"].ToString()); }
+                        safeQTY = ResolveSafeQTYSupplement(args, db, wType, dr_M["PartNO"].ToString(), masterSafeQTY, need_QTY, safeSupplementByPart);
+                    }
+                    // 前段領料與製程展開，需使用「需求量 + 安全量補足」。
+                    int plannedNeedQTY = need_QTY + safeQTY;
                     foreach (DataRow dr0 in dt_BOMII.Rows)
                     {
                         isClass45 = false;
@@ -5571,31 +5787,7 @@ namespace Base
                             #endregion
 
                             #region 安全量補足計算
-                            if (wType != '5')
-                            {
-                                if (args.ARGs[1] && int.Parse(dr0["SafeQTY"].ToString()) > 0)
-                                {
-                                    safeQTY = int.Parse(dr0["SafeQTY"].ToString());
-                                    int mQTY = 0;
-                                    int kQTY = 0;
-                                    int sQTY = 0;
-                                    sql = @$"select sum(A.QTY) as mQTY,sum(B.KeepQTY+B.OverQTY) as kQTY from SoftNetMainDB.[dbo].[TotalStock] as A 
-                                            join SoftNetMainDB.[dbo].[TotalStockII] as B on A.Id=B.Id and (B.KeepQTY!=0 or B.OverQTY!=0)
-                                            where A.Class!='虛擬倉' and A.ServerId='{_Fun.Config.ServerId}' and A.PartNO='{dr0["PartNO"].ToString()}' group by A.PartNO";
-                                    DataRow d = db.DB_GetFirstDataByDataRow(sql);
-                                    if (d != null && !d.IsNull("mQTY") && d["mQTY"].ToString() != "")
-                                    {
-                                        mQTY = int.Parse(d["mQTY"].ToString());
-                                        if (!d.IsNull("kQTY") && d["kQTY"].ToString() != "")
-                                        { kQTY = int.Parse(d["kQTY"].ToString()); }
-                                    }
-                                    d = db.DB_GetFirstDataByDataRow($"SELECT sum(SafeQTY) as sQTY  FROM SoftNetSYSDB.[dbo].[APS_Simulation] where NeedId='{needId}' and PartNO='{dr0["PartNO"].ToString()}' and IsOK='0' ");
-                                    if (d != null && !d.IsNull("sQTY") && d["sQTY"].ToString() != "")
-                                    { sQTY = int.Parse(d["sQTY"].ToString()); }
-                                    safeQTY = safeQTY - mQTY - kQTY + sQTY;
-                                    if (safeQTY < 0) { Math.Abs(safeQTY); }
-                                }
-                            }
+                            int lineSafeSupplement = ResolveSafeQTYSupplement(args, db, wType, dr0["PartNO"].ToString(), int.Parse(dr0["SafeQTY"].ToString()), int.Parse(dr0["BOMQTY"].ToString()) * plannedNeedQTY, safeSupplementByPart);
                             #endregion
                             string custom_DisplayName = "";
                             if (dr0["Class"].ToString() == "4" || dr0["Class"].ToString() == "5")
@@ -5605,7 +5797,7 @@ namespace Base
                                 compare_Data = $"{needId},1,{dr["PartNO"].ToString()},{dr["Apply_PP_Name"].ToString()},{apply_StationNO},{dr["IndexSN"].ToString()},{dr0["PartNO"].ToString()}";
                             }
                             sql = $@"INSERT INTO SoftNetSYSDB.[dbo].[APS_Simulation] (ServerId,OutPackType,Apply_BOMId,Source_StationNO_Custom_DisplayName,SimulationId,NeedId,PartSN,Master_PartNO,Apply_PP_Name,Apply_StationNO,IndexSN,Station_Custom_IndexSN,PartNO,BOMQTY,NeedQTY,SafeQTY,Master_Class,PartType,Class,Math_StandardCT,IsEnd) VALUES
-                                ('{_Fun.Config.ServerId}','{dr["OutPackType"].ToString()}','{dr0["BOMId"].ToString()}','{custom_DisplayName}','{_Str.NewId('Y')}','{needId}',1,'{dr["PartNO"].ToString()}','{dr["Apply_PP_Name"].ToString()}','{apply_StationNO}',{dr["IndexSN"].ToString()},'{dr["Station_Custom_IndexSN"].ToString()}','{dr0["PartNO"].ToString()}',{dr0["BOMQTY"].ToString()},{(int.Parse(dr0["BOMQTY"].ToString()) * need_QTY)},{(int.Parse(dr0["BOMQTY"].ToString()) * safeQTY)},'{dr["Class"].ToString()}','{dr0["PartType"].ToString()}','{dr0["Class"].ToString()}',{dr0["StoreSTime"].ToString()},'{dr["IsEnd"].ToString()}')";
+                                ('{_Fun.Config.ServerId}','{dr["OutPackType"].ToString()}','{dr0["BOMId"].ToString()}','{custom_DisplayName}','{_Str.NewId('Y')}','{needId}',1,'{dr["PartNO"].ToString()}','{dr["Apply_PP_Name"].ToString()}','{apply_StationNO}',{dr["IndexSN"].ToString()},'{dr["Station_Custom_IndexSN"].ToString()}','{dr0["PartNO"].ToString()}',{dr0["BOMQTY"].ToString()},{(int.Parse(dr0["BOMQTY"].ToString()) * plannedNeedQTY)},{lineSafeSupplement},'{dr["Class"].ToString()}','{dr0["PartType"].ToString()}','{dr0["Class"].ToString()}',{dr0["StoreSTime"].ToString()},'{dr["IsEnd"].ToString()}')";
                         }
                         else
                         {
@@ -5629,31 +5821,7 @@ namespace Base
                                 #endregion
 
                                 #region 安全量補足計算
-                                if (wType != '5')
-                                {
-                                    if (args.ARGs[1] && int.Parse(dr0["SafeQTY"].ToString()) > 0)
-                                    {
-                                        safeQTY = int.Parse(dr0["SafeQTY"].ToString());
-                                        int mQTY = 0;
-                                        int kQTY = 0;
-                                        int sQTY = 0;
-                                        sql = @$"select sum(A.QTY) as mQTY,sum(B.KeepQTY+B.OverQTY) as kQTY from SoftNetMainDB.[dbo].[TotalStock] as A 
-                                            join SoftNetMainDB.[dbo].[TotalStockII] as B on A.Id=B.Id and (B.KeepQTY!=0 or B.OverQTY!=0)
-                                            where A.Class!='虛擬倉' and A.ServerId='{_Fun.Config.ServerId}' and A.PartNO='{dr0["PartNO"].ToString()}' group by A.PartNO";
-                                        DataRow d = db.DB_GetFirstDataByDataRow(sql);
-                                        if (d != null && !d.IsNull("mQTY") && d["mQTY"].ToString() != "")
-                                        {
-                                            mQTY = int.Parse(d["mQTY"].ToString());
-                                            if (!d.IsNull("kQTY") && d["kQTY"].ToString() != "")
-                                            { kQTY = int.Parse(d["kQTY"].ToString()); }
-                                        }
-                                        d = db.DB_GetFirstDataByDataRow($"SELECT sum(SafeQTY) as sQTY  FROM SoftNetSYSDB.[dbo].[APS_Simulation] where NeedId='{needId}' and PartNO='{dr0["PartNO"].ToString()}' and IsOK='0' ");
-                                        if (d != null && !d.IsNull("sQTY") && d["sQTY"].ToString() != "")
-                                        { sQTY = int.Parse(d["sQTY"].ToString()); }
-                                        safeQTY = safeQTY - mQTY - kQTY + sQTY;
-                                        if (safeQTY < 0) { Math.Abs(safeQTY); }
-                                    }
-                                }
+                                int lineSafeSupplementChange = ResolveSafeQTYSupplement(args, db, wType, dr0["PartNO"].ToString(), int.Parse(dr0["SafeQTY"].ToString()), int.Parse(dr0["BOMQTY"].ToString()) * plannedNeedQTY, safeSupplementByPart);
                                 #endregion
                                 string custom_DisplayName = "";
                                 if (dr0["Class"].ToString() == "4" || dr0["Class"].ToString() == "5")
@@ -5663,7 +5831,7 @@ namespace Base
                                     compare_Data = $"{needId},1,{dr["PartNO"].ToString()},{changeBOM_S},{tmp["C_StationNO"].ToString()},{tmp["C_IndexSN"].ToString()},{dr0["PartNO"].ToString()}";
                                 }
                                 sql = $@"INSERT INTO SoftNetSYSDB.[dbo].[APS_Simulation] (ServerId,Apply_BOMId,Source_StationNO_Custom_DisplayName,SimulationId,NeedId,PartSN,Master_PartNO,Apply_PP_Name,Apply_StationNO,IndexSN,Station_Custom_IndexSN,PartNO,BOMQTY,NeedQTY,SafeQTY,Master_Class,PartType,Class,Math_StandardCT,IsEnd) VALUES 
-                                        ('{_Fun.Config.ServerId}','{dr0["BOMId"].ToString()}','{custom_DisplayName}','{_Str.NewId('Y')}','{needId}',1,'{dr["PartNO"].ToString()}','{changeBOM_S}','{tmp["C_StationNO"].ToString()}',{tmp["C_IndexSN"].ToString()},'{tmp["C_Station_Custom_IndexSN"].ToString()}','{dr0["PartNO"].ToString()}',1,{need_QTY},{safeQTY},'{dr_M["Class"].ToString()}','{dr_M["PartType"].ToString()}','{dr_M["Class"].ToString()}',{dr_M["StoreSTime"].ToString()},'0')";
+                                        ('{_Fun.Config.ServerId}','{dr0["BOMId"].ToString()}','{custom_DisplayName}','{_Str.NewId('Y')}','{needId}',1,'{dr["PartNO"].ToString()}','{changeBOM_S}','{tmp["C_StationNO"].ToString()}',{tmp["C_IndexSN"].ToString()},'{tmp["C_Station_Custom_IndexSN"].ToString()}','{dr0["PartNO"].ToString()}',1,{plannedNeedQTY},{lineSafeSupplementChange},'{dr_M["Class"].ToString()}','{dr0["PartType"].ToString()}','{dr0["Class"].ToString()}',{dr_M["StoreSTime"].ToString()},'0')";
                             }
                             else
                             { continue; }
@@ -5681,7 +5849,7 @@ namespace Base
                                 }
                             }
                             if (isClass45)
-                            { RecursiveBOMII(args, db, today, needId, dr["Apply_PP_Name"].ToString(), dr["Apply_PartNO"].ToString(), dr0, 1, need_QTY, safeQTY, compare_Data, indexSN, changeBOM_M, changeBOM_S); }
+                            { RecursiveBOMII(args, db, today, needId, dr["Apply_PP_Name"].ToString(), dr["Apply_PartNO"].ToString(), dr0, 1, plannedNeedQTY, compare_Data, indexSN, wType, safeSupplementByPart, changeBOM_M, changeBOM_S); }
                         }
                     }
                 }
@@ -5700,7 +5868,7 @@ namespace Base
                 { Run_IndexII(db, needId, (int.Parse(dr["PartSN"].ToString()) + 1), dr_MIII); }
             }
         }
-        private void RecursiveBOMII(RunSimulation_Arg args, DBADO db, string today, string needId, string Apply_PP_Name, string apply_PartNO, DataRow dr0, int i, int need_qty, int need_Safeqty, string ssid, int indexSN, string changeBOM_M = "", string changeBOM_S = "")
+        private void RecursiveBOMII(RunSimulation_Arg args, DBADO db, string today, string needId, string Apply_PP_Name, string apply_PartNO, DataRow dr0, int i, int need_qty, string ssid, int indexSN, char wType, Dictionary<string, int> safeSupplementByPart, string changeBOM_M = "", string changeBOM_S = "")
         {
             string sql = "";
             DataRow dr = db.DB_GetFirstDataByDataRow($"select a.Id,a.PartNO,a.Apply_PartNO,a.Apply_PP_Name,a.Apply_StationNO,a.IsEnd,a.IndexSN,a.Station_Custom_IndexSN,a.StationNO_Custom_DisplayName,a.OutPackType,b.Class,IsChackQTY,IsChackIsOK from SoftNetMainDB.[dbo].[BOM] as a,dbo.[Material] as b where a.Main_Item='0' and a.IndexSN={(indexSN - 1)} and b.ServerId='{_Fun.Config.ServerId}' and a.PartNO='{dr0["PartNO"].ToString()}' and a.Apply_PP_Name='{Apply_PP_Name}' and a.Apply_PartNO='{apply_PartNO}' and a.PartNO=b.PartNO order by IndexSN desc");
@@ -5741,31 +5909,7 @@ namespace Base
                         if (changeBOM_S == "")
                         {
                             #region 安全量補足計算
-                            if (need_Safeqty != 0)
-                            {
-                                if (args.ARGs[1] && int.Parse(dr0["SafeQTY"].ToString()) > 0)
-                                {
-                                    need_Safeqty = int.Parse(dr0["SafeQTY"].ToString());
-                                    int mQTY = 0;
-                                    int kQTY = 0;
-                                    int sQTY = 0;
-                                    sql = @$"select sum(A.QTY) as mQTY,sum(B.KeepQTY+B.OverQTY) as kQTY from SoftNetMainDB.[dbo].[TotalStock] as A 
-                                            join SoftNetMainDB.[dbo].[TotalStockII] as B on A.Id=B.Id and (B.KeepQTY!=0 or B.OverQTY!=0)
-                                            where A.Class!='虛擬倉' and A.ServerId='{_Fun.Config.ServerId}' and A.PartNO='{dr0["PartNO"].ToString()}' group by A.PartNO";
-                                    DataRow d = db.DB_GetFirstDataByDataRow(sql);
-                                    if (d != null && !d.IsNull("mQTY") && d["mQTY"].ToString() != "")
-                                    {
-                                        mQTY = int.Parse(d["mQTY"].ToString());
-                                        if (!d.IsNull("kQTY") && d["kQTY"].ToString() != "")
-                                        { kQTY = int.Parse(d["kQTY"].ToString()); }
-                                    }
-                                    d = db.DB_GetFirstDataByDataRow($"SELECT sum(SafeQTY) as sQTY  FROM SoftNetSYSDB.[dbo].[APS_Simulation] where NeedId='{needId}' and PartNO='{dr0["PartNO"].ToString()}' and IsOK='0'");
-                                    if (d != null && !d.IsNull("sQTY") && d["sQTY"].ToString() != "")
-                                    { sQTY = int.Parse(d["sQTY"].ToString()); }
-                                    need_Safeqty = need_Safeqty - mQTY - kQTY + sQTY;
-                                    if (need_Safeqty < 0) { Math.Abs(need_Safeqty); }
-                                }
-                            }
+                            int lineSafeSupplement = ResolveSafeQTYSupplement(args, db, wType, dr1["PartNO"].ToString(), int.Parse(dr1["SafeQTY"].ToString()), int.Parse(dr1["BOMQTY"].ToString()) * need_qty, safeSupplementByPart);
                             #endregion
 
                             if (dr1["Class"].ToString() == "4" || dr1["Class"].ToString() == "5")
@@ -5774,7 +5918,7 @@ namespace Base
                                 compare_Data = $"{needId},{(i + 1)},{dr["PartNO"].ToString()},{dr["Apply_PP_Name"].ToString()},{source_StationNO},{dr["IndexSN"].ToString()},{dr1["PartNO"].ToString()}";
                             }
                             sql = $@"INSERT INTO SoftNetSYSDB.[dbo].[APS_Simulation] (ServerId,Apply_BOMId,SimulationId,NeedId,PartSN,Master_PartNO,Apply_PP_Name,Apply_StationNO,IndexSN,PartNO,BOMQTY,NeedQTY,SafeQTY,Master_Class,PartType,Class,Math_StandardCT,IsEnd) VALUES 
-                                    ('{_Fun.Config.ServerId}','{dr1["BOMId"].ToString()}','{_Str.NewId('Y')}','{needId}',{(i + 1)},'{dr["PartNO"].ToString()}','{dr["Apply_PP_Name"].ToString()}','{source_StationNO}',{dr["IndexSN"].ToString()},'{dr1["PartNO"].ToString()}',{dr1["BOMQTY"].ToString()},{(int.Parse(dr1["BOMQTY"].ToString()) * need_qty)},{(int.Parse(dr1["BOMQTY"].ToString()) * need_Safeqty)},'{dr["Class"].ToString()}','{dr1["PartType"].ToString()}','{dr1["Class"].ToString()}',{dr1["StoreSTime"].ToString()},'{dr["IsEnd"].ToString()}')";
+                                    ('{_Fun.Config.ServerId}','{dr1["BOMId"].ToString()}','{_Str.NewId('Y')}','{needId}',{(i + 1)},'{dr["PartNO"].ToString()}','{dr["Apply_PP_Name"].ToString()}','{source_StationNO}',{dr["IndexSN"].ToString()},'{dr1["PartNO"].ToString()}',{dr1["BOMQTY"].ToString()},{(int.Parse(dr1["BOMQTY"].ToString()) * need_qty)},{lineSafeSupplement},'{dr["Class"].ToString()}','{dr1["PartType"].ToString()}','{dr1["Class"].ToString()}',{dr1["StoreSTime"].ToString()},'{dr["IsEnd"].ToString()}')";
                         }
                         else
                         {
@@ -5787,31 +5931,7 @@ namespace Base
                             if (tmp != null)
                             {
                                 #region 安全量補足計算
-                                if (need_Safeqty != 0)
-                                {
-                                    if (args.ARGs[1] && int.Parse(dr0["SafeQTY"].ToString()) > 0)
-                                    {
-                                        need_Safeqty = int.Parse(dr0["SafeQTY"].ToString());
-                                        int mQTY = 0;
-                                        int kQTY = 0;
-                                        int sQTY = 0;
-                                        sql = @$"select sum(A.QTY) as mQTY,sum(B.KeepQTY+B.OverQTY) as kQTY from SoftNetMainDB.[dbo].[TotalStock] as A 
-                                            join SoftNetMainDB.[dbo].[TotalStockII] as B on A.Id=B.Id and (B.KeepQTY!=0 or B.OverQTY!=0)
-                                            where A.Class!='虛擬倉' and A.ServerId='{_Fun.Config.ServerId}' and A.PartNO='{dr0["PartNO"].ToString()}' group by A.PartNO";
-                                        DataRow d = db.DB_GetFirstDataByDataRow(sql);
-                                        if (d != null && !d.IsNull("mQTY") && d["mQTY"].ToString() != "")
-                                        {
-                                            mQTY = int.Parse(d["mQTY"].ToString());
-                                            if (!d.IsNull("kQTY") && d["kQTY"].ToString() != "")
-                                            { kQTY = int.Parse(d["kQTY"].ToString()); }
-                                        }
-                                        d = db.DB_GetFirstDataByDataRow($"SELECT sum(SafeQTY) as sQTY  FROM SoftNetSYSDB.[dbo].[APS_Simulation] where NeedId='{needId}' and PartNO='{dr0["PartNO"].ToString()}' and IsOK='0' ");
-                                        if (d != null && !d.IsNull("sQTY") && d["sQTY"].ToString() != "")
-                                        { sQTY = int.Parse(d["sQTY"].ToString()); }
-                                        need_Safeqty = need_Safeqty - mQTY - kQTY + sQTY;
-                                        if (need_Safeqty < 0) { Math.Abs(need_Safeqty); }
-                                    }
-                                }
+                                int lineSafeSupplementChange = ResolveSafeQTYSupplement(args, db, wType, dr1["PartNO"].ToString(), int.Parse(dr1["SafeQTY"].ToString()), int.Parse(dr1["BOMQTY"].ToString()) * need_qty, safeSupplementByPart);
                                 #endregion
                                 if (dr1["Class"].ToString() == "4" || dr1["Class"].ToString() == "5")
                                 {
@@ -5819,7 +5939,7 @@ namespace Base
                                     compare_Data = $"{needId},{(i + 1)},{dr["PartNO"].ToString()},{changeBOM_S},{tmp["C_StationNO"].ToString()},{tmp["C_IndexSN"].ToString()},{dr1["PartNO"].ToString()}";
                                 }
                                 sql = $@"INSERT INTO SoftNetSYSDB.[dbo].[APS_Simulation] (ServerId,Apply_BOMId,SimulationId,NeedId,PartSN,Master_PartNO,Apply_PP_Name,Apply_StationNO,IndexSN,PartNO,BOMQTY,NeedQTY,SafeQTY,Master_Class,PartType,Class,Math_StandardCT,IsEnd) VALUES 
-                                        ('{_Fun.Config.ServerId}','{dr1["BOMId"].ToString()}','{_Str.NewId('Y')}','{needId}',{(i + 1)},'{dr["PartNO"].ToString()}','{changeBOM_S}','{tmp["C_StationNO"].ToString()}',{tmp["C_IndexSN"].ToString()},'{dr1["PartNO"].ToString()}',{dr1["BOMQTY"].ToString()},{(int.Parse(dr1["BOMQTY"].ToString()) * need_qty)},{(int.Parse(dr1["BOMQTY"].ToString()) * need_Safeqty)},'{dr["Class"].ToString()}','{dr1["PartType"].ToString()}','{dr1["Class"].ToString()}',{dr1["StoreSTime"].ToString()},'{dr["IsEnd"].ToString()}')";
+                                        ('{_Fun.Config.ServerId}','{dr1["BOMId"].ToString()}','{_Str.NewId('Y')}','{needId}',{(i + 1)},'{dr["PartNO"].ToString()}','{changeBOM_S}','{tmp["C_StationNO"].ToString()}',{tmp["C_IndexSN"].ToString()},'{dr1["PartNO"].ToString()}',{dr1["BOMQTY"].ToString()},{(int.Parse(dr1["BOMQTY"].ToString()) * need_qty)},{lineSafeSupplementChange},'{dr["Class"].ToString()}','{dr1["PartType"].ToString()}','{dr1["Class"].ToString()}',{dr1["StoreSTime"].ToString()},'{dr["IsEnd"].ToString()}')";
                             }
                             else
                             {
@@ -5839,7 +5959,7 @@ namespace Base
                                 }
                             }
                             if (isClass45)
-                            { RecursiveBOMII(args, db, today, needId, Apply_PP_Name, apply_PartNO, dr1, (i + 1), need_qty, need_Safeqty, compare_Data, indexSN, changeBOM_M, changeBOM_S); }
+                            { RecursiveBOMII(args, db, today, needId, Apply_PP_Name, apply_PartNO, dr1, (i + 1), need_qty, compare_Data, indexSN, wType, safeSupplementByPart, changeBOM_M, changeBOM_S); }
                         }
                     }
                 }
@@ -6379,7 +6499,7 @@ namespace Base
                                     if (sID != "")
                                     {
                                         db.DB_SetData($"delete from SoftNetMainDB.[dbo].[TotalStockII] where NeedId='{needId}' and SimulationId in ({sID})");
-                                        db.DB_SetData($"delete from SoftNetSYSDB.[dbo].[APS_Simulation] set IsDEL='1' where NeedId='{needId}' and SimulationId in ({sID})");
+                                        db.DB_SetData($"update SoftNetSYSDB.[dbo].[APS_Simulation] set IsDEL='1' where NeedId='{needId}' and SimulationId in ({sID})");
                                     }
                                     db.DB_SetData($"UPDATE SoftNetSYSDB.[dbo].[APS_NeedData] SET State='8',UpdateTime='{DateTime.Now.AddDays(1).ToString("yyyy-MM-dd HH:mm:ss.fff")}' where NeedId='{needId}'");
                                     #endregion

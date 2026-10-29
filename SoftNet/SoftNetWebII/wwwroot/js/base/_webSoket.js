@@ -3,9 +3,9 @@ var ws;
 
 var _webSocket = {
 
-    Url: 'ws://127.0.0.1:8089/echo',//###???暫時寫死   'ws://localhost:8080/echo',
+    Url: (typeof SYS_WesocketURL !== 'undefined' ? SYS_WesocketURL : ''),
     init: function (url) {
-        Url = url;
+        this.Url = url || this.Url;
         this.connectWesocket();
     },
     isWork: function () {
@@ -21,7 +21,7 @@ var _webSocket = {
     connectWesocket: function () {
         if ("WebSocket" in window) {
             //alert("您的浏览器支持 WebSocket!");
-            ws = new WebSocket(Url);
+            ws = new WebSocket(this.Url);
 
             ws.onopen = function () {
                 // Web Socket 已连接上，使用 send() 方法发送数据

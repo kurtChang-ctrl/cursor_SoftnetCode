@@ -1,4 +1,4 @@
-﻿using Base;
+using Base;
 using Base.Models;
 using Base.Services;
 using BaseApi.Controllers;
@@ -264,7 +264,7 @@ namespace SoftNetWebII.Controllers
                                 string err = _SFC_Common.ChangeStatus(data[i], $"{data[i]},2", "Manufacture"); //###???ipport暫時放keys.Station ,之後要測試會有何問題
                                 if (err == "")
                                 {
-                                    db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[LabelStateINFO] set Ledrgb='{ledrgb}',Ledstate=0 where ServerId='{_Fun.Config.ServerId}' and macID='{dr_Manufacture["Config_MutiWO"].ToString()}'");
+                                    db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[LabelStateINFO] set Ledrgb='{ledrgb}',Ledstate=0 where ServerId='{_Fun.Config.ServerId}' and macID='{dr_Manufacture["Config_macID"].ToString()}'");
                                 }
                                 else
                                 { meg = $"{meg}<br>{data[i]} 開工失敗,原因:{err}."; }

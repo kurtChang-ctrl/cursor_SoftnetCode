@@ -20,6 +20,9 @@
     <script src="~/js/lib@(min).js?v=@(_Xp.LibVer)"></script>
 
     <!-- 3.load my site js(debug/production mode) !! -->
+    <script type="text/javascript">
+        var SYS_WesocketURL = '@_Fun.Config.WesocketURL';
+    </script>
 
     <environment include="Production">
         <script src="~/js/my@(min).js?v=@(_Xp.MyVer)"></script>

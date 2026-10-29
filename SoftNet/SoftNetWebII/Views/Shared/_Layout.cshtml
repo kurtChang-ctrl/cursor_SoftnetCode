@@ -57,7 +57,7 @@
     }
     var menus = new List<MenuDto>()
     {
-        new() { Name = "待簽核明細", Url = "/FlowSign/Read" ,HasUseRUNMode="23"},
+        //new() { Name = "待簽核明細", Url = "/FlowSign/Read" ,HasUseRUNMode="23"},
 
         new() { Name = "系統設定", Items = new List<MenuDto>()
         {
@@ -227,6 +227,9 @@
     <script src="~/js/lib@(min).js?v=@(_Xp.LibVer)"></script>
 
     <!-- 3.load my site js(debug/production mode) !! -->
+    <script type="text/javascript">
+        var SYS_WesocketURL = '@_Fun.Config.WesocketURL';
+    </script>
 
     <environment include="Production">
     <script src="~/js/my@(min).js?v=@(_Xp.MyVer)"></script>

@@ -1,4 +1,4 @@
-﻿@using Base
+@using Base
 @model MUTIStationObj
 @{
     string disUserName = "畫面逾時";
@@ -53,7 +53,7 @@
         @{
             if (Model.StationNOList != null && Model.StationNOList.Count > 0)
             {
-                        <form action=@Url.Action("MUTIStation") method="post">
+                        <form action=@Url.Action("StationErrorCheck") method="post">
                             <input type='hidden' name='State' value="工站確認" />
                             <input type='hidden' name='MES_Report' />
                     <input type="text" id="StationNO" name='StationNO' list="options1" onchange="_me.qqww(this)">

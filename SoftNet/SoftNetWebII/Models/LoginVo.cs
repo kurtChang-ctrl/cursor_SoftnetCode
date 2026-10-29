@@ -1,4 +1,4 @@
-﻿using Base.Services;
+using Base.Services;
 using DocumentFormat.OpenXml.Office2010.ExcelAc;
 using System.Collections.Generic;
 using System.Data;
@@ -292,6 +292,8 @@ namespace SoftNetWebII.Models
         public string SelectFun6 { get; set; } = "";
         public string ERRMsg { get; set; } = "";
         public List<string[]> NeedIdList { get; set; }
+        public List<string[]> StationList { get; set; }
+        public List<string[]> UserList { get; set; }
     }
     public class LabelCreateBarCode
     {

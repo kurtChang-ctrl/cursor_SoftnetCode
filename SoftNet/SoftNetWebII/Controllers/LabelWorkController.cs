@@ -63,12 +63,41 @@ namespace SoftNetWebII.Controllers
                     if (data.Length >= 4)
                     {
                         string displayType = "";
-                        if (data.Length == 5) { tmp.BOOLonToggleMenu = data[4]; displayType = $";{data[4]}"; }
+                        bool fromWebMenu = false;
+                        bool stationErrorChecked = false;
+                        if (data.Length >= 5)
+                        {
+                            tmp.BOOLonToggleMenu = data[4];
+                            fromWebMenu = data[4].Equals("HTML", StringComparison.OrdinalIgnoreCase);
+                            displayType = $";{data[4]}";
+                        }
+                        if (data.Length >= 6 && data[5] == "OK")
+                        {
+                            stationErrorChecked = true;
+                            displayType = $";{data[4]};OK";
+                        }
                         tmp.Station = data[0];
                         tmp.Type = data[1];
                         DataRow dr_M = db.DB_GetFirstDataByDataRow($"select * from SoftNetMainDB.[dbo].[Manufacture] where ServerId='{_Fun.Config.ServerId}' and StationNO='{tmp.Station}'");
                         if (dr_M == null)
                         { ViewBag.ERRMsg = $"查無 {tmp.Station}工站編號, 重新刷條碼 並 重新操作."; return View("ResuItTimeOUT", tmp); }
+
+                        #region 功能表進入時先檢查工站異常 (與 STView2Work StationErrorCheck 相同規則)
+                        if (fromWebMenu && !stationErrorChecked)
+                        {
+                            List<string[]> errList = _SFC_Common.LoadStationPendingErrors(db, tmp.Station);
+                            if (errList != null && errList.Count > 0)
+                            {
+                                DataRow dr_Station = db.DB_GetFirstDataByDataRow($"SELECT StationNO,StationName FROM SoftNetSYSDB.[dbo].[PP_Station] where ServerId='{_Fun.Config.ServerId}' and StationNO='{tmp.Station}'");
+                                if (dr_Station != null) { tmp.Station_Name = dr_Station["StationName"].ToString(); }
+                                tmp.StationError_List = errList;
+                                string indexSN = string.IsNullOrWhiteSpace(data[3]) ? "0" : data[3];
+                                tmp.StationErrorContinueId = $"{tmp.Station};{data[1]};{data[2]};{indexSN};HTML;OK";
+                                return View("StationErrorCheck", tmp);
+                            }
+                        }
+                        #endregion
+
                         if (tmp.Type == "0" && dr_M["OrderNO"].ToString() != "")
                         {
                             if (dr_M["SimulationId"].ToString() != "") { return RedirectToAction("Index", "LabelWork", new { id = $"{tmp.Station};2;{dr_M["SimulationId"].ToString()};{dr_M["IndexSN"].ToString()}{displayType}" }); }
@@ -367,7 +396,7 @@ namespace SoftNetWebII.Controllers
                                 tmp.OrderNO = "";
                                 tmp.SimulationId = data[2];
                                 DataRow dr_APS_Simulation = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_Simulation] where SimulationId='{data[2]}'");
-                                if (dr_APS_Simulation != null && dr_APS_Simulation["DOCNumberNO"].ToString().Trim() != "'")
+                                if (dr_APS_Simulation != null && dr_APS_Simulation["DOCNumberNO"].ToString().Trim() != "")
                                 { tmp.OrderNO = dr_APS_Simulation["DOCNumberNO"].ToString().Trim(); }
 
                                 break;
@@ -497,7 +526,7 @@ namespace SoftNetWebII.Controllers
                                         {
                                             partName = tmp_dr["PartName"].ToString().Replace("\"", "＂").Replace("'", "’");
                                         }
-                                        tmp_dr = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where APS_StationNO='{keys.OrderNO}' AND SimulationId='{keys.SimulationId}'");
+                                        tmp_dr = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where DOCNumberNO='{keys.OrderNO}' AND SimulationId='{keys.SimulationId}'");
                                         if (tmp_dr != null)
                                         {
                                             num = _SFC_Common.GetEffectiveNeedQTYBySimulation(db, sfcdr["NeedId"].ToString(), keys.SimulationId, int.Parse(tmp_dr["NeedQTY"].ToString()));
@@ -688,7 +717,7 @@ namespace SoftNetWebII.Controllers
                                 err = _SFC_Common.ChangeStatus(keys.Station, $"{keys.Station},1", "LabelWork");//###???ipport暫時放Station ,之後要測試會有何問題
                                 if (err == "")
                                 {
-                                    DataRow dr = db.DB_GetFirstDataByDataRow($"select b.* from [dbo].[Manufacture] as a, SoftNetMainDB.[dbo].[LabelStateINFO] as b where a.ServerId='{_Fun.Config.ServerId}' and a.StationNO='{keys.Station}' and a.Config_macID=b.macID");
+                                    DataRow dr = db.DB_GetFirstDataByDataRow($"select b.* from SoftNetMainDB.[dbo].[Manufacture] as a, SoftNetMainDB.[dbo].[LabelStateINFO] as b where a.ServerId='{_Fun.Config.ServerId}' and a.StationNO='{keys.Station}' and a.Config_macID=b.macID");
                                     if (dr != null)
                                     {
                                         var ledrgb = "0";
@@ -703,7 +732,8 @@ namespace SoftNetWebII.Controllers
                                             if (macID != "")
                                             {
                                                 ledrgb = "ff00";
-                                                DataRow totalData = _Fun.GetAvgCTWTandTotalOutput(db, false, dr["OrderNO"].ToString(), dr["StationNO"].ToString(), dr["IndexSN"].ToString());
+                                                // 累計量以 Manufacture 目前工單為準, 不用 LabelStateINFO 可能過期的 OrderNO/IndexSN
+                                                DataRow totalData = _Fun.GetAvgCTWTandTotalOutput(db, false, dr_Manufacture["OrderNO"].ToString(), dr_Manufacture["StationNO"].ToString(), dr_Manufacture["IndexSN"].ToString());
                                                 string dis_DetailQTY = "0";
                                                 if (totalData != null)
                                                 {
@@ -802,7 +832,7 @@ namespace SoftNetWebII.Controllers
                                 if (err == "")
                                 {
                                     keys.Station_State = "停止...";
-                                    db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[LabelStateINFO] set Ledrgb='{ledrgb}',Ledstate=0 where ServerId='{_Fun.Config.ServerId}' and macID='{dr_Manufacture["Config_MutiWO"].ToString()}'");
+                                    db.DB_SetData($"UPDATE SoftNetMainDB.[dbo].[LabelStateINFO] set Ledrgb='{ledrgb}',Ledstate=0 where ServerId='{_Fun.Config.ServerId}' and macID='{dr_Manufacture["Config_macID"].ToString()}'");
                                     ApsNeedPauseResumeQueue.TryEnqueueFromManufactureStation(db, keys.Station, "LabelWork_停工");
                                 }
                             }
@@ -1710,6 +1740,7 @@ namespace SoftNetWebII.Controllers
                 if (keys.SimulationId.Trim() != "")
                 {
                     DataRow dr_APS_Simulation = db.DB_GetFirstDataByDataRow($"select * from SoftNetSYSDB.[dbo].[APS_Simulation] where SimulationId='{keys.SimulationId}'");
+                    if (dr_APS_Simulation == null) { return; }
                     string for_Apply_StationNO_BY_Main_Source_StationNO = dr_APS_Simulation["Source_StationNO"].ToString();
                     DataTable dt_APS_PartNOTimeNote = db.DB_GetData($"select * from SoftNetSYSDB.[dbo].[APS_PartNOTimeNote] where APS_StationNO='{for_Apply_StationNO_BY_Main_Source_StationNO}' and SimulationId='{keys.SimulationId}'");
                     if (dt_APS_PartNOTimeNote != null && dt_APS_PartNOTimeNote.Rows.Count > 0)
@@ -1717,7 +1748,8 @@ namespace SoftNetWebII.Controllers
                         string in_NO = "BC01";//###??? 暫時寫死單別
                         foreach (DataRow d in dt_APS_PartNOTimeNote.Rows)
                         {
-                            int qty = int.Parse(d["Detail_QTY"].ToString()) - int.Parse(d["Next_StationQTY"].ToString());
+                            int qty = int.Parse(d["Detail_QTY"].ToString()) - (int.Parse(d["Next_StationQTY"].ToString()) + int.Parse(d["Next_StoreQTY"].ToString()));
+                            if (qty <= 0) { continue; }
                             string tmp_no = "";
                             string in_StoreNO = "";
                             string in_StoreSpacesNO = "";

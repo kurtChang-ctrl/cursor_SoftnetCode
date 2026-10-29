@@ -1,0 +1,98 @@
+@using Base
+@model LabelWork
+@{
+    string disUserName = "畫面逾時";
+    if (_Fun.GetBaseUser() != null) { disUserName = _Fun.GetBaseUser().UserName; }
+    string stationNO = Model?.Station ?? "";
+    string stationName = Model?.Station_Name ?? "";
+    string continueId = Model?.StationErrorContinueId ?? "";
+}
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        IS_SYS_Clock = false;
+        $("title").text("@Html.Raw(disUserName)");
+        if (typeof _leftmenu !== 'undefined' && _leftmenu.onToggleMenu) { _leftmenu.onToggleMenu(); }
+    });
+    var _me = {
+        hasStaionStatus: false,
+        hasSimulatioStatus: false,
+        STView2Work_PageReload: false,
+        hasStaionChangQTY: false
+    };
+</script>
+
+<style>
+    .sec-card { background: #fff; border: 1px solid #dee2e6; border-radius: 10px; padding: 1rem 1.25rem; margin: .75rem 0; }
+    .sec-card h2 { margin: .75rem 0; font-size: 1.15rem; }
+    .sec-station { font-size: 1.05rem; margin-bottom: .5rem; }
+    .sec-table { width: 100%; border-collapse: collapse; background: #f8f9fa; }
+    .sec-table th, .sec-table td { border: 1px solid #adb5bd; padding: .45rem .55rem; text-align: left; vertical-align: top; }
+    .sec-table th { background: #e9ecef; white-space: nowrap; }
+    .sec-row-red { color: #c92a2a; font-weight: 600; }
+    .sec-row-yellow { color: #996600; font-weight: 600; }
+    .sec-hint { color: #495057; margin: .35rem 0 .9rem; }
+    .sec-actions { display: flex; flex-wrap: wrap; gap: .6rem; margin-bottom: .75rem; }
+    .sec-btn {
+        display: inline-flex; align-items: center; justify-content: center; gap: .35rem;
+        border: none; border-radius: 8px; padding: .55rem 1.1rem; font-size: 1rem;
+        font-weight: 600; cursor: pointer; text-decoration: none; line-height: 1.3;
+        transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .sec-btn-back {
+        background: linear-gradient(135deg, #868e96 0%, #495057 100%); color: #fff;
+        box-shadow: 0 2px 8px rgba(73,80,87,.25);
+    }
+    .sec-btn-back:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(73,80,87,.35); color: #fff; text-decoration: none; }
+    .sec-btn-confirm {
+        background: linear-gradient(135deg, #198754 0%, #157347 100%); color: #fff;
+        box-shadow: 0 2px 8px rgba(25,135,84,.25);
+    }
+    .sec-btn-confirm:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(25,135,84,.35); color: #fff; text-decoration: none; }
+</style>
+
+<div class="sec-card">
+    <div class="sec-actions">
+        <a href="@Url.Action("Index", "Home")" class="sec-btn sec-btn-back">&#8592; 回到網站主功能選單畫面</a>
+        <a href="@Url.Action("Index", "LabelWork", new { id = continueId })" class="sec-btn sec-btn-confirm">&#10004; 確認進入工站作業</a>
+    </div>
+    <h2>工站異常資訊確認</h2>
+    <p class="sec-station">工站編號: <strong>@stationNO</strong>&nbsp;&nbsp;<strong>@stationName</strong></p>
+    <p class="sec-hint">以下為本工站待處理異常。請確認後按「確認進入工站作業」繼續。</p>
+
+    @if (Model?.StationError_List != null && Model.StationError_List.Count > 0)
+    {
+        <table class="sec-table">
+            <thead>
+                <tr>
+                    <th>發生日期</th>
+                    <th>單據編號</th>
+                    <th>異常碼</th>
+                    <th>異常資訊</th>
+                    <th>子排程編號</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (string[] row in Model.StationError_List)
+                {
+                    string et = row.Length > 2 ? row[2] : "";
+                    string rowClass = "";
+                    if (et == "12") { rowClass = "sec-row-red"; }
+                    else if (et == "14" || et == "15" || et == "17" || et == "22") { rowClass = "sec-row-yellow"; }
+                    string errorTypeDisplay = (row.Length > 3 && !string.IsNullOrEmpty(row[3])) ? row[3] : et;
+                    <tr class="@rowClass">
+                        <td>@(row.Length > 0 ? row[0] : "")</td>
+                        <td>@(row.Length > 1 ? row[1] : "")</td>
+                        <td>@errorTypeDisplay</td>
+                        <td>@(row.Length > 4 ? row[4] : "")</td>
+                        <td>@(row.Length > 5 ? row[5] : "")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <p>查無異常資料。</p>
+    }
+</div>
