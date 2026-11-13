@@ -70,6 +70,8 @@
     <PackageReference Include="StackExchange.Redis" Version="2.10.1" />
     <PackageReference Include="System.Data.OleDb" Version="10.0.0" />
     <PackageReference Include="System.Drawing.Common" Version="10.0.0" />
+    <!-- 覆寫間接依賴弱點版（業務碼未直接使用；對齊 net10 修補版，避免影響運行） -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
     <PackageReference Include="ZXing.Net" Version="0.16.11" />
   </ItemGroup>
 
